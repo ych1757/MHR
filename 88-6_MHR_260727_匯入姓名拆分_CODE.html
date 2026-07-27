@@ -1126,6 +1126,7 @@ function renderRoleBar(){
     else{
       const p=s.profile;
       const scope = (p.account_type==='admin'||p.mhr_role==='admin') ? '全部廠區'
+                  : (p.site_codes||[]).includes('*') ? '全部廠區'   // ★88-6 別把內部代碼 * 顯示出來
                   : p.vendor_code ? ('委外 '+esc(p.vendor_code))
                   : ([].concat(p.bu_codes||[], p.site_codes||[]).map(esc).join('、') || '—');
       ub.innerHTML=`<span class="u-name">👤 ${esc(p.name||p.email||'')}</span>
@@ -1543,7 +1544,7 @@ function opExportCsv(){
 function userExportCsv(){
   const rows=[['廠區','姓名','Email','角色','可看範圍','來源','狀態']];
   MHR_USERS.forEach(p=>{ const roles=((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋');
-    const scope=(p.account_type==='admin'||p.mhr_role==='admin')?'全部':([].concat((p.bu_codes||[]).map(c=>c+'群'),(p.site_codes||[])).join('、')||p.vendor_code||'');
+    const scope=(p.account_type==='admin'||p.mhr_role==='admin'||(p.site_codes||[]).includes('*'))?'全部':([].concat((p.bu_codes||[]).map(c=>c+'群'),(p.site_codes||[])).join('、')||p.vendor_code||'');
     rows.push([ scope&&p.account_type!=='admin'?(p.site_codes||[]).join('+')||p.vendor_code||'':'管理員', p.name||'', p.email, roles, scope, p.source==='oms'?'OMS名單':'MHR自建', p.active===false?'停用':'啟用' ]); });
   csvExport('MHR_登入帳號_'+new Date().toISOString().slice(0,10)+'.csv',rows); toast('已匯出 '+MHR_USERS.length+' 筆帳號','ok'); }
 const IMP_PROC_COLS=[['壓鑄','DC'],['機加','CN'],['打磨','GR'],['珠擊','BL'],['毛邊','DB'],['振研','VB'],['巡牙','TH'],['皮膜','CT'],['烤漆','PT'],['組立','AS'],['包裝','PK']];
