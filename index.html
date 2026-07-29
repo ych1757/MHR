@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版</title>
+<title>MHR 製造履歷系統 — 開發測試版 v95-2</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -286,7 +286,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版</span>
+      <span class="tag">開發測試版 v95-2</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -766,7 +766,9 @@ function setLang(l){ LANG=l; try{localStorage.setItem('mhr_lang',l);}catch(e){} 
 function renderLangBar(){ const b=$('#langbar'); if(!b)return; b.innerHTML="<button class=\""+(LANG==='EN'?'on':'')+"\" onclick=\"setLang('EN')\">中 ｜ EN</button><button class=\""+(LANG==='VN'?'on':'')+"\" onclick=\"setLang('VN')\">中 ｜ VN</button>"; }
 function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||''); t.textContent=msg; setTimeout(()=>t.className='toast',2600); }
 function todayYMD(){ const d=new Date(); return String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
-function genCID(code){ const pre=(code||'').split('+')[0]+todayYMD(); const n=db.data.containers.filter(c=>c.cid&&c.cid.startsWith(pre)).length+1; return pre+String(n).padStart(4,'0'); }
+/* ★94 pdate＝生產日期（YYYY-MM-DD）；補登舊 WIP 時箱號日期段用實際生產日 */
+function genCID(code,pdate){ const ymd=pdate?String(pdate).replace(/-/g,'').slice(2):todayYMD();
+  const pre=(code||'').split('+')[0]+ymd; const n=db.data.containers.filter(c=>c.cid&&c.cid.startsWith(pre)).length+1; return pre+String(n).padStart(4,'0'); }
 function findC(cid){ return db.data.containers.find(c=>c.cid===cid); }
 /* ===== 不良品 / 重工：核心模型 =====
    不良箱＝紅色容器(kind:NR/NG)，批+站一個、累加、sources 帶來源箱（結存可追）。
@@ -2036,7 +2038,13 @@ function renderPermPage(){
       ${(window._userQ||window._userSt||_usite||_urole||(window._userSort&&window._userSort.key))?`<div><button class="btn ghost sm" onclick="window._userQ='';window._userSt='';window._userSite='';window._userRole='';window._userSort=null;renderPermPage()">清除</button></div>`:''}
       <div class="small muted" style="align-self:center">顯示 ${_ulist.length} / ${MHR_USERS.length} 筆</div>
     </div>
-    <div style="overflow-x:auto"><table><thead><tr>${[['site','廠區'],['name','姓名'],['email','Email'],['role','角色'],['scope','可看範圍'],['src','來源'],['st','狀態']].map(([k,t])=>`<th style="cursor:pointer;white-space:nowrap" onclick="sortUsers('${k}')">${t}${_usrt.key===k?(_usrt.dir>0?' ▲':' ▼'):''}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">${MHR_USERS_STATUS==='載入中…'?'載入中…':'尚無名單'}</div>`}
+    <style>
+      /* ★95-1 名單表一頁可看：長欄（姓名/Email/角色/可看範圍）可折行、按鈕縮一號；極窄螢幕仍有橫捲保險 */
+      #usr_tbl td:nth-child(2),#usr_tbl td:nth-child(4),#usr_tbl td:nth-child(5){white-space:normal}
+      #usr_tbl td:nth-child(3){white-space:normal;word-break:break-all;min-width:130px}
+      #usr_tbl td{padding:4px 6px}
+      #usr_tbl .btn.sm{padding:2px 6px;font-size:11px;white-space:nowrap}
+    </style><div style="overflow-x:auto"><table id="usr_tbl"><thead><tr>${[['site','廠區'],['name','姓名'],['email','Email'],['role','角色'],['scope','可看範圍'],['src','來源'],['st','狀態']].map(([k,t])=>`<th style="cursor:pointer;white-space:nowrap" onclick="sortUsers('${k}')">${t}${_usrt.key===k?(_usrt.dir>0?' ▲':' ▼'):''}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">${MHR_USERS_STATUS==='載入中…'?'載入中…':'尚無名單'}</div>`}
     <div class="small muted" style="margin-top:8px">⚠ 「移除」只收回 <b>MHR 權限</b>，<b>不會刪掉帳號</b>——帳密與 QMS 共用，刪帳號會連 QMS 一起刪。</div>
   </div>
 
@@ -2128,7 +2136,7 @@ function renderMachMaster(){
   const machs=getMachines(); const flt=window._machSiteFilter||''; const pflt=window._machProcFilter||'';
   const srt=window._machSort||{key:'id',dir:1};
   const txtCell=(m,i,field,w)=> ed?`<input value="${esc(m[field]||'')}" style="width:${w}px" onchange="setMachField(${i},'${field}',this.value)">`:(m[field]?esc(m[field]):'<span class="muted">—</span>');
-  const rowHTML=(m,i)=>`<tr><td class="mono"><a class="lk" style="cursor:pointer" onclick="viewMachine('${esc(m.id)}')" title="查看此設備做過的箱">${esc(m.id)}</a></td><td>${txtCell(m,i,'line',62)}</td><td>${(m.proc||[]).map(c=>`<span class="pill dc">${stN(c)}</span>`).join(' ')}</td><td>${txtCell(m,i,'ton',70)}</td><td>${txtCell(m,i,'brand',80)}</td><td>${txtCell(m,i,'model',120)}</td><td>${txtCell(m,i,'item_ref',70)}</td><td>${ed?`<select onchange="setMachField(${i},'site',this.value)"><option value=""${m.site?'':' selected'}>（未指定）</option>${siteList().map(n=>`<option${n===m.site?' selected':''}>${esc(n)}</option>`).join('')}</select>`:(m.site?esc(m.site):'<span class="muted">—</span>')}</td><td>${m.active!==false?'<span class="pill ok">啟用</span>':'<span class="pill ng">停用</span>'}</td><td style="white-space:nowrap">${ed?`<button class="btn ghost sm" onclick="toggleMach(${i})">${m.active!==false?'停用':'啟用'}</button> <button class="btn gray sm" onclick="delMach(${i})">刪除</button>`:'<span class="muted small">唯讀</span>'}</td></tr>`;
+  const rowHTML=(m,i)=>`<tr><td>${ed?`<select onchange="setMachField(${i},'site',this.value)"><option value=""${m.site?'':' selected'}>（未指定）</option>${siteList().map(n=>`<option${n===m.site?' selected':''}>${esc(n)}</option>`).join('')}</select>`:(m.site?esc(m.site):'<span class="muted">—</span>')}</td><td class="mono"><a class="lk" style="cursor:pointer" onclick="viewMachine('${esc(m.id)}')" title="查看此設備做過的箱">${esc(m.id)}</a></td><td>${txtCell(m,i,'line',62)}</td><td>${(m.proc||[]).map(c=>`<span class="pill dc">${stN(c)}</span>`).join(' ')}</td><td>${txtCell(m,i,'ton',70)}</td><td>${txtCell(m,i,'brand',80)}</td><td>${txtCell(m,i,'model',120)}</td><td>${txtCell(m,i,'item_ref',70)}</td><td>${m.active!==false?'<span class="pill ok">啟用</span>':'<span class="pill ng">停用</span>'}</td><td style="white-space:nowrap">${ed?`<button class="btn ghost sm" onclick="toggleMach(${i})">${m.active!==false?'停用':'啟用'}</button> <button class="btn gray sm" onclick="delMach(${i})">刪除</button>`:'<span class="muted small">唯讀</span>'}</td></tr>`;
   // 篩選：廠區 ∧ 製程（先篩再分組）
   const fset=machs.map((m,i)=>({m,i})).filter(x=>!pflt||(x.m.proc||[]).includes(pflt));
   // 依廠區 / 廠商分組（每組一個標題列）
@@ -2164,7 +2172,7 @@ function renderMachMaster(){
   <div class="card"><h3>設備清單（${machs.length}）<span class="vi">${esc(MHR_MACH_STATUS)}　<a class="lk" onclick="loadMachines().then(render)">重新載入</a></span></h3>
     <div class="row" style="margin:0 0 6px"><div style="min-width:220px"><label>依廠區 / 廠商檢視</label><select id="mach_flt" onchange="setMachFilter(this.value)">${fltOpts}</select></div>
       <div style="min-width:180px"><label>依製程檢視</label><select id="mach_pflt" onchange="setMachProcFilter(this.value)">${procOpts}</select></div></div>
-    <div class="tblwrap compact"><table><thead><tr>${th('id','設備編號')}${th('line','線別')}${th('proc','屬製程')}${th('ton','噸數')}${th('brand','廠牌')}${th('model','型號')}${th('item_ref','對應料號')}<th>廠商 / 廠區</th><th>狀態</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div></div>`;
+    <div class="tblwrap compact"><table><thead><tr>${th('site','廠商 / 廠區')}${th('id','設備編號')}${th('line','線別')}${th('proc','屬製程')}${th('ton','噸數')}${th('brand','廠牌')}${th('model','型號')}${th('item_ref','對應料號')}<th>狀態</th><th></th></tr></thead><tbody>${body}</tbody></table></div></div></div>`;
 }
 function setMachProcFilter(v){ window._machProcFilter=v; render(); }
 function setMachSort(k){ const s=window._machSort||{key:'id',dir:1}; window._machSort = (s.key===k)? {key:k,dir:-s.dir} : {key:k,dir:1}; render(); }
@@ -2331,8 +2339,22 @@ function shiftOpts(sel){ return '<option value="">（選班別）</option>'+SHIF
 function shiftCode(n){ n=(n||'').trim().toUpperCase(); if(/^[ABC]/.test(n)) return n.slice(0,1);
   if(/[夜晚]/.test(n)) return 'B'; if(/[早日白]/.test(n)) return 'A'; return (n.slice(0,1)||'A'); }
 /* 批號自動產生：機種_YYMMDD_班別_機台_批序；同(機種+日期+班+機台)沿用同批＝一批多箱 */
-function genLot(model,machine,shift){ const base=String(model||'NA').replace(/\s+/g,'')+'_'+todayYMD()+'_'+shiftCode(shift)+'_'+String(machine||'').replace(/[^A-Za-z0-9]/g,'')+'_';
-  const ex=db.data.containers.filter(c=>c.lot&&c.lot.indexOf(base)===0).map(c=>c.lot); if(ex.length) return ex[0];
+/* ★93 批號流水修正：同機台+同日+同班「且同料號」＝同一批（沿用）；
+   換了料號（例如換模）＝新的一批，流水號遞增 _02、_03…
+   （原本只比對前綴，導致換料號後仍沿用同批號，追查時分不出來） */
+/* ★94 pdate＝生產日期（YYYY-MM-DD）；補登舊 WIP 時用實際生產日，不填＝今天 */
+function genLot(model,machine,shift,partNo,pdate){
+  const ymd=pdate? String(pdate).replace(/-/g,'').slice(2) : todayYMD();
+  const base=String(model||'NA').replace(/\s+/g,'')+'_'+ymd+'_'+shiftCode(shift)+'_'+String(machine||'').replace(/[^A-Za-z0-9]/g,'')+'_';
+  const sameBase=db.data.containers.filter(c=>c.lot&&c.lot.indexOf(base)===0);
+  if(partNo){
+    const same=sameBase.find(c=>c.partNo===partNo);
+    if(same) return same.lot;                       // 同料號 → 沿用原批號
+    const used=new Set(sameBase.map(c=>c.lot));     // 換料號 → 找下一個沒用過的流水
+    for(let n=1;n<=99;n++){ const cand=base+String(n).padStart(2,'0'); if(!used.has(cand)) return cand; }
+    return base+'99';
+  }
+  if(sameBase.length) return sameBase[0].lot;
   return base+'01'; }
 function machineOpts(code,sel){ const list=machinesFor(code);
   const opt=m=>`<option value="${esc(m.id)}"${m.id===sel?' selected':''}>${esc(m.id)}${m.line?' · '+esc(m.line):''}</option>`;
@@ -2436,7 +2458,15 @@ function renderOrders(){
       <div style="grid-column:1 / -1"><label>備註（特別註記）</label><input id="od_note" placeholder="特別註記，如 急件 / 客戶特別要求（製程路線不用填，自動來自 BOM）"></div>
     </div>
     <div style="margin-top:12px"><button class="btn" onclick="addOrder()">＋ 發行（加一筆明細）</button></div></div>`:`<div class="note">目前角色為唯讀——生產指令單由主管／系統管理開立。你的角色由帳號決定（見左下角身分），要調整請聯絡系統管理員。</div>`}
-  <div class="card"><h3>生產指令單明細（${getOrders().length}）<span class="vi">${esc(MHR_ORD_STATUS)}　<a class="lk" onclick="loadOrders().then(render)">重新載入</a></span></h3>${getOrders().length?`<div style="overflow-x:auto"><table><thead><tr><th onclick="sortOrders('no')" style="cursor:pointer">工單號${sarr('no')}</th><th onclick="sortOrders('customer')" style="cursor:pointer">客戶${sarr('customer')}</th><th onclick="sortOrders('model')" style="cursor:pointer">機種${sarr('model')}</th><th onclick="sortOrders('partNo')" style="cursor:pointer">料號${sarr('partNo')}</th><th onclick="sortOrders('name')" style="cursor:pointer">品名${sarr('name')}</th><th onclick="sortOrders('qty')" style="cursor:pointer">數量${sarr('qty')}</th><th onclick="sortOrders('dueDate')" style="cursor:pointer">完成日${sarr('dueDate')}</th><th>備註</th><th onclick="sortOrders('status')" style="cursor:pointer">狀態${sarr('status')}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">尚無生產指令單</div>'}</div>
+  <div class="card"><h3>生產指令單明細（${getOrders().length}）<span class="vi">${esc(MHR_ORD_STATUS)}　<a class="lk" onclick="loadOrders().then(render)">重新載入</a></span></h3>${getOrders().length?`<style>
+    /* ★95 寬表一頁可看：明細表以視窗寬為準——長字欄（工單號/品名/備註）可折行、數量靠右對齊、
+       操作按鈕縮一號；極窄螢幕塞不下時外層橫捲仍在（保險） */
+    #ord_tbl td:nth-child(1){white-space:normal;word-break:break-all;min-width:96px}
+    #ord_tbl td:nth-child(5),#ord_tbl td:nth-child(8){white-space:normal}
+    #ord_tbl th:nth-child(6),#ord_tbl td:nth-child(6){text-align:right}
+    #ord_tbl td{padding:4px 7px}
+    #ord_tbl .btn.sm{padding:2px 6px;font-size:11px;white-space:nowrap}
+  </style><div style="overflow-x:auto"><table id="ord_tbl"><thead><tr><th onclick="sortOrders('no')" style="cursor:pointer">工單號${sarr('no')}</th><th onclick="sortOrders('customer')" style="cursor:pointer">客戶${sarr('customer')}</th><th onclick="sortOrders('model')" style="cursor:pointer">機種${sarr('model')}</th><th onclick="sortOrders('partNo')" style="cursor:pointer">料號${sarr('partNo')}</th><th onclick="sortOrders('name')" style="cursor:pointer">品名${sarr('name')}</th><th onclick="sortOrders('qty')" style="cursor:pointer">數量${sarr('qty')}</th><th onclick="sortOrders('dueDate')" style="cursor:pointer">完成日${sarr('dueDate')}</th><th>備註</th><th onclick="sortOrders('status')" style="cursor:pointer">狀態${sarr('status')}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty">尚無生產指令單</div>'}</div>
   <div id="order_prog" style="margin-top:14px"></div>`;
   applyHL();
 }
@@ -2598,6 +2628,7 @@ function renderCreate(){
       <label style="display:block;font-weight:600;color:var(--navy);margin-top:6px">② 生產資訊</label>
       <div class="grid g2" style="margin-top:4px">
         <div><label>工單號</label><input id="c_wo" class="mono" readonly placeholder="（引用工單後自動帶入）"></div>
+        <div><label>生產日期 <span class="vi">（★94 補登舊資料時可改；預設今天）</span></label><input id="c_pdate" type="date" value="${new Date().toISOString().slice(0,10)}" max="${new Date().toISOString().slice(0,10)}"></div>
         <div><label>班別 <span class="vi">（選了會縮小作業員清單）</span></label><select id="c_shift" onchange="onCreFilter()">${shiftOpts('')}</select></div>
         <div><label>組別(線別) <span class="vi">（選填）</span></label><select id="c_team" onchange="onCreFilter()"><option value="">（全部組別）</option></select></div>
         <div><label>設備 / 機台 <span style="color:var(--red)">*</span></label><select id="c_mc"></select></div>
@@ -2641,20 +2672,46 @@ function createBox(){
   const qcEl=$('#c_qc'); const qcv=qcEl?qcEl.value.trim():'';
   if(procNeedQc(code) && !qcv) return toast('「'+stN(code)+'」需記質控——沒人驗＝不能裝箱，請選質控人員','err');
   if(qty<=0) return toast('請輸入 OK 數','err');
+  /* ★93 防呆：同機台＋同日＋同班已在生產別的料號 → 提醒（多半是機台或班別選錯；真換模可確認繼續） */
+  { const mc=($('#c_mc')?$('#c_mc').value:'').trim(), sh=($('#c_shift')?$('#c_shift').value:'').trim();
+    if(mc){
+      const today=todayYMD();
+      const other=db.data.containers.find(c=>c.machine===mc && c.shift===sh && c.partNo!==p.partNo
+        && isNormalBox(c) && (c.createdAt||'').slice(2,10).replace(/-/g,'')===today);
+      if(other){
+        const op=prodOf(other.partNo)||{};
+        /* ★94 訊息附上批號對照，讓現場一眼看懂「按確定會變成什麼」 */
+        const nextLot=genLot(p.model||p.partNo,mc,sh,p.partNo,(($('#c_pdate')||{}).value)||'');
+        if(!confirm('⚠ 機台 '+mc+' 今天 '+(sh||'—')+' 班已在生產：\n'
+          +'　料號　'+other.partNo+(op.name?'（'+op.name+'）':'')+'\n'
+          +'　批號　'+other.lot+'\n\n'
+          +'現在要建立的是：\n'
+          +'　料號　'+p.partNo+(p.name?'（'+p.name+'）':'')+'\n'
+          +'　批號　'+nextLot+'　← 按確定後會用這個新批號\n\n'
+          +'同一台機器同一班別通常不會做兩種料號，請確認機台與班別是否選錯。\n\n'
+          +'［確定］＝已換模，用上面的新批號建箱\n［取消］＝回去修改機台或班別')) return;
+      }
+    } }
   const moldEl=$('#c_mold'), cavEl=$('#c_cav');
   /* ★85-10 建箱分箱（使用者定案：手填「每箱裝入」自動分割，不做主檔預設帶入）：
      per>0 → OK 拆 per/per/…/尾箱（195/50=50·50·50·45）；同批號/工單/人員，各自箱號；NR/NG 記第一箱（同批彙總不變） */
   const per=+((($('#c_per')||{}).value)||0);
   const chunks=[]; { let left=qty; const cap=(per>0&&per<qty)?per:qty; while(left>0){ const q=Math.min(cap,left); chunks.push(q); left-=q; } }
-  const lot=genLot(p.model||p.partNo,$('#c_mc').value.trim(),$('#c_shift').value.trim());
+  /* ★94 生產日期（補登舊 WIP 用）：批號、箱建立時間都以此為準；不填＝今天 */
+  const pdate=(($('#c_pdate')||{}).value)||'';
+  const lot=genLot(p.model||p.partNo,$('#c_mc').value.trim(),$('#c_shift').value.trim(),p.partNo,pdate);   /* ★93 傳料號：換料號＝新批 */
+  /* 補登時把時間戳設成該日的當下時刻（保留時分秒排序性） */
+  const stampAt=(()=>{ const now=new Date();
+    if(!pdate || pdate===now.toISOString().slice(0,10)) return now.toISOString();
+    return new Date(pdate+'T'+now.toTimeString().slice(0,8)).toISOString(); })();
   const made=[];
   chunks.forEach((q,idx)=>{
-    const c={cid:genCID(code),partNo:p.partNo,name:p.name,lot,orderNo:$('#c_wo').value.trim(),
+    const c={cid:genCID(code,pdate),partNo:p.partNo,name:p.name,lot,orderNo:$('#c_wo').value.trim(),
       processCode:code,stagePartNo:stageNo(p.partNo,code),qty:q,
       nr:idx===0?(+$('#c_nr').value||0):0,ng:idx===0?(+$('#c_ng').value||0):0,
       operator:$('#c_op').value.trim(),qc:qcv,machine:$('#c_mc').value.trim(),shift:$('#c_shift').value.trim(),
       mold:moldEl?moldEl.value.trim():'',cavity:cavEl?cavEl.value.trim():'',jigs:readChecks('c_jigs'),
-      sources:[],createdAt:new Date().toISOString()};
+      sources:[],createdAt:stampAt};   /* ★94 用生產日期（補登舊 WIP 時＝實際生產日） */
     db.data.containers.push(c); made.push(c.cid);
   });
   db.save(); rememberOp($('#c_op').value.trim()); if(qcv) rememberShiftQc(qcv,$('#c_shift').value.trim());
@@ -3224,7 +3281,13 @@ function renderAllTable(){
     /* 84-7 欄簡化（使用者定案欄序：箱號→工單號→批號→製程→數量群→狀態→作業員→時間；機種=批號首段可讀、料號滑過箱號看）
        ＋表頭凍結（.tblwrap 捲動＋sticky，本頁無欄寬拖動 JS 不踩舊坑）＋點表頭排序。欄砍兩支後字級回升 12px */
     #a_table table{font-size:12px}
-    #a_table th,#a_table td{padding:6px 8px}
+    #a_table th,#a_table td{padding:6px 6px}
+    /* ★95 寬表一頁可看：長字欄（工單號/批號/作業員）可折行→整表塞進視窗寬、不再橫向捲；
+       批號在底線後斷行（同總覽 <wbr> 作法）；塞不下的極窄螢幕 .tblwrap 橫捲仍在（保險） */
+    #a_table td:nth-child(2){white-space:normal;word-break:break-all;min-width:90px}
+    #a_table td:nth-child(3){white-space:normal}
+    #a_table td:nth-child(9){white-space:normal}
+    #a_table .btn.sm{padding:2px 5px;font-size:11px;white-space:nowrap}
     #a_table .badge{font-size:11px}
     #a_table .mono{font-size:11px}
     #a_table .pill{font-size:10.5px;white-space:nowrap}
@@ -3234,16 +3297,23 @@ function renderAllTable(){
     #a_table td:nth-child(10){white-space:nowrap;font-size:11px}
     #a_table .stg{font-size:9.5px;color:var(--muted);font-family:Consolas,monospace}
   </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ OK合計 ${tot} ｜ 結存合計 <b>${remTot}</b>　<span class="muted small">點表頭可排序；機種請看批號首段、料號滑過箱號顯示</span></div>
-    ${rows.length?`<div class="tblwrap"><table><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('OK數'))}${TH('drawn',L('已領走'))}${TH('bal',L('結存'))}${TH('st',L('狀態'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th></th></tr></thead><tbody>
+    ${rows.length?`<div class="tblwrap"><table class="compact" style="width:100%"><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('OK數'))}${TH('drawn',L('已領走'))}${TH('bal',L('結存'))}${TH('st',L('狀態'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th style="white-space:nowrap">操作</th></tr></thead><tbody>
     ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const tip='機種 '+(p.model||c.partNo)+'｜料號 '+c.partNo+(p.name?'｜'+p.name:'');
-      return `<tr style="cursor:pointer" onclick="traceBox('${c.cid}')">
-      <td style="white-space:nowrap" title="${esc(tip)}"><span class="badge">${esc(c.cid)}</span> <button class="btn ghost sm" onclick="event.stopPropagation();printLabels(['${esc(c.cid)}'])" title="補印此箱標籤">🖨</button>${c.workType==='rework'?` <span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工${c.reworkOrder?' '+esc(c.reworkOrder):''}</span>`:''}${c.workType==='release'?' <span class="pill" style="background:#e6f4ec;color:#1f8a4c;font-size:10px">放行</span>':''}</td>
+      /* ★94 作廢箱整列灰底＋刪除線，一眼分辨（原本只有狀態欄標籤，視覺區隔不夠） */
+      /* ★95-2 箱號欄「零留白」定案（repro 實測五種變體後的正解）：
+         病因＝作廢/重工列的箱號格一行擠 作廢標籤+箱號+🖨+重工標籤 全 nowrap，把整欄撐到 ~400px，
+         該列捲出畫面後其他列看起來就是一大片空白。
+         解法＝td 改可折行(white-space:normal)＋保留 width:1%（把欄寬釘在「最寬不可折單元」＝箱號+🖨），
+         標籤自動掉到第二行、剩餘寬度平均回給其他欄。⚠width:1% 別拿掉——拿掉後剩餘寬度反而全灌進本欄（實測 409px）。 */
+      const vs=c.voidAt?'cursor:pointer;background:#F5F5F5;color:#999;text-decoration:line-through':'cursor:pointer';
+      return `<tr style="${vs}" onclick="traceBox('${c.cid}')">
+      <td style="white-space:normal;width:1%" title="${esc(tip)}">${c.voidAt?'<span class="pill ng" style="font-size:10px;margin-right:3px">作廢</span>':''}<span style="white-space:nowrap"><span class="badge">${esc(c.cid)}</span><button class="btn ghost sm" style="padding:1px 5px;margin-left:3px" onclick="event.stopPropagation();printLabels(['${esc(c.cid)}'])" title="補印此箱標籤">🖨</button></span>${c.workType==='rework'?` <span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工${c.reworkOrder?' '+esc(c.reworkOrder):''}</span>`:''}${c.workType==='release'?' <span class="pill" style="background:#e6f4ec;color:#1f8a4c;font-size:10px">放行</span>':''}</td>
       <td>${woCell(c.orderNo,c.partNo)}</td>
-      <td class="mono small">${esc(c.lot||'-')}${c.stagePartNo?`<div class="stg">${esc(c.stagePartNo)}</div>`:''}</td>
+      <td class="mono small">${esc(c.lot||'-').replace(/_/g,'_<wbr>')}${c.stagePartNo?`<div class="stg">${esc(c.stagePartNo)}</div>`:''}</td>
       <td><span class="pill ${isOS(c.partNo,c.processCode)?'os':(isFinished(c)?'pk':'dc')}">${stN(c.processCode)}</span></td>
       ${hlCell(c.cid,'ok',`${c.qty}`)}<td class="muted">${drawnOut(c.cid)}</td>${hlCell(c.cid,'balance',`<b style="color:var(--teal)">${remaining(c.cid)}</b>`)}
       <td class="small">${c.voidAt?`<span class="pill ng" title="${esc(c.voidNote||'')} ${esc(c.voidBy||'')}">已作廢</span>`:(remaining(c.cid)>0?'<span class="pill ok">在庫</span>':'<span class="muted">已轉出</span>')}</td>
-      <td class="small muted" style="white-space:nowrap">${esc(c.operator||'-')}</td><td class="small muted" title="${esc((c.createdAt||'').replace('T',' ').slice(0,16))}">${esc((c.createdAt||'').replace('T',' ').slice(5,16))}</td>
+      <td class="small muted">${esc(c.operator||'-')}</td><td class="small muted" title="${esc((c.createdAt||'').replace('T',' ').slice(0,16))}">${esc((c.createdAt||'').replace('T',' ').slice(5,16))}</td>
       <td style="white-space:nowrap">${can('all','e')||can('create','e')?`<button class="btn ghost sm" onclick="event.stopPropagation();voidBox('${esc(c.cid)}')" title="${c.voidAt?'恢復此箱':'作廢此箱（記錄保留）'}">${c.voidAt?'↩ 恢復':'⊘ 作廢'}</button>`:''}</td>
 </tr>`; }).join('')}
     </tbody></table></div>`:'<div class="empty">無符合資料</div>'}`;
