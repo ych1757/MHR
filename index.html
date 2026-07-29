@@ -427,7 +427,8 @@ const DB_MAPS={
       stagePartNo:'stage_part_no', qty:'qty', nr:'nr', ng:'ng', kind:'kind', operator:'operator', qc:'qc',
       machine:'machine', shift:'shift', vendor:'vendor', mold:'mold', cavity:'cavity', jigs:'jigs',
       workType:'work_type', pack:'pack', oqc:'oqc', paintRepair:'paint_repair',
-      sources:'sources', received:'received', disp:'disp', createdAt:'created_at' } },
+      sources:'sources', received:'received', disp:'disp', createdAt:'created_at',
+      voidAt:'void_at', voidBy:'void_by', voidNote:'void_note' } },   /* ★92 作廢 */
   reports:{ table:'mhr_reports', key:'id', keyCol:'rid',
     cols:{ id:'rid', partNo:'part_no', lot:'lot', orderNo:'order_no', fromStation:'from_station', toStation:'to_station',
       draws:'draws', ok:'ok', nr:'nr', ng:'ng', intoCid:'into_cid', nrCid:'nr_cid', ngCid:'ng_cid',
@@ -772,7 +773,17 @@ function findC(cid){ return db.data.containers.find(c=>c.cid===cid); }
    NR=可重工(待會判/待重工)；NG=報廢(報工直接判廢 + 重工失敗轉入)。
    回流箱＝kind 空白的正常 OK 箱，但 workType='rework'/'release'，sources 指向 NR 箱。 */
 function isDefect(c){ return !!(c&&(c.kind==='NR'||c.kind==='NG')); }
-function isNormalBox(c){ return !!(c&&!c.ngHolder&&!isDefect(c)); }
+function isNormalBox(c){ return !!(c&&!c.ngHolder&&!isDefect(c)&&!c.voidAt); }   /* ★92 作廢箱不計入結存/選單 */
+/* ★92 作廢箱（內控：記錄保留可查、可恢復；不做實體刪除） */
+async function voidBox(cid){
+  const c=findC(cid); if(!c) return;
+  if(c.voidAt){ if(!confirm('取消作廢箱號 '+cid+' ？\n\n恢復後會重新計入結存。')) return;
+    c.voidAt=null; c.voidBy=''; c.voidNote=''; db.save(); toast('已恢復','ok'); render(); return; }
+  const why=prompt('作廢箱號 '+cid+'\n\n記錄會保留（可追溯、可恢復），但不再計入結存與選單。\n請輸入作廢原因：','');
+  if(why===null) return;
+  c.voidAt=new Date().toISOString(); c.voidBy=((getSession()||{}).profile||{}).email||''; c.voidNote=why||'';
+  db.save(); toast('已作廢（記錄保留）','ok'); render();
+}
 function nowISO(){ return new Date().toISOString(); }
 // 不良箱號：類型-站碼-YYMMDD-序（一眼看出 哪種不良＋哪一站）
 function genDefCID(kind,code){ const pre=kind+'-'+(code||'').split('+')[0]+'-'+todayYMD()+'-'; const n=db.data.containers.filter(c=>c.cid&&c.cid.indexOf(pre)===0).length+1; return pre+String(n).padStart(3,'0'); }
@@ -827,28 +838,37 @@ const PAGES=[
 let cur='dash';
 /* ===== 角色權限（demo 演示；真 enforcement 待上 Supabase Auth+RLS）。動作 v查 c建 e改 d刪；'' = 看不到 ===== */
 /* 順序＝管理職在前、現場職能靠後（85 使用者定案：品保/物控排在作業員前）。這個順序同時決定授權矩陣的欄序、名單管理的角色 chips 順序，以及兼任時「第一個勾選＝主角色」的判定。 */
-const ROLES_DEF=[{key:'admin',label:'系統管理'},{key:'sup',label:'主管'},{key:'eng',label:'工程'},{key:'qc',label:'品保'},{key:'mc',label:'物控'},{key:'op',label:'作業員'},{key:'view',label:'查詢'}];   /* 3a-2 新增物控：點交/委外轉出的具名角色（一人一帳） */
+/* ★90 新增「廠區管理員 sadmin」：能管帳號但綁死在自己 site_codes 內——
+   不能給人 admin/sadmin、不能把範圍設成全部或別廠（防擴權）。系統管理仍是唯一全域角色。 */
+const ROLES_DEF=[{key:'admin',label:'系統管理'},{key:'sadmin',label:'廠區管理員'},{key:'sup',label:'主管'},{key:'eng',label:'工程'},{key:'qc',label:'品保'},{key:'mc',label:'物控'},{key:'op',label:'作業員'},{key:'view',label:'查詢'}];
+/* 目前登入者是否為廠區管理員（非全域 admin） */
+function isSiteAdmin(){ const p=(getSession()||{}).profile||{};
+  if(p.account_type==='admin'||p.mhr_role==='admin'||(p.mhr_roles||[]).includes('admin')) return false;
+  return p.mhr_role==='sadmin'||(p.mhr_roles||[]).includes('sadmin'); }
+/* 能否管理帳號（全域 admin 或 廠區管理員） */
+function canManageUsers(){ const p=(getSession()||{}).profile||{};
+  return p.account_type==='admin'||p.mhr_role==='admin'||(p.mhr_roles||[]).includes('admin')||isSiteAdmin(); }   /* 3a-2 新增物控：點交/委外轉出的具名角色（一人一帳） */
 const PERM={
-  dash:  {admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
-  order: {admin:'vced',eng:'v',sup:'vced',op:'v',qc:'v',mc:'v',view:'v'},
-  create:{admin:'vced',eng:'vce',sup:'vced',op:'vce',qc:'v',mc:'v',view:'v'},
+  dash:  {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
+  order: {sadmin:'v',admin:'vced',eng:'v',sup:'vce',op:'v',qc:'v',mc:'v',view:'v'},
+  create:{sadmin:'v',admin:'vced',eng:'vce',sup:'vce',op:'vce',qc:'v',mc:'v',view:'v'},
   /* 3a-2 點交＝物控的具名動作：物控/主管/管理可做；作業員/工程/品保 查看（要點交→給那個人「物控」帳號） */
-  receive:{admin:'vced',eng:'v',sup:'vced',op:'v',qc:'v',mc:'vce',view:'v'},
-  report:{admin:'vced',eng:'vce',sup:'vced',op:'vce',qc:'v',mc:'v',view:'v'},
-  paint: {admin:'vced',eng:'vce',sup:'vced',op:'vce',qc:'v',mc:'v',view:'v'},
-  rework:{admin:'vced',eng:'vced',sup:'vced',op:'v',qc:'vced',mc:'v',view:'v'},
-  trace: {admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
-  all:   {admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
+  receive:{sadmin:'v',admin:'vced',eng:'v',sup:'vce',op:'v',qc:'v',mc:'vce',view:'v'},
+  report:{sadmin:'v',admin:'vced',eng:'vce',sup:'vce',op:'vce',qc:'v',mc:'v',view:'v'},
+  paint: {sadmin:'v',admin:'vced',eng:'vce',sup:'vce',op:'vce',qc:'v',mc:'v',view:'v'},
+  rework:{sadmin:'v',admin:'vced',eng:'vce',sup:'vce',op:'v',qc:'vce',mc:'v',view:'v'},
+  trace: {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
+  all:   {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
   /* ── 設定區分兩類（分界線＝改了會不會影響「在製品的流轉路徑」）──
      ① 工程專業：BOM／製程主檔 → 只有工程能改。改錯會讓在製箱跑錯下一站、階段料號錯 → 要工程把關 */
-  prod:  {admin:'vced',eng:'vced',sup:'v',op:'',qc:'',mc:'',view:'v'},
-  master:{admin:'vced',eng:'vce', sup:'v',op:'',qc:'',mc:'',view:'v'},
+  prod:  {sadmin:'v',admin:'vced',eng:'vce',sup:'vced',op:'',qc:'',mc:'',view:'v'},
+  master:{sadmin:'v',admin:'vced',eng:'vce', sup:'vced',op:'',qc:'',mc:'',view:'v'},
   /* ② 管理性質：廠商／機台／模具治夾具 → 主管也可改。改錯頂多選單少一項，風險低 */
-  vendor:{admin:'vced',eng:'vced',sup:'vced',op:'',qc:'',mc:'',view:'v'},
-  machmaster:{admin:'vced',eng:'vced',sup:'vced',op:'',qc:'',mc:'',view:'v'},
-  moldmaster:{admin:'vced',eng:'vced',sup:'vced',op:'',qc:'',mc:'',view:'v'},
+  vendor:{sadmin:'v',admin:'vced',eng:'vce',sup:'vced',op:'',qc:'',mc:'',view:'v'},
+  machmaster:{sadmin:'v',admin:'vced',eng:'vce',sup:'vced',op:'',qc:'',mc:'',view:'v'},
+  moldmaster:{sadmin:'v',admin:'vced',eng:'vce',sup:'vced',op:'',qc:'',mc:'',view:'v'},
   /* ★88-10 主管(sup) 開放進名單管理＝只能管「自己廠區的工牌名單」（登入帳號分頁對 sup 隱藏，見 renderPermPage） */
-  perm:  {admin:'vced',eng:'',sup:'vced',op:'',qc:'',mc:'',view:''},
+  perm:  {sadmin:'vce',admin:'vced',eng:'',sup:'vce',op:'',qc:'',mc:'',view:''},
 };
 /* ===================================================================
    ★ 階段1：Supabase Auth 登入（與 QMS 同一個專案、共用 auth.users）
@@ -1414,7 +1434,8 @@ function prodRowsHTML(){ const q=(($('#prod_q')||{}).value||'').trim().toLowerCa
 }
 function filterProdList(){ const tb=$('#prod_tbody'); if(tb) tb.innerHTML=prodRowsHTML(); }
 /* 權限設定頁（設定區，檢視）：身分(誰/角色/廠區)由 OMS 管，本頁是 MHR 的授權矩陣 */
-function permLabel(p){ if(!p) return '—'; let s=''; if(p.indexOf('v')>=0)s+='查'; if(p.indexOf('c')>=0)s+='建'; if(p.indexOf('e')>=0)s+='改'; if(p.indexOf('d')>=0)s+='刪'; return s||'—'; }
+/* ★91「刪」標紅：一眼看出哪些角色有刪除權（風險最高的動作） */
+function permLabel(p){ if(!p) return '—'; let s=''; if(p.indexOf('v')>=0)s+='查'; if(p.indexOf('c')>=0)s+='建'; if(p.indexOf('e')>=0)s+='改'; if(p.indexOf('d')>=0)s+='<b style="color:var(--red)">刪</b>'; return s||'—'; }
 function permColor(p){ if(!p) return '#FBEDED'; if(p.indexOf('d')>=0) return '#C9E7D4'; if(p.indexOf('c')>=0||p.indexOf('e')>=0) return '#E6F4EC'; return '#F4F7FB'; }
 /* ===================================================================
    名單管理（取代舊的 demo「權限設定」頁）
@@ -1440,7 +1461,9 @@ function scopeEditor(p){
   /* 開啟編輯時：'*'＝全勾；有事業群＝展開該群廠區一起勾（畫面看得到包含哪些） */
   const _all=(p.site_codes||[]).includes('*'), _bus=p.bu_codes||[];
   const siteOn=s=>_all||(p.site_codes||[]).includes(s.code)||(s.bu_code&&_bus.includes(s.bu_code));
-  const siteChips=MHR_SITES.filter(s=>s.kind!=='vendor').map(s=>
+  /* ★90 防擴權：廠區管理員只能勾自己管的廠區（別廠與「全部廠區」都不出現） */
+  const _my=isSiteAdmin()?(opsScopeSites()||[]):null;
+  const siteChips=MHR_SITES.filter(s=>s.kind!=='vendor').filter(s=>!_my||_my.includes(s.code)).map(s=>
     `<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" name="sc" value="${esc(s.code)}" data-bu="${esc(s.bu_code||'')}"${siteOn(s)?' checked':''} onchange="onSitePick()" style="width:auto;margin-right:5px;vertical-align:-1px">${esc(s.code)} ${esc(s.name)}${s.kind==='external'?' <span class="pill os" style="font-size:9px">外部</span>':''}</label>`).join('');
   const buChips=MHR_BUS.map(b=>
     `<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" name="bc" value="${esc(b.code)}"${(_all||_bus.includes(b.code))?' checked':''} onchange="onBuPick()" style="width:auto;margin-right:5px;vertical-align:-1px">${esc(b.code)} ${esc(b.name)}</label>`).join('');
@@ -1453,13 +1476,15 @@ function scopeEditor(p){
         <option value="admin"${at==='admin'?' selected':''}>管理員（全部＋管帳號）</option></select></div>
       <div style="grid-column:span 2"><label>角色 <span class="vi">（可複選＝兼任，權限為聯集；例：生產＋物控。第一個勾選＝主角色顯示）</span></label>
         <div id="u_roles">${(()=>{ const cur=(Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role||'view'];
-          return ROLES_DEF.map(r=>`<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" value="${r.key}"${cur.includes(r.key)?' checked':''} style="width:auto;margin-right:5px;vertical-align:-1px">${r.label}</label>`).join(''); })()}</div></div>
+          /* ★90 防擴權：廠區管理員不能授予 系統管理／廠區管理員 這兩個角色 */
+          const banned=isSiteAdmin()?['admin','sadmin']:[];
+          return ROLES_DEF.filter(r=>!banned.includes(r.key)).map(r=>`<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" value="${r.key}"${cur.includes(r.key)?' checked':''} style="width:auto;margin-right:5px;vertical-align:-1px">${r.label}</label>`).join(''); })()}</div></div>
       <div id="u_vd_wrap" style="${at==='vendor'?'':'display:none'}"><label>委外廠商</label><select id="u_vendor">${vdOpts}</select></div>
     </div>
     <div id="u_scope_wrap" style="${at==='site'?'':'display:none'}">
       <div style="margin-top:8px"><label>可看範圍 <span class="vi">（由大到小：全部 → 事業群 → 個別廠區，會自動連動）</span></label>
-        <div style="margin-bottom:6px"><label class="chip" style="font-weight:600;color:var(--teal)"><input type="checkbox" id="u_allsites" value="*"${(p.site_codes||[]).includes('*')?' checked':''} onchange="onAllSites()" style="width:auto;margin-right:5px;vertical-align:-1px">★ 全部廠區（集團所有廠區＋大永等外部單位）</label></div></div>
-      <div style="margin-top:6px" id="u_bus_wrap"><label>事業群 <span class="vi">（勾了＝底下廠區全包，下方會自動跟著勾）</span></label><div id="u_bus">${buChips}</div></div>
+        ${_my?'':`<div style="margin-bottom:6px"><label class="chip" style="font-weight:600;color:var(--teal)"><input type="checkbox" id="u_allsites" value="*"${(p.site_codes||[]).includes('*')?' checked':''} onchange="onAllSites()" style="width:auto;margin-right:5px;vertical-align:-1px">★ 全部廠區（集團所有廠區＋大永等外部單位）</label></div>`}</div>
+      <div style="margin-top:6px;${_my?'display:none':''}" id="u_bus_wrap"><label>事業群 <span class="vi">（勾了＝底下廠區全包，下方會自動跟著勾）</span></label><div id="u_bus">${buChips}</div></div>
       <div style="margin-top:6px"><label>個別廠區 <span class="vi">（可單獨加選；取消其中一個，上方對應事業群會自動取消）</span></label><div id="u_sites">${siteChips}</div></div>
     </div>
     <div class="small muted" style="margin-top:6px">勾「★全部廠區」＝看所有（集團＋外部，等同集團主管唯讀範圍）。管理員不需勾選（本來就全部）。</div>`;
@@ -1605,7 +1630,23 @@ function userImportFile(ev){
       +'※ 已有帳號者只開通、不改密碼；全新者預設密碼 '+DEFAULT_PWD+'（首次登入強制改）\n\n確定？')) return;
     let ok=0, fail=[];
     for(const u of list){ const r=await mhrAdmin('create',u); if(r.ok) ok++; else fail.push(u.email+'：'+(r.error||'失敗')); }
-    toast(ok?('✅ 已匯入 '+ok+' 筆'+(fail.length?'（失敗 '+fail.length+'）':'')):'匯入失敗', fail.length?'err':'ok');
+    /* ★91 未列在名單中的帳號：詢問是否停用（不刪帳號＝不影響 QMS；只是 MHR 停用） */
+    let offN=0;
+    const impMails=new Set(list.map(x=>(x.email||'').toLowerCase()));
+    const impSites=new Set(list.flatMap(x=>x.site_codes||[]));
+    const missing=MHR_USERS.filter(u=>u.active!==false
+      && u.account_type!=='admin' && u.mhr_role!=='admin'
+      && !impMails.has((u.email||'').toLowerCase())
+      && (u.site_codes||[]).some(c=>impSites.has(c)));
+    if(missing.length){
+      const names=missing.slice(0,8).map(u=>(u.name||'')+' '+u.email).join('\n');
+      if(confirm('匯入完成。\n\n偵測到 '+missing.length+' 個帳號「系統中有、這次名單沒有」：\n'
+        +names+(missing.length>8?'\n…等 '+missing.length+' 人':'')
+        +'\n\n要把他們在 MHR「停用」嗎？\n（只停用 MHR 權限，不會刪帳號、不影響 QMS；按取消則維持啟用）')){
+        for(const u of missing){ const rr=await mhrAdmin('update',{email:u.email,active:false}); if(rr.ok) offN++; }
+      }
+    }
+    toast(ok?('✅ 已匯入 '+ok+' 筆'+(offN?'／停用 '+offN+' 個':'')+(fail.length?'（失敗 '+fail.length+'）':'')):'匯入失敗', fail.length?'err':'ok');
     if(fail.length) console.warn('匯入失敗明細：',fail);
     await loadMhrUsers(); render();
   }catch(e){ toast('解析失敗：'+(e.message||e),'err'); } };
@@ -1672,11 +1713,30 @@ function opImportCsv(ev){
     });
     if(!list.length) return toast('沒有可匯入的資料'+(errs.length?'（'+errs[0]+'…）':''),'err');
     const dup=list.filter(x=>MHR_OPS.some(o=>o.badge===x.badge)).length;
+    /* ★91 找出「系統有、這次名單沒有」的人（同廠區範圍內比對，避免誤停其他廠的人） */
+    const impBadges=new Set(list.map(x=>x.badge));
+    const impSites=new Set(list.map(x=>x.site_code).filter(Boolean));
+    const missing=MHR_OPS.filter(o=>o.active!==false && !impBadges.has(o.badge)
+      && impSites.has(o.site_code||''));
     if(!confirm('即將匯入 '+list.length+' 筆工牌 → 雲端\n新增 '+(list.length-dup)+' 筆／同工號覆蓋更新 '+dup+' 筆'
       +(errs.length?'\n跳過 '+errs.length+' 列：'+errs.slice(0,3).join('；')+(errs.length>3?'…':''):'')+'\n\n確定？')) return;
     const r=await sbWrite('POST','mhr_operators?on_conflict=badge',list,'resolution=merge-duplicates');
     if(!r.ok) return toast(r.error||'匯入失敗','err');
-    toast('✅ 已匯入 '+list.length+' 筆工牌（雲端）','ok'); await loadOperators(); render();
+    /* ★91 未列在名單中的人：詢問是否停用（不刪除，保留歷史報工記錄） */
+    let offN=0;
+    if(missing.length){
+      const names=missing.slice(0,8).map(o=>o.badge+' '+(o.name||'')).join('\n');
+      if(confirm('匯入完成。\n\n偵測到 '+missing.length+' 人「系統中有、這次名單沒有」（可能已離職／調動）：\n'
+        +names+(missing.length>8?'\n…等 '+missing.length+' 人':'')
+        +'\n\n要把他們「停用」嗎？\n（停用＝不出現在報工選單，歷史記錄保留；按取消則維持啟用）')){
+        for(const o of missing){
+          const rr=await sbWrite('PATCH','mhr_operators?id=eq.'+encodeURIComponent(o.id),{active:false,updated_at:new Date().toISOString()});
+          if(rr.ok) offN++;
+        }
+      }
+    }
+    toast('✅ 已匯入 '+list.length+' 筆工牌'+(offN?'／停用 '+offN+' 人':'')+'（雲端）','ok');
+    await loadOperators(); render();
   }catch(e){ toast('解析失敗：'+(e.message||e),'err'); } };
   if(isXls) rd.readAsArrayBuffer(f); else rd.readAsText(f,'utf-8'); }
 
@@ -1755,7 +1815,7 @@ function renderOpsSection(){
         <td>${o.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}</td>
         <td style="white-space:nowrap"><button class="btn ghost sm" onclick="opEdit('${esc(o.id)}')">編輯</button>
           <button class="btn ghost sm" onclick="opToggle('${esc(o.id)}')">${o.active===false?'啟用':'停用'}</button>
-          <button class="btn gray sm" onclick="opDel('${esc(o.id)}')">刪除</button></td></tr>`;
+          ${can('perm','d')?`<button class="btn gray sm" onclick="opDel('${esc(o.id)}')">刪除</button>`:''}</td></tr>`;   /* ★91 只有系統管理能刪工牌；其他角色用「停用」保留歷史 */
   }).join('');
 
   /* 從 OMS 名單快速帶入（集團內部；已在工牌名單的排除） */
@@ -1863,7 +1923,14 @@ function renderPermPage(){
     if(k==='st') return p.active===false?'停用':'啟用';
     return ''; };
   const _usite=window._userSite||'', _urole=window._userRole||'';
+  const _adminSites=isSiteAdmin()?(opsScopeSites()||[]):null;   /* ★90 廠區管理員只看自己管的廠區帳號 */
   let _ulist=MHR_USERS.filter(p=>{
+    if(_adminSites){
+      if(p.account_type==='admin'||p.mhr_role==='admin') return false;              // 看不到系統管理員
+      const scs=[].concat(p.site_codes||[]);
+      if(scs.includes('*')) return false;                                            // 看不到全域範圍的人
+      if(!scs.some(c=>_adminSites.includes(c))) return false;                        // 只留自己管的廠區
+    }
     if(_ust==='on'&&p.active===false) return false;
     if(_ust==='off'&&p.active!==false) return false;
     if(_usite && uVal(p,'site')!==_usite) return false;                                   // ★88-9 廠區篩選
@@ -1890,7 +1957,7 @@ function renderPermPage(){
       <td style="white-space:nowrap">
         <button class="btn ghost sm" onclick="editUser('${esc(p.email)}')">編輯</button>
         <button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>
-        ${isMe?'':`<button class="btn gray sm" onclick="revokeUser('${esc(p.email)}')">移除</button>`}
+        ${(isMe||!can('perm','d'))?'':`<button class="btn gray sm" onclick="revokeUser('${esc(p.email)}')">移除</button>`}
       </td></tr>`;
   }).join('');
 
@@ -1923,15 +1990,14 @@ function renderPermPage(){
      刻意不新增側欄選單項——側欄 14 項剛好一頁放得下(V79-5 才修過)，加第 15 項會再撐破；
      且兩者同屬「人的管理」，放同一頁合理。 */
   /* ★88-10 主管(sup) 只管工牌：登入帳號分頁隱藏、強制停在工牌頁（使用者定案 A 案） */
-  const _isAdm=(()=>{ const p=(getSession()||{}).profile||{};
-    return p.account_type==='admin'||p.mhr_role==='admin'||(p.mhr_roles||[]).includes('admin'); })();
+  const _isAdm=canManageUsers();   /* ★90 全域 admin 或 廠區管理員＝可管帳號（看得到登入帳號分頁） */
   const mainTab=_isAdm?(window._permMain||'users'):'ops';
   const tabBar=_isAdm?`<div style="margin-bottom:14px">
-    <button class="btn ${mainTab==='users'?'':'ghost'}" onclick="window._permMain='users';window._opEdit=null;render()">👤 登入帳號</button>
+    <button class="btn ${mainTab==='users'?'':'ghost'}" onclick="window._permMain='users';window._opEdit=null;render()">👤 權限設定</button>
     <button class="btn ${mainTab==='ops'?'':'ghost'}" onclick="window._permMain='ops';window._editUser=null;render()">🏷 工牌名單</button>
   </div>`:'';
   const pageHead=`<div class="page-h"><h2>名單管理 Users</h2><p>${_isAdm?`
-    <b>登入帳號</b>＝誰能進 MHR、能看多少（集團內部由 <b>OMS 授權</b>；大永/委外 <b>MHR 自建</b>）。
+    <b>權限設定</b>＝設定角色與可看範圍（集團內部「誰能進 MHR」由 <b>OMS 授權</b>；大永/委外帳號 <b>MHR 自建</b>）。
     <b>工牌名單</b>＝報工時掃碼記「<b>誰做的</b>」，免密碼、不是帳號。`:`
     管理<b>自己廠區</b>的工牌名單（報工時記「誰做的」，免密碼、不是登入帳號）。登入帳號請洽系統管理員。`}</p></div>`;
 
@@ -2001,8 +2067,9 @@ function permMatrixBody(){
     </tr>`;
     const rows=items.map(pg=>{
       if(pg.id==='perm'){
-        return rowHTML('⚙ 名單管理－登入帳號', k=>k==='admin'?'vced':'')
-             + rowHTML('⚙ 名單管理－工牌名單', k=>(k==='admin'||k==='sup')?'vced':'', '主管限自己廠區');
+        /* ★91 廠區管理員(sadmin) 兩列都可，但限自己廠區、不可授予 admin/sadmin */
+        return rowHTML('⚙ 名單管理－權限設定', k=>k==='admin'?'vced':(k==='sadmin'?'vce':''), '設角色與可看範圍；集團內誰能進由 OMS 授權，外部廠商 MHR 自建')
+             + rowHTML('⚙ 名單管理－工牌名單', k=>k==='admin'?'vced':((k==='sadmin'||k==='sup')?'vce':''), '廠區管理員／主管限自己廠區');
       }
       return rowHTML(`${pg.n?pg.n+' ':''}${esc(pg.label)}`, k=>(PERM[pg.id]||{})[k]);
     }).join('');
@@ -2339,7 +2406,8 @@ async function loadOrders(){
   const d=await sbGet('mhr_orders?select=*&order=created_at.desc');
   MHR_ORDERS=(Array.isArray(d)?d:[]).map(r=>({ _uuid:r.id, no:r.no, date:r.date||'', customer:r.customer||'',
     partNo:r.part_no, qty:+r.qty||0, unit:r.unit||'PCS', dueDate:r.due_date||'', note:r.note||'',
-    status:r.status||'進行中', source:r.source||'mhr', erp:r.erp||null, createdAt:r.created_at }));
+    status:r.status||'進行中', source:r.source||'mhr', erp:r.erp||null, createdAt:r.created_at,
+    voidAt:r.void_at||null, voidBy:r.void_by||'', voidNote:r.void_note||'' }));   /* ★92 作廢 */
   MHR_ORD_STATUS='已載入 '+MHR_ORDERS.length+' 筆';
 }
 function getOrders(){ return MHR_ORDERS; }
@@ -2355,7 +2423,7 @@ function renderOrders(){
   const pnSel=prodOptions('（選機種 / 料號）');
   const _arr=getOrders().map((o,i)=>({o,i})); const _sk=window._ordSort;
   if(_sk&&_sk.key) _arr.sort((a,b)=>{ const x=ordVal(a.o,_sk.key),y=ordVal(b.o,_sk.key); const c=(typeof x==='number'&&typeof y==='number')?x-y:String(x).localeCompare(String(y),'zh-Hant'); return c*_sk.dir; });
-  const rows=_arr.map(({o,i})=>{ const pr=prodOf(o.partNo)||{}; const md=pr.model||o.partNo; const pno=pnoOf(o.partNo); return `<tr data-hl="order:${o.no}|${o.partNo||''}"><td class="mono"><b>${esc(o.no)}</b>${o.source==='erp'?' <span class="pill os" style="font-size:10px">ERP</span>':''}</td><td>${esc(o.customer||pr.customer||'')}</td><td>${esc(md)}</td><td class="mono">${pno?'<b>'+esc(pno)+'</b>':'<span class="muted">—</span>'}</td><td class="small muted">${esc(pr.name||(o.erp&&o.erp.itemDesc)||'')}</td><td>${o.qty||''} ${esc(o.unit||'PCS')}</td><td class="small">${esc(o.dueDate||'')}</td><td class="small muted">${esc(o.note||'')}</td><td>${o.status==='完成'?'<span class="pill ok">完成</span>':'<span class="pill dc">進行中</span>'}</td><td style="white-space:nowrap"><button class="btn ghost sm" onclick="showOrderProg(${i})">📊 進度</button> ${ed?`<button class="btn ghost sm" onclick="toggleOrder(${i})">${o.status==='完成'?'重開':'結單'}</button> <button class="btn gray sm" onclick="delOrder(${i})">刪除</button>`:''}</td></tr>`; }).join('');
+  const rows=_arr.map(({o,i})=>{ const pr=prodOf(o.partNo)||{}; const md=pr.model||o.partNo; const pno=pnoOf(o.partNo); return `<tr data-hl="order:${o.no}|${o.partNo||''}"><td class="mono"><b>${esc(o.no)}</b>${o.source==='erp'?' <span class="pill os" style="font-size:10px">ERP</span>':''}</td><td>${esc(o.customer||pr.customer||'')}</td><td>${esc(md)}</td><td class="mono">${pno?'<b>'+esc(pno)+'</b>':'<span class="muted">—</span>'}</td><td class="small muted">${esc(pr.name||(o.erp&&o.erp.itemDesc)||'')}</td><td>${o.qty||''} ${esc(o.unit||'PCS')}</td><td class="small">${esc(o.dueDate||'')}</td><td class="small muted">${esc(o.note||'')}</td><td>${o.voidAt?`<span class="pill ng" title="${esc(o.voidNote||'')} ${esc(o.voidBy||'')}">已作廢</span>`:(o.status==='完成'?'<span class="pill ok">完成</span>':'<span class="pill dc">進行中</span>')}</td><td style="white-space:nowrap"><button class="btn ghost sm" onclick="showOrderProg(${i})">📊 進度</button> ${ed?`${o.voidAt?'':`<button class="btn ghost sm" onclick="toggleOrder(${i})">${o.status==='完成'?'重開':'結單'}</button> `}<button class="btn ghost sm" onclick="voidOrder(${i})">${o.voidAt?'↩ 恢復':'⊘ 作廢'}</button>${can('order','d')?` <button class="btn gray sm" onclick="delOrder(${i})">刪除</button>`:''}`:''}</td></tr>`; }).join('');
   v.innerHTML=`<div class="page-h"><h2>生產指令單 Jobs</h2><p>對齊大永生產指令單。一張工單號可有多筆明細（多機種）——同工單號重複填、換機種就是多一筆。製程路線來自該機種 BOM，工單不必再填。</p></div>
   ${ed?`<div class="card"><h3>開立 / 加明細</h3>
     <div class="grid g3">
@@ -2467,6 +2535,20 @@ async function toggleOrder(i){ const o=getOrders()[i]; if(!o||!o._uuid) return;
   const ns=(o.status==='完成')?'進行中':'完成';
   const r=await sbWrite('PATCH','mhr_orders?id=eq.'+encodeURIComponent(o._uuid),{status:ns,updated_at:new Date().toISOString()});
   if(!r.ok) return toast(r.error||'失敗','err'); o.status=ns; render(); }
+/* ★92 作廢生產指令單（內控原則：單據可作廢、不給任意刪單。記錄保留、不可再引用建箱） */
+async function voidOrder(i){ const o=getOrders()[i]; if(!o||!o._uuid) return;
+  if(o.voidAt){ if(!confirm('取消作廢「'+o.no+' ｜ '+o.partNo+'」？\n\n恢復後可再引用建箱。')) return;
+    const r=await sbWrite('PATCH','mhr_orders?id=eq.'+encodeURIComponent(o._uuid),{void_at:null,void_by:null,void_note:null,updated_at:new Date().toISOString()});
+    if(!r.ok) return toast(r.error||'失敗','err');
+    o.voidAt=null; o.voidBy=''; o.voidNote=''; toast('已恢復','ok'); render(); return; }
+  const why=prompt('作廢生產指令單「'+o.no+' ｜ '+o.partNo+'」\n\n記錄會保留（可查詢、可恢復），但不能再引用建箱。\n請輸入作廢原因：','');
+  if(why===null) return;
+  const me=((getSession()||{}).profile||{}).email||'';
+  const r=await sbWrite('PATCH','mhr_orders?id=eq.'+encodeURIComponent(o._uuid),
+    {void_at:new Date().toISOString(),void_by:me,void_note:why||null,updated_at:new Date().toISOString()});
+  if(!r.ok) return toast(r.error||'作廢失敗','err');
+  o.voidAt=new Date().toISOString(); o.voidBy=me; o.voidNote=why||'';
+  toast('已作廢（記錄保留）','ok'); render(); }
 async function delOrder(i){ const o=getOrders()[i]; if(!o||!o._uuid) return;
   if(!confirm('刪除生產指令單「'+o.no+' ｜ '+o.partNo+'」？\n\n已建箱的記錄不受影響（箱上工單號是當時存的）。')) return;
   const r=await sbWrite('DELETE','mhr_orders?id=eq.'+encodeURIComponent(o._uuid));
@@ -2474,7 +2556,7 @@ async function delOrder(i){ const o=getOrders()[i]; if(!o||!o._uuid) return;
 function orderOpts(){ return '<option value="">（不引用 / 自行選機種）</option>'+getOrders().map((o,i)=>o.status!=='完成'?`<option value="${i}">${esc(o.no)} ｜ ${esc(o.partNo)}${o.qty?'（'+o.qty+'）':''}${o.customer?' ['+esc(o.customer)+']':''}</option>`:'').join(''); }
 /* 02 建箱：工單必填、一律引用。客戶/機種為「縮小工單清單」的篩選，非建箱路徑。 */
 function pnFilterOpts(cust){ const list=db.data.products.filter(p=>!cust||p.customer===cust); return prodOptions('（全部機種）', null, list); }
-function orderOptsF(cust,pn){ return '<option value="">（請選工單 *）</option>'+getOrders().map((o,i)=>{ if(o.status==='完成') return ''; const pr=prodOf(o.partNo)||{}; const oc=o.customer||pr.customer||''; if(cust&&oc!==cust) return ''; if(pn&&o.partNo!==pn) return ''; return `<option value="${i}">${esc(o.no)} ｜ ${esc(pr.model||o.partNo)}${o.qty?'（'+o.qty+'）':''}${oc?' ['+esc(oc)+']':''}${o.source==='erp'?' ·ERP':''}</option>`; }).join(''); }
+function orderOptsF(cust,pn){ return '<option value="">（請選工單 *）</option>'+getOrders().map((o,i)=>{ if(o.status==='完成'||o.voidAt) return '';   /* ★92 作廢單不可引用 */ const pr=prodOf(o.partNo)||{}; const oc=o.customer||pr.customer||''; if(cust&&oc!==cust) return ''; if(pn&&o.partNo!==pn) return ''; return `<option value="${i}">${esc(o.no)} ｜ ${esc(pr.model||o.partNo)}${o.qty?'（'+o.qty+'）':''}${oc?' ['+esc(oc)+']':''}${o.source==='erp'?' ·ERP':''}</option>`; }).join(''); }
 function onFiltCust(){ const cu=$('#c_fcust')?$('#c_fcust').value:''; const fp=$('#c_fpn'); if(fp){ fp.innerHTML=pnFilterOpts(cu); fp.value=''; } refreshOrderPick(); }
 function onFiltPn(){ refreshOrderPick(); }
 function refreshOrderPick(){ const cu=$('#c_fcust')?$('#c_fcust').value:''; const pn=$('#c_fpn')?$('#c_fpn').value:''; const ord=$('#c_order'); if(ord){ ord.innerHTML=orderOptsF(cu,pn); ord.value=''; } pickOrder(); }
@@ -3126,7 +3208,8 @@ function aArr(k){ const s=window._allSort; return s.k===k?(s.d>0?' ▲':' ▼'):
 function renderAllTable(){
   const kw=($('#a_kw')?$('#a_kw').value:'').trim().toLowerCase();
   const pn=$('#a_pn')?$('#a_pn').value:''; const st=$('#a_st')?$('#a_st').value:''; const state=$('#a_state')?$('#a_state').value:'';
-  let rows=db.data.containers.filter(isNormalBox);
+  /* ★92「全部箱號」頁包含作廢箱（可查詢/可恢復）；其他頁面靠 isNormalBox 自動排除 */
+  let rows=db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c));
   rows=rows.filter(c=>(!pn||c.partNo===pn)&&(!st||c.processCode===st));
   if(state==='stock') rows=rows.filter(c=>remaining(c.cid)>0);
   if(state==='moved') rows=rows.filter(c=>remaining(c.cid)<=0);
@@ -3151,7 +3234,7 @@ function renderAllTable(){
     #a_table td:nth-child(10){white-space:nowrap;font-size:11px}
     #a_table .stg{font-size:9.5px;color:var(--muted);font-family:Consolas,monospace}
   </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ OK合計 ${tot} ｜ 結存合計 <b>${remTot}</b>　<span class="muted small">點表頭可排序；機種請看批號首段、料號滑過箱號顯示</span></div>
-    ${rows.length?`<div class="tblwrap"><table><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('OK數'))}${TH('drawn',L('已領走'))}${TH('bal',L('結存'))}${TH('st',L('狀態'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}</tr></thead><tbody>
+    ${rows.length?`<div class="tblwrap"><table><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('OK數'))}${TH('drawn',L('已領走'))}${TH('bal',L('結存'))}${TH('st',L('狀態'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th></th></tr></thead><tbody>
     ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const tip='機種 '+(p.model||c.partNo)+'｜料號 '+c.partNo+(p.name?'｜'+p.name:'');
       return `<tr style="cursor:pointer" onclick="traceBox('${c.cid}')">
       <td style="white-space:nowrap" title="${esc(tip)}"><span class="badge">${esc(c.cid)}</span> <button class="btn ghost sm" onclick="event.stopPropagation();printLabels(['${esc(c.cid)}'])" title="補印此箱標籤">🖨</button>${c.workType==='rework'?` <span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工${c.reworkOrder?' '+esc(c.reworkOrder):''}</span>`:''}${c.workType==='release'?' <span class="pill" style="background:#e6f4ec;color:#1f8a4c;font-size:10px">放行</span>':''}</td>
@@ -3159,8 +3242,9 @@ function renderAllTable(){
       <td class="mono small">${esc(c.lot||'-')}${c.stagePartNo?`<div class="stg">${esc(c.stagePartNo)}</div>`:''}</td>
       <td><span class="pill ${isOS(c.partNo,c.processCode)?'os':(isFinished(c)?'pk':'dc')}">${stN(c.processCode)}</span></td>
       ${hlCell(c.cid,'ok',`${c.qty}`)}<td class="muted">${drawnOut(c.cid)}</td>${hlCell(c.cid,'balance',`<b style="color:var(--teal)">${remaining(c.cid)}</b>`)}
-      <td class="small">${remaining(c.cid)>0?'<span class="pill ok">在庫</span>':'<span class="muted">已轉出</span>'}</td>
+      <td class="small">${c.voidAt?`<span class="pill ng" title="${esc(c.voidNote||'')} ${esc(c.voidBy||'')}">已作廢</span>`:(remaining(c.cid)>0?'<span class="pill ok">在庫</span>':'<span class="muted">已轉出</span>')}</td>
       <td class="small muted" style="white-space:nowrap">${esc(c.operator||'-')}</td><td class="small muted" title="${esc((c.createdAt||'').replace('T',' ').slice(0,16))}">${esc((c.createdAt||'').replace('T',' ').slice(5,16))}</td>
+      <td style="white-space:nowrap">${can('all','e')||can('create','e')?`<button class="btn ghost sm" onclick="event.stopPropagation();voidBox('${esc(c.cid)}')" title="${c.voidAt?'恢復此箱':'作廢此箱（記錄保留）'}">${c.voidAt?'↩ 恢復':'⊘ 作廢'}</button>`:''}</td>
 </tr>`; }).join('')}
     </tbody></table></div>`:'<div class="empty">無符合資料</div>'}`;
 }
