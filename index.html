@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v95-2</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v96-5</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -164,19 +164,28 @@
   .note{background:var(--goldbg);border-left:4px solid var(--gold);padding:11px 14px;border-radius:6px;font-size:12.5px;margin-bottom:16px}
   /* 84-5 標籤＝直式 寬60mm×高80mm（使用者定案）＝原本樣式（深藍表頭卡）＋Code 128（值靠左、每欄獨立一列、含 CID 列） */
   .lblcard{border:1.5px solid var(--navy);border-radius:2.5mm;width:60mm;height:80mm;background:#fff;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
-  .lblcard .hd{display:flex;justify-content:space-between;align-items:center;background:var(--navy);padding:2.2mm 3mm;flex:0 0 auto}
-  .lblcard .hd b{color:#fff;font-size:10.5pt}
-  .lblcard .hd .small{font-size:8pt;color:#CFD8EA}
+  .lblcard .hd{display:flex;justify-content:space-between;align-items:center;background:var(--navy);padding:1.4mm 2.5mm;flex:0 0 auto;overflow:hidden}
+  /* ★96-1 表頭鎖一行＋縮高（使用者定案）；★96-2 內距微收＝21 站「中＋越」全數實測放得下（最長=振研 Đánh bóng rung） */
+  .lblcard .hd b{color:#fff;font-size:10pt;white-space:nowrap}
+  .lblcard .hd .small{font-size:8pt;color:#CFD8EA;white-space:nowrap;margin-left:1mm;overflow:hidden;text-overflow:ellipsis}
   /* 84-6 字體加大（好查看）：欄名9pt/值10pt；LOT·階段料號長字串8pt(.sm)；CID·QTY 重點加粗10.5pt(.big)；條碼確實置中 */
-  .lblbody{padding:1.2mm 3mm 0;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
-  .lblrow{display:flex;align-items:baseline;font-size:9pt;line-height:1.25;padding:.7mm 0}
+  .lblbody{padding:1mm 3mm 0;display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  .lblrow{display:flex;align-items:baseline;font-size:9pt;line-height:1.2;padding:.4mm 0}   /* ★96-1 行距縮小（使用者定案） */
   .lblrow span{color:#555;white-space:nowrap}
-  .lblrow span:first-child{flex:0 0 15mm}
+  .lblrow span:first-child{flex:0 0 11mm}   /* ★96-1 欄名去中文後縮窄（15→11mm），值區多 4mm */
   .lblrow b{font-family:Consolas,monospace;font-size:10pt;text-align:left;white-space:nowrap}
   .lblrow b.sm{font-size:8pt}
   .lblrow b.big{font-size:10.5pt;font-weight:800}
   .lblrow b.wr{white-space:normal;line-height:1.15;font-size:9.5pt}
-  .barwrap{margin-top:auto;text-align:center;padding:1mm 0 2mm}
+  /* ★96-1 OP/QC 人名列：越中雙名（如 Vương Văn Thiệu 王文邵）超過 60mm 會被切——
+     改 8.5pt＋允許折行，短名維持一行、長名完整印出不截斷 */
+  .lblrow b.nm{font-size:8.5pt;white-space:normal;line-height:1.15;word-break:break-word}
+  .barid .barcap{font-size:8pt;color:#556;font-weight:400;letter-spacing:0;margin-left:2mm}
+  /* ★96-1 批次序號放 QR 同高度右側空白（使用者定案）：QR 置中不動、序號絕對定位在右側垂直置中 */
+  .barwrap .capside{position:absolute;right:3mm;top:50%;transform:translateY(-50%);font-family:Consolas,monospace;font-size:8pt;color:#556}
+  /* ★96-1 QR/條碼不再貼底（使用者定案）：原 margin-top:auto 貼底＝內容一多（人名折行）就被擠壓、
+     箱號字被裁掉；改跟在最後一欄後面，底部留白當緩衝，折行只吃留白不吃條碼 */
+  .barwrap{margin-top:1mm;text-align:center;padding:0 0 1mm;flex:0 0 auto}
   .barwrap svg{width:100%;max-width:52mm;height:11mm;display:block;margin:0 auto}
   /* ★88-7 QR 尺寸限制（標籤 60×80mm，QR 控在 16mm 見方；display:block 消除 inline 行高留白，
      否則底下的箱號文字會被擠出卡片） */
@@ -186,7 +195,9 @@
   .qrwrap{display:flex;gap:16px;align-items:center;margin-top:12px}
   #qrbox img,#qrbox canvas,.qrbox img,.qrbox canvas{border:1px solid var(--line);border-radius:6px}
   /* A2 列印標籤浮層：多張標籤排版＋只印標籤 */
-  #printOverlay{display:none;position:fixed;inset:0;background:rgba(15,25,45,.55);z-index:200;overflow:auto;padding:20px}
+  /* ★96-1 浮層背景改不透明：原 rgba .55 半透明，底下頁面（建箱後 #labelArea 的整批標籤）會透出來，
+     跟浮層裡的標籤視覺交錯、像「超出頁面」；列印本來就只印浮層，改不透明只影響螢幕預覽 */
+  #printOverlay{display:none;position:fixed;inset:0;background:#16233C;z-index:200;overflow:auto;padding:20px}
   #printOverlay .po-bar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:10px 14px;margin:0 auto 14px;max-width:920px;box-shadow:0 2px 12px rgba(0,0,0,.18)}
   #printOverlay .po-labels{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:920px;margin:0 auto}
   @media print{
@@ -286,7 +297,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v95-2</span>
+      <span class="tag">開發測試版 v96-5</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -683,9 +694,32 @@ function pnNm(pn){ const p=prodOf(pn); return p&&p.name?p.name:''; }
 /* 料號：有自訂料號(partNo≠機種)用它；否則帶該機種「成品(末站)階段料號」 */
 function pnoOf(pn){ const p=prodOf(pn)||{}; if(p.model&&pn&&pn!==p.model) return pn; const r=p.route||[]; const last=r[r.length-1]; return (p.stages&&last&&p.stages[last])||''; }
 function pnCell(pn){ const p=prodOf(pn)||{}; const md=p.model||pn; const lo=pnoOf(pn); const nm=p.name||''; return `<b>${esc(md)}</b>${lo?` <span class="mono small">${esc(lo)}</span>`:''}${nm?` <span class="muted small">— ${esc(nm)}</span>`:''}`; }
+/* ★96-5 06頁縮寬用：pnTip=滑過提示文字(機種｜品名，料號已在格內)；srcCids=來源箱號去重（領用明細放 title） */
+function pnTip(pn){ const p=prodOf(pn)||{}; const md=p.model||pn; return '機種 '+md+(p.name?'｜'+p.name:''); }
+function srcCids(c){ const ids=[...new Set((c.sources||[]).map(s=>s.cid))]; return ids.map(esc).join('<br>')||'—'; }   /* ★96-5b 不同來源箱分行呈現（使用者定案） */
 /* 機種下拉的統一規則（與 pnCell 同序：機種 ｜ 料號 — 品名）。所有「選機種」下拉都用它，value 一律 partNo。
    placeholder=第一個空選項文字；sel=要預選的 partNo；list=自訂產品清單(預設全部)。 */
 function prodOptions(placeholder,sel,list){ const ps=list||db.data.products; return `<option value="">${esc(placeholder||'')}</option>`+ps.map(p=>{ const md=p.model||p.partNo; const lo=pnoOf(p.partNo); const nm=p.name||''; const lbl=md+(lo&&lo!==md?' ｜ '+lo:'')+(nm?' — '+nm:''); return `<option value="${esc(p.partNo)}"${sel&&sel===p.partNo?' selected':''}>${esc(lbl)}</option>`; }).join(''); }
+/* ★96 可打字組合框（datalist 共用元件）：items=[{v:實際值,t:顯示文字}]。
+   點開=全清單、打字=瀏覽器原生縮小、選定=帶入顯示文字；comboResolve 把輸入翻回實際值——
+   空輸入=''(全部)、完整命中(顯示文字或值)=該筆、部分字串唯一命中=該筆、對不到或多筆=null(呼叫端提示) */
+/* ★96-4c 組合框可「自由重選」（使用者回饋：選了就不能重選）——datalist 有字時下拉只列符合字串的選項，
+   所以：①點進欄位＝暫清原值（記在 data-prev）讓完整清單展開；點走沒改＝自動還原，不會弄丟
+   ②有任何實際輸入/選擇＝清掉 data-prev（使用者主動改，不還原）③清單頂端加「全部…」選項供滑鼠清除單欄 */
+function comboHTML(id,items,ph,on){ return `<input id="${id}" list="${id}_dl" placeholder="${esc(ph)}" autocomplete="off" onfocus="comboFocus(this)" onblur="comboBlur(this)" oninput="comboNorm(this)${on?';'+on:''}"><datalist id="${id}_dl" data-ph="${esc(ph)}">${comboOpts(items,ph)}</datalist>`; }
+function comboOpts(items,ph){ return `<option value="${esc(ph)}"></option>`+items.map(o=>`<option value="${esc(o.t)}"></option>`).join(''); }
+function comboFill(id,items){ const dl=$('#'+id+'_dl'); if(dl) dl.innerHTML=comboOpts(items,dl.getAttribute('data-ph')||''); }
+function comboFocus(el){ el.dataset.prev=el.value||''; if(el.value) el.value=''; }
+function comboBlur(el){ if(!el.value.trim()&&(el.dataset.prev||'')!=='') el.value=el.dataset.prev; el.dataset.prev=''; }
+function comboNorm(el){ const dl=document.getElementById(el.getAttribute('list')); const ph=dl?dl.getAttribute('data-ph'):'';
+  if(ph&&el.value===ph) el.value='';   /* 選了「全部…」＝清空該欄 */
+  el.dataset.prev='';                   /* 使用者主動輸入/選擇 → 之後失焦不還原 */ }
+function comboResolve(id,items){ const el=$('#'+id); const raw=el?el.value.trim():''; if(!raw) return '';
+  const low=raw.toLowerCase();
+  const exact=items.find(o=>String(o.t).toLowerCase()===low||String(o.v).toLowerCase()===low); if(exact) return exact.v;
+  const part=items.filter(o=>(String(o.t)+' '+String(o.v)).toLowerCase().includes(low));
+  return part.length===1?part[0].v:null; }
+function comboItemsProd(list){ return (list||db.data.products).map(p=>{ const md=p.model||p.partNo, lo=pnoOf(p.partNo), nm=p.name||''; return {v:p.partNo,t:md+(lo&&lo!==md?' ｜ '+lo:'')+(nm?' — '+nm:'')}; }); }
 /* 工單號跨頁連到該工單進度 */
 /* 到站高亮：跨頁帶高亮目標，目標頁渲染後把對應元素(data-hl)標底色＋捲到中央＋閃爍 */
 function setHL(type,val,focus){ window._hl={type,val,focus:focus||''}; }
@@ -754,7 +788,7 @@ function qmsBadge(c){ const q=qmsReport(c);
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const I18N={"接收點交": {"en": "Receive", "vn": "Nhận bàn giao"}, "生產指令單": {"en": "Jobs", "vn": "Lệnh sản xuất"}, "不良 / 重工": {"en": "NR / Rework", "vn": "Hàng lỗi / Làm lại"}, "製程主檔": {"en": "Process Master", "vn": "DM công đoạn"}, "廠商主檔": {"en": "Vendors", "vn": "Nhà cung cấp"}, "設備主檔": {"en": "Equipment", "vn": "DM thiết bị"}, "模具/治夾具": {"en": "Molds & Jigs", "vn": "Khuôn / Đồ gá"}, "名單管理": {"en": "Users", "vn": "Người dùng"}, "總覽": {"en": "Dashboard", "vn": "Tổng quan"}, "產品 / BOM": {"en": "Products / BOM", "vn": "Sản phẩm / BOM"}, "建箱": {"en": "Create", "vn": "Tạo thùng"}, "過站報工": {"en": "Report", "vn": "Báo công"}, "混批換箱": {"en": "Repack", "vn": "Đổi thùng"}, "追溯查詢": {"en": "Trace", "vn": "Truy xuất"}, "全部箱號": {"en": "All Boxes", "vn": "Tất cả thùng"}, "總覽 Dashboard": {"en": "Dashboard", "vn": "Tổng quan", "key": "總覽"}, "建箱（首站入庫）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "建箱（首站）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "過站報工（領料 / 出庫）": {"en": "Process Report (Draw / Out)", "vn": "Báo công (Lĩnh / Xuất)"}, "混批換箱（烤漆 / 粉烤）": {"en": "Repack (Painting)", "vn": "Đổi thùng (Sơn)"}, "追溯查詢頁": {"en": "Traceability", "vn": "Truy xuất"}, "產品 / 機種 BOM": {"en": "Products / Models BOM", "vn": "Sản phẩm / BOM", "key": "產品 / 機種 BOM"}, "產品/機種": {"en": "Products", "vn": "Sản phẩm"}, "在製批次": {"en": "WIP Batches", "vn": "Lô đang SX"}, "累計 NR 可重工": {"en": "Total NR (Rework)", "vn": "NR (Sửa lại)"}, "累計 NG 報廢": {"en": "Total NG (Scrap)", "vn": "NG (Phế)"}, "區間總投入": {"en": "Total Input", "vn": "Tổng đầu vào"}, "真實良率（加總）": {"en": "Actual Yield", "vn": "Tỷ lệ đạt thực"}, "NR 累計": {"en": "Total NR", "vn": "Tổng NR"}, "NG 累計": {"en": "Total NG", "vn": "Tổng NG"}, "目前在製批次": {"en": "Batches in Production", "vn": "Lô đang sản xuất"}, "各製程 產出 / 轉出 / 結存": {"en": "Output / Transfer / Balance by Process", "vn": "Sản lượng theo công đoạn"}, "最近箱號": {"en": "Recent Boxes", "vn": "Thùng gần đây"}, "① 貼上 BOM 快速建立": {"en": "① Paste BOM to Create", "vn": "① Dán BOM để tạo nhanh"}, "② 確認 / 手動調整": {"en": "② Confirm / Adjust", "vn": "② Xác nhận / Điều chỉnh"}, "已建立產品 / 機種": {"en": "Created Products / Models", "vn": "Sản phẩm đã tạo"}, "建立新箱": {"en": "Create New Box", "vn": "Tạo thùng mới"}, "箱號標籤": {"en": "Box Label", "vn": "Nhãn thùng"}, "① 加入來源箱（可分次部分領用、可多箱）": {"en": "① Add Source Box (partial / multiple)", "vn": "① Thêm thùng nguồn (lĩnh từng phần / nhiều thùng)"}, "② 完工報工": {"en": "② Finish & Report →", "vn": "② Báo công →"}, "① 選擇進爐來源箱（全量領用，可多選）": {"en": "① Select Source Boxes into Oven (full draw)", "vn": "① Chọn thùng vào lò (lĩnh toàn bộ)"}, "② 出爐重新裝箱": {"en": "② Repack after Oven", "vn": "② Đóng thùng lại sau lò"}, "① 箱號直查": {"en": "① Search by Box ID", "vn": "① Tra theo mã thùng"}, "② 依機種 / 製程查詢": {"en": "② By Model / Process", "vn": "② Theo model / công đoạn"}, "③ 依批號查找": {"en": "③ By Lot", "vn": "③ Theo số lô"}, "④ 區間累計不良分析": {"en": "④ Period Defect Analysis", "vn": "④ Phân tích lỗi theo kỳ"}, "追溯履歷（依此箱的真實流轉路徑 · 製程順序橫排）": {"en": "Trace History (real path of this box · by process order)", "vn": "Lịch sử truy xuất (theo đường đi thực của thùng)"}, "機種/料號": {"en": "Model/Item", "vn": "Model/Item"}, "批號": {"en": "Lot", "vn": "Số lô"}, "目前製程站": {"en": "Current Process", "vn": "Công đoạn hiện tại"}, "在庫(結存)": {"en": "In Stock", "vn": "Tồn"}, "狀態": {"en": "Status", "vn": "Trạng thái"}, "箱號": {"en": "Box ID", "vn": "Mã thùng"}, "機種": {"en": "Model", "vn": "Model"}, "工序": {"en": "Process", "vn": "Công đoạn"}, "OK數": {"en": "OK Qty", "vn": "SL OK"}, "結存": {"en": "Balance", "vn": "Tồn"}, "作業員": {"en": "Operator", "vn": "Công nhân"}, "時間": {"en": "Time", "vn": "Thời gian"}, "製程站": {"en": "Process", "vn": "Công đoạn"}, "投入(領料)": {"en": "Input (Draw)", "vn": "Đầu vào"}, "OK產出": {"en": "OK Output", "vn": "SL OK"}, "已轉下站": {"en": "Transferred", "vn": "Đã chuyển"}, "結存(在庫)": {"en": "Balance", "vn": "Tồn"}, "在庫箱": {"en": "Boxes", "vn": "Số thùng"}, "NR可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "良率": {"en": "Yield", "vn": "Tỷ lệ đạt"}, "已領走": {"en": "Drawn", "vn": "Đã lĩnh"}, "來源": {"en": "Source", "vn": "Nguồn"}, "料號/機種": {"en": "PN/Model", "vn": "PN/Model"}, "品名": {"en": "Name", "vn": "Tên"}, "製程路線（含階段料號）": {"en": "Route (w/ Stage PN)", "vn": "Tuyến công đoạn"}, "來源箱": {"en": "Source Box", "vn": "Thùng nguồn"}, "本次領用": {"en": "Qty", "vn": "SL lĩnh"}, "新箱號": {"en": "New Box ID", "vn": "Mã thùng mới"}, "數量": {"en": "Qty", "vn": "Số lượng"}, "階段料號": {"en": "Stage PN", "vn": "PN công đoạn"}, "製程": {"en": "Process", "vn": "Công đoạn"}, "站": {"en": "Process", "vn": "Công đoạn"}, "投入": {"en": "Input", "vn": "Đầu vào"}, "不良率": {"en": "Defect %", "vn": "Tỷ lệ lỗi"}, "分布": {"en": "Distribution", "vn": "Phân bố"}, "最後報工": {"en": "Last Report", "vn": "Báo công cuối"}, "順序": {"en": "Seq", "vn": "Thứ tự"}, "領料": {"en": "Drawn", "vn": "Lĩnh"}, "班別": {"en": "Shift", "vn": "Ca"}, "產出箱": {"en": "Output Box", "vn": "Thùng ra"}, "入庫次序": {"en": "Seq", "vn": "Thứ tự"}, "設備": {"en": "Machine", "vn": "Máy"}, "QMS判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS單號": {"en": "QMS No.", "vn": "Số QMS"}, "追溯項目": {"en": "Trace Item", "vn": "Mục truy xuất"}, "本鏈領用": {"en": "Drawn (chain)", "vn": "Lĩnh (chuỗi)"}, "NR 可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG 報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "OK 數": {"en": "OK Qty", "vn": "SL OK"}, "QMS 檢驗": {"en": "QMS Inspection", "vn": "Kiểm QMS"}, "QMS 判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS 量測": {"en": "QMS Measure", "vn": "Đo QMS"}, "QMS 單號": {"en": "QMS No.", "vn": "Số QMS"}, "篩選機種": {"en": "Filter Model", "vn": "Lọc model"}, "料號 / 機種": {"en": "PN / Model", "vn": "PN / Model"}, "各站階段料號（選填）": {"en": "Stage PN (optional)", "vn": "PN công đoạn (tùy chọn)"}, "產品 / 機種": {"en": "Product / Model", "vn": "Sản phẩm / Model"}, "生產指令單號（選填）": {"en": "Order No. (optional)", "vn": "Số lệnh SX (tùy chọn)"}, "班別（選填）": {"en": "Shift (optional)", "vn": "Ca (tùy chọn)"}, "OK 數量": {"en": "OK Qty", "vn": "SL OK"}, "掃描來源箱號 CID": {"en": "Scan Source Box ID", "vn": "Quét mã thùng nguồn"}, "本次領用數": {"en": "Draw Qty", "vn": "SL lĩnh"}, "OK（良品，轉下站）": {"en": "OK (good → next)", "vn": "OK (đạt → tiếp)"}, "NR（可重工）": {"en": "NR (rework)", "vn": "NR (sửa lại)"}, "NG（報廢）": {"en": "NG (scrap)", "vn": "NG (phế)"}, "產出去向": {"en": "Output To", "vn": "Đầu ra"}, "委外廠商": {"en": "Vendor", "vn": "NCC gia công"}, "出爐良品總數": {"en": "Total Good Qty", "vn": "Tổng SL đạt"}, "每箱裝入 pcs": {"en": "Per Box (pcs)", "vn": "Mỗi thùng (pcs)"}, "搜尋（箱號 / 批號 / 機種 / 作業員）": {"en": "Search (Box / Lot / Model / Operator)", "vn": "Tìm (thùng / lô / model / CN)"}, "機種 / 料號": {"en": "Model / Item", "vn": "Model / Item"}, "檢視": {"en": "View", "vn": "Xem"}, "或直接輸入批號": {"en": "or enter Lot", "vn": "hoặc nhập số lô"}, "起日（含）": {"en": "Date From", "vn": "Từ ngày"}, "迄日（含）": {"en": "Date To", "vn": "Đến ngày"}, "箱號 CID": {"en": "Box ID", "vn": "Mã thùng", "key": "箱號"}, "刪除": {"en": "Delete", "vn": "Xóa"}, "解析 BOM → 套用": {"en": "Parse BOM → Apply", "vn": "Phân tích BOM → Áp dụng"}, "載入 BM04 範例": {"en": "Load BM04 Example", "vn": "Tải mẫu BM04"}, "＋ 儲存產品": {"en": "＋ Save Product", "vn": "＋ Lưu sản phẩm"}, "產生箱號 + 標籤": {"en": "Generate Box ID + Label", "vn": "Tạo mã thùng + nhãn"}, "加入領料": {"en": "Add Draw", "vn": "Thêm lĩnh"}, "移除": {"en": "Remove", "vn": "Bỏ"}, "📷掃碼": {"en": "📷 Scan", "vn": "📷 Quét"}, "完工報工": {"en": "Finish & Report", "vn": "Báo công"}, "出爐換箱": {"en": "Out of Oven & Repack", "vn": "Ra lò & đổi thùng"}, "追溯": {"en": "Trace", "vn": "Truy xuất"}, "查詢": {"en": "Search", "vn": "Tìm"}, "查批號": {"en": "Search Lot", "vn": "Tìm lô"}, "分析": {"en": "Analyze", "vn": "Phân tích"}, "全部機種": {"en": "All Models", "vn": "Tất cả model"}, "全部": {"en": "All", "vn": "Tất cả"}, "委外": {"en": "Outsourced", "vn": "Gia công ngoài"}, "選現有批號": {"en": "Pick existing lot", "vn": "Chọn lô có sẵn"}, "或手動輸入新批號": {"en": "or type a lot", "vn": "hoặc tự nhập lô"}, "日期": {"en": "Date", "vn": "Ngày"}, "全部日期": {"en": "All dates", "vn": "Tất cả ngày"}, "搜尋（箱號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / lô / model / máy / CN)"}};
+const I18N={"接收點交": {"en": "Receive", "vn": "Nhận bàn giao"}, "生產指令單": {"en": "Jobs", "vn": "Lệnh sản xuất"}, "不良 / 重工": {"en": "NR / Rework", "vn": "Hàng lỗi / Làm lại"}, "製程主檔": {"en": "Process Master", "vn": "DM công đoạn"}, "廠商主檔": {"en": "Vendors", "vn": "Nhà cung cấp"}, "設備主檔": {"en": "Equipment", "vn": "DM thiết bị"}, "模具/治夾具": {"en": "Molds & Jigs", "vn": "Khuôn / Đồ gá"}, "名單管理": {"en": "Users", "vn": "Người dùng"}, "總覽": {"en": "Dashboard", "vn": "Tổng quan"}, "產品 / BOM": {"en": "Products / BOM", "vn": "Sản phẩm / BOM"}, "建箱": {"en": "Create", "vn": "Tạo thùng"}, "過站報工": {"en": "Report", "vn": "Báo công"}, "混批換箱": {"en": "Repack", "vn": "Đổi thùng"}, "追溯查詢": {"en": "Trace", "vn": "Truy xuất"}, "全部箱號": {"en": "All Boxes", "vn": "Tất cả thùng"}, "總覽 Dashboard": {"en": "Dashboard", "vn": "Tổng quan", "key": "總覽"}, "建箱（首站入庫）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "建箱（首站）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "過站報工（領料 / 出庫）": {"en": "Process Report (Draw / Out)", "vn": "Báo công (Lĩnh / Xuất)"}, "混批換箱（烤漆 / 粉烤）": {"en": "Repack (Painting)", "vn": "Đổi thùng (Sơn)"}, "追溯查詢頁": {"en": "Traceability", "vn": "Truy xuất"}, "產品 / 機種 BOM": {"en": "Products / Models BOM", "vn": "Sản phẩm / BOM", "key": "產品 / 機種 BOM"}, "產品/機種": {"en": "Products", "vn": "Sản phẩm"}, "在製批次": {"en": "WIP Batches", "vn": "Lô đang SX"}, "累計 NR 可重工": {"en": "Total NR (Rework)", "vn": "NR (Sửa lại)"}, "累計 NG 報廢": {"en": "Total NG (Scrap)", "vn": "NG (Phế)"}, "區間總投入": {"en": "Total Input", "vn": "Tổng đầu vào"}, "真實良率（加總）": {"en": "Actual Yield", "vn": "Tỷ lệ đạt thực"}, "NR 累計": {"en": "Total NR", "vn": "Tổng NR"}, "NG 累計": {"en": "Total NG", "vn": "Tổng NG"}, "目前在製批次": {"en": "Batches in Production", "vn": "Lô đang sản xuất"}, "各製程 產出 / 轉出 / 結存": {"en": "Output / Transfer / Balance by Process", "vn": "Sản lượng theo công đoạn"}, "最近箱號": {"en": "Recent Boxes", "vn": "Thùng gần đây"}, "① 貼上 BOM 快速建立": {"en": "① Paste BOM to Create", "vn": "① Dán BOM để tạo nhanh"}, "② 確認 / 手動調整": {"en": "② Confirm / Adjust", "vn": "② Xác nhận / Điều chỉnh"}, "已建立產品 / 機種": {"en": "Created Products / Models", "vn": "Sản phẩm đã tạo"}, "建立新箱": {"en": "Create New Box", "vn": "Tạo thùng mới"}, "箱號標籤": {"en": "Box Label", "vn": "Nhãn thùng"}, "① 加入來源箱（可分次部分領用、可多箱）": {"en": "① Add Source Box (partial / multiple)", "vn": "① Thêm thùng nguồn (lĩnh từng phần / nhiều thùng)"}, "② 完工報工": {"en": "② Finish & Report →", "vn": "② Báo công →"}, "① 選擇進爐來源箱（全量領用，可多選）": {"en": "① Select Source Boxes into Oven (full draw)", "vn": "① Chọn thùng vào lò (lĩnh toàn bộ)"}, "② 出爐重新裝箱": {"en": "② Repack after Oven", "vn": "② Đóng thùng lại sau lò"}, "① 箱號直查": {"en": "① Search by Box ID", "vn": "① Tra theo mã thùng"}, "② 依機種 / 製程查詢": {"en": "② By Model / Process", "vn": "② Theo model / công đoạn"}, "③ 依批號查找": {"en": "③ By Lot", "vn": "③ Theo số lô"}, "④ 區間累計不良分析": {"en": "④ Period Defect Analysis", "vn": "④ Phân tích lỗi theo kỳ"}, "追溯履歷（依此箱的真實流轉路徑 · 製程順序橫排）": {"en": "Trace History (real path of this box · by process order)", "vn": "Lịch sử truy xuất (theo đường đi thực của thùng)"}, "機種/料號": {"en": "Model/Item", "vn": "Model/Item"}, "批號": {"en": "Lot", "vn": "Số lô"}, "目前製程站": {"en": "Current Process", "vn": "Công đoạn hiện tại"}, "在庫(結存)": {"en": "In Stock", "vn": "Tồn"}, "狀態": {"en": "Status", "vn": "Trạng thái"}, "箱號": {"en": "Box ID", "vn": "Mã thùng"}, "機種": {"en": "Model", "vn": "Model"}, "工序": {"en": "Process", "vn": "Công đoạn"}, "OK數": {"en": "OK Qty", "vn": "SL OK"}, "結存": {"en": "Balance", "vn": "Tồn"}, "作業員": {"en": "Operator", "vn": "Công nhân"}, "時間": {"en": "Time", "vn": "Thời gian"}, "製程站": {"en": "Process", "vn": "Công đoạn"}, "投入(領料)": {"en": "Input (Draw)", "vn": "Đầu vào"}, "OK產出": {"en": "OK Output", "vn": "SL OK"}, "已轉下站": {"en": "Transferred", "vn": "Đã chuyển"}, "結存(在庫)": {"en": "Balance", "vn": "Tồn"}, "在庫箱": {"en": "Boxes", "vn": "Số thùng"}, "NR可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "良率": {"en": "Yield", "vn": "Tỷ lệ đạt"}, "已領走": {"en": "Drawn", "vn": "Đã lĩnh"}, "來源": {"en": "Source", "vn": "Nguồn"}, "料號/機種": {"en": "PN/Model", "vn": "PN/Model"}, "品名": {"en": "Name", "vn": "Tên"}, "製程路線（含階段料號）": {"en": "Route (w/ Stage PN)", "vn": "Tuyến công đoạn"}, "來源箱": {"en": "Source Box", "vn": "Thùng nguồn"}, "本次領用": {"en": "Qty", "vn": "SL lĩnh"}, "新箱號": {"en": "New Box ID", "vn": "Mã thùng mới"}, "數量": {"en": "Qty", "vn": "Số lượng"}, "階段料號": {"en": "Stage PN", "vn": "PN công đoạn"}, "製程": {"en": "Process", "vn": "Công đoạn"}, "站": {"en": "Process", "vn": "Công đoạn"}, "投入": {"en": "Input", "vn": "Đầu vào"}, "不良率": {"en": "Defect %", "vn": "Tỷ lệ lỗi"}, "分布": {"en": "Distribution", "vn": "Phân bố"}, "最後報工": {"en": "Last Report", "vn": "Báo công cuối"}, "順序": {"en": "Seq", "vn": "Thứ tự"}, "領料": {"en": "Drawn", "vn": "Lĩnh"}, "班別": {"en": "Shift", "vn": "Ca"}, "產出箱": {"en": "Output Box", "vn": "Thùng ra"}, "入庫次序": {"en": "Seq", "vn": "Thứ tự"}, "設備": {"en": "Machine", "vn": "Máy"}, "QMS判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS單號": {"en": "QMS No.", "vn": "Số QMS"}, "追溯項目": {"en": "Trace Item", "vn": "Mục truy xuất"}, "本鏈領用": {"en": "Drawn (chain)", "vn": "Lĩnh (chuỗi)"}, "NR 可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG 報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "OK 數": {"en": "OK Qty", "vn": "SL OK"}, "QMS 檢驗": {"en": "QMS Inspection", "vn": "Kiểm QMS"}, "QMS 判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS 量測": {"en": "QMS Measure", "vn": "Đo QMS"}, "QMS 單號": {"en": "QMS No.", "vn": "Số QMS"}, "篩選機種": {"en": "Filter Model", "vn": "Lọc model"}, "料號 / 機種": {"en": "PN / Model", "vn": "PN / Model"}, "各站階段料號（選填）": {"en": "Stage PN (optional)", "vn": "PN công đoạn (tùy chọn)"}, "產品 / 機種": {"en": "Product / Model", "vn": "Sản phẩm / Model"}, "生產指令單號（選填）": {"en": "Order No. (optional)", "vn": "Số lệnh SX (tùy chọn)"}, "班別（選填）": {"en": "Shift (optional)", "vn": "Ca (tùy chọn)"}, "OK 數量": {"en": "OK Qty", "vn": "SL OK"}, "掃描來源箱號 CID": {"en": "Scan Source Box ID", "vn": "Quét mã thùng nguồn"}, "本次領用數": {"en": "Draw Qty", "vn": "SL lĩnh"}, "OK（良品，轉下站）": {"en": "OK (good → next)", "vn": "OK (đạt → tiếp)"}, "NR（可重工）": {"en": "NR (rework)", "vn": "NR (sửa lại)"}, "NG（報廢）": {"en": "NG (scrap)", "vn": "NG (phế)"}, "產出去向": {"en": "Output To", "vn": "Đầu ra"}, "委外廠商": {"en": "Vendor", "vn": "NCC gia công"}, "出爐良品總數": {"en": "Total Good Qty", "vn": "Tổng SL đạt"}, "每箱裝入 pcs": {"en": "Per Box (pcs)", "vn": "Mỗi thùng (pcs)"}, "搜尋（箱號 / 批號 / 機種 / 作業員）": {"en": "Search (Box / Lot / Model / Operator)", "vn": "Tìm (thùng / lô / model / CN)"}, "機種 / 料號": {"en": "Model / Item", "vn": "Model / Item"}, "檢視": {"en": "View", "vn": "Xem"}, "或直接輸入批號": {"en": "or enter Lot", "vn": "hoặc nhập số lô"}, "起日（含）": {"en": "Date From", "vn": "Từ ngày"}, "迄日（含）": {"en": "Date To", "vn": "Đến ngày"}, "箱號 CID": {"en": "Box ID", "vn": "Mã thùng", "key": "箱號"}, "刪除": {"en": "Delete", "vn": "Xóa"}, "解析 BOM → 套用": {"en": "Parse BOM → Apply", "vn": "Phân tích BOM → Áp dụng"}, "載入 BM04 範例": {"en": "Load BM04 Example", "vn": "Tải mẫu BM04"}, "＋ 儲存產品": {"en": "＋ Save Product", "vn": "＋ Lưu sản phẩm"}, "產生箱號 + 標籤": {"en": "Generate Box ID + Label", "vn": "Tạo mã thùng + nhãn"}, "加入領料": {"en": "Add Draw", "vn": "Thêm lĩnh"}, "移除": {"en": "Remove", "vn": "Bỏ"}, "📷掃碼": {"en": "📷 Scan", "vn": "📷 Quét"}, "完工報工": {"en": "Finish & Report", "vn": "Báo công"}, "出爐換箱": {"en": "Out of Oven & Repack", "vn": "Ra lò & đổi thùng"}, "追溯": {"en": "Trace", "vn": "Truy xuất"}, "查詢": {"en": "Search", "vn": "Tìm"}, "查批號": {"en": "Search Lot", "vn": "Tìm lô"}, "分析": {"en": "Analyze", "vn": "Phân tích"}, "全部機種": {"en": "All Models", "vn": "Tất cả model"}, "全部": {"en": "All", "vn": "Tất cả"}, "委外": {"en": "Outsourced", "vn": "Gia công ngoài"}, "選現有批號": {"en": "Pick existing lot", "vn": "Chọn lô có sẵn"}, "或手動輸入新批號": {"en": "or type a lot", "vn": "hoặc tự nhập lô"}, "日期": {"en": "Date", "vn": "Ngày"}, "全部日期": {"en": "All dates", "vn": "Tất cả ngày"}, "搜尋（箱號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / lô / model / máy / CN)"}, "搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Job / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / Job / lô / model / máy / CN)"}, "全部工單": {"en": "All Jobs", "vn": "Tất cả Job"}, "工單號": {"en": "Job No.", "vn": "Số Job"}, "全部批號": {"en": "All Lots", "vn": "Tất cả lô"}, "② 依機種 / 工單 / 批號查詢": {"en": "② By Model / Job / Lot", "vn": "② Theo model / Job / lô"}, "③ 區間累計不良分析": {"en": "③ Period Defect Analysis", "vn": "③ Phân tích lỗi theo kỳ"}};
 let LANG=(function(){try{return localStorage.getItem('mhr_lang')||'EN';}catch(e){return 'EN';}})();
 function secOf(zh){ const e=I18N[zh]; if(!e) return ''; return (LANG==='VN'?e.vn:e.en)||''; }
 function L(zh){ const sec=secOf(zh); return sec? zh+'<span class="sec">'+sec+'</span>' : zh; }
@@ -767,8 +801,15 @@ function renderLangBar(){ const b=$('#langbar'); if(!b)return; b.innerHTML="<but
 function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||''); t.textContent=msg; setTimeout(()=>t.className='toast',2600); }
 function todayYMD(){ const d=new Date(); return String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0'); }
 /* ★94 pdate＝生產日期（YYYY-MM-DD）；補登舊 WIP 時箱號日期段用實際生產日 */
+/* ★96-2 箱號流水 4碼→5碼（大永定案 260730：月量可能破萬）＋改「取最大流水+1」——
+   原本用「同前綴箱數+1」，箱子被刪過（如清測試資料）數量變少→新號撞既有箱號，
+   而 cid 是雲端主鍵(upsert on_conflict=cid)，撞號＝靜默蓋掉舊箱。取最大值+1 永不回頭。
+   新舊混存 OK：parseInt 吃 4 碼(0067)/5 碼(00068) 都對；查詢/條碼/標籤全用完整字串無長度假設。 */
 function genCID(code,pdate){ const ymd=pdate?String(pdate).replace(/-/g,'').slice(2):todayYMD();
-  const pre=(code||'').split('+')[0]+ymd; const n=db.data.containers.filter(c=>c.cid&&c.cid.startsWith(pre)).length+1; return pre+String(n).padStart(4,'0'); }
+  const pre=(code||'').split('+')[0]+ymd;
+  const mx=db.data.containers.reduce((a,c)=>{ if(!c.cid||!c.cid.startsWith(pre)) return a;
+    const t=parseInt(c.cid.slice(pre.length),10); return (isFinite(t)&&t>a)?t:a; },0);
+  return pre+String(mx+1).padStart(5,'0'); }
 function findC(cid){ return db.data.containers.find(c=>c.cid===cid); }
 /* ===== 不良品 / 重工：核心模型 =====
    不良箱＝紅色容器(kind:NR/NG)，批+站一個、累加、sources 帶來源箱（結存可追）。
@@ -788,7 +829,11 @@ async function voidBox(cid){
 }
 function nowISO(){ return new Date().toISOString(); }
 // 不良箱號：類型-站碼-YYMMDD-序（一眼看出 哪種不良＋哪一站）
-function genDefCID(kind,code){ const pre=kind+'-'+(code||'').split('+')[0]+'-'+todayYMD()+'-'; const n=db.data.containers.filter(c=>c.cid&&c.cid.indexOf(pre)===0).length+1; return pre+String(n).padStart(3,'0'); }
+function genDefCID(kind,code){ const pre=kind+'-'+(code||'').split('+')[0]+'-'+todayYMD()+'-';
+  /* ★96-2 同 genCID 改「取最大流水+1」防刪箱後撞號（不良箱量少、維持 3 碼） */
+  const mx=db.data.containers.reduce((a,c)=>{ if(!c.cid||c.cid.indexOf(pre)!==0) return a;
+    const t=parseInt(c.cid.slice(pre.length),10); return (isFinite(t)&&t>a)?t:a; },0);
+  return pre+String(mx+1).padStart(3,'0'); }
 // 把領料量依序切給 OK/NR/NG，每個來源箱只被計一次 → 源箱結存才正確
 function splitDraws(draws,amounts){ const pool=draws.map(d=>({cid:d.cid,left:+d.take||0}));
   return amounts.map(amt=>{ let need=+amt||0; const out=[]; for(const p of pool){ if(need<=0)break; if(p.left<=0)continue; const t=Math.min(p.left,need); p.left-=t; need-=t; out.push({cid:p.cid,take:t}); } return out; }); }
@@ -1215,13 +1260,21 @@ function render(){ const v=$('#view');
 }
 
 /* ===== 站別產出帳：產出(OK) / 已轉下站 / 結存(在庫) / NR / NG ===== */
-function stationLedger(pn){
+function stationLedger(pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（追溯②用；不傳=全部，總覽等舊呼叫不受影響） */
   const led={};
   const g=code=>led[code]||(led[code]={input:0,out:0,moved:0,stock:0,boxes:0,nr:0,ng:0});
-  db.data.containers.forEach(c=>{ if(pn&&c.partNo!==pn) return; if(!isNormalBox(c)) return;
+  /* ★96-4b 報工的工單/批號比對加「產出箱回查」保險（鐵則：不得影響舊資料）——
+     舊報工欄位不全（orderNo 是 V86/260723 才開始存），直接比對會把投入/NR/NG 整段濾掉
+     （實測：批號查詢每站投入全變「首站」）。箱子欄位齊全＝正本，報工對不上就用 intoCid 回查產出箱。 */
+  let boxWo=null, boxLot=null;
+  if(wo||lot){ boxWo={}; boxLot={}; db.data.containers.forEach(c=>{ if(!c.cid) return; boxWo[c.cid]=c.orderNo||''; boxLot[c.cid]=c.lot||''; }); }
+  db.data.containers.forEach(c=>{ if(pn&&c.partNo!==pn) return; if(wo&&c.orderNo!==wo) return; if(lot&&c.lot!==lot) return; if(!isNormalBox(c)) return;
     const w=g(c.processCode); const mv=drawnOut(c.cid); const rem=(+c.qty||0)-mv;
     w.out+=(+c.qty||0); w.moved+=mv; w.stock+=rem; if(rem>0) w.boxes++; });
-  db.data.reports.forEach(r=>{ if(pn&&r.partNo!==pn) return; const w=g(r.toStation);
+  db.data.reports.forEach(r=>{ if(pn&&r.partNo!==pn) return;
+    if(wo&&!(r.orderNo===wo||(r.intoCid&&boxWo[r.intoCid]===wo))) return;
+    if(lot&&!(r.lot===lot||(r.intoCid&&boxLot[r.intoCid]===lot))) return;
+    const w=g(r.toStation);
     w.nr+=(+r.nr||0); w.ng+=(+r.ng||0); w.input+=(r.draws||[]).reduce((a,d)=>a+(+d.take||0),0); });
   return led;
 }
@@ -1659,7 +1712,9 @@ function userExportCsv(){
     const scope=(p.account_type==='admin'||p.mhr_role==='admin'||(p.site_codes||[]).includes('*'))?'全部':([].concat((p.bu_codes||[]).map(c=>c+'群'),(p.site_codes||[])).join('、')||p.vendor_code||'');
     rows.push([ scope&&p.account_type!=='admin'?(p.site_codes||[]).join('+')||p.vendor_code||'':'管理員', p.name||'', p.email, roles, scope, p.source==='oms'?'OMS名單':'MHR自建', p.active===false?'停用':'啟用' ]); });
   csvExport('MHR_登入帳號_'+new Date().toISOString().slice(0,10)+'.csv',rows); toast('已匯出 '+MHR_USERS.length+' 筆帳號','ok'); }
-const IMP_PROC_COLS=[['壓鑄','DC'],['機加','CN'],['打磨','GR'],['珠擊','BL'],['毛邊','DB'],['振研','VB'],['巡牙','TH'],['皮膜','CT'],['烤漆','PT'],['組立','AS'],['包裝','PK']];
+/* ★96-5e 原 IMP_PROC_COLS（寫死中文欄名→站碼）已移除：模板欄名「噴砂」對不到表裡的「珠擊」，
+   噴砂人員的製程歸屬被丟成空白＝不限站、每站作業員清單都冒出來（260730 實測 4 位中招）。
+   改為匯入時用 matchStation() 吃製程主檔別名對照（見 opImportCsv 內 _procCols）。 */
 /* ★88-8 支援 Excel(.xlsx) 直接匯入：讀進來轉成跟 CSV 一樣的 rows 陣列，之後流程完全共用。
    自動找表頭列（模板第 1 列是分組標題「基本資料/職能…」，真表頭在第 2 列）＋自動挑工牌分頁。 */
 function opImportCsv(ev){
@@ -1690,6 +1745,8 @@ function opImportCsv(ev){
     const iProd=col('生產'),iMc=col('物控'),iQc=col('質控'),iOther=col('其他');
     if(iBadge<0||iName<0) return toast('找不到「工號／姓名」欄位——請用「人員權限名單模板」的工牌頁另存 CSV','err');
     const chk=v=>/^[vV✓ｖ1yY]/.test(String(v||'').trim());
+    /* ★96-5e 製程欄對照＝主檔別名（噴砂→珠擊等自動對上）；只掃職能欄之後的表頭、排除「其他」欄 */
+    const _procCols=[]; hd.forEach((h,i)=>{ if(!h||i<=(iQc>=0?iQc:6)||/其他/.test(h)) return; const st=matchStation(h); if(st) _procCols.push({i,code:st.code}); });
     const list=[],errs=[];
     rows.slice(1).forEach((r,ix)=>{
       /* ★88-6 姓名清理＋拆分（比照 OMS VN：越南文=主名 name、中文=次名 eng_name）
@@ -1703,7 +1760,7 @@ function opImportCsv(ev){
       if(!badge&&!name) return;
       if(!badge||!name){ errs.push('第'+(ix+2)+'列 工號或姓名空白'); return; }
       const funcs=[]; if(iProd>=0&&chk(r[iProd]))funcs.push('生產'); if(iMc>=0&&chk(r[iMc]))funcs.push('物控'); if(iQc>=0&&chk(r[iQc]))funcs.push('質控');
-      const procs=[]; IMP_PROC_COLS.forEach(([nm,code])=>{ const i=col(nm); if(i>=0&&chk(r[i])&&!procs.includes(code)) procs.push(code); });
+      const procs=[]; _procCols.forEach(pc=>{ if(chk(r[pc.i])&&!procs.includes(pc.code)) procs.push(pc.code); });   /* ★96-5e 別名對照版 */
       if(iOther>=0){ String(r[iOther]||'').split(/[、,，;；\/ ]+/).forEach(t=>{ t=t.trim(); if(!t)return;
         const st=STATIONS.find(s=>s.zh===t||(s.alias||[]).includes(t)); if(st&&!procs.includes(st.code)) procs.push(st.code); }); }
       const siteTxt=String(iSite>=0?r[iSite]:'').trim()||'大永';   // ★88-6 廠區空白＝預設大永
@@ -1796,7 +1853,7 @@ function renderOpsSection(){
     if(_odep&&(o.dept||'')!==_odep) return false;
     if(window._opShift&&(o.shift_code||'')!==window._opShift) return false;   // ★88-10
     if(window._opTeam&&(o.team||'')!==window._opTeam) return false;
-    if(_opr&&!(o.procs||[]).includes(_opr)) return false;
+    if(_opr){ if(_opr==='__none'){ if((o.procs||[]).length) return false; } else if(!(o.procs||[]).includes(_opr)) return false; }   /* ★96-5e（未指定）＝製程歸屬空白的人 */
     if(!_oq) return true;
     return [o.badge,o.emp_id,o.name,o.eng_name,o.dept,oVal(o,'fn'),oVal(o,'pr')].some(v=>String(v||'').toLowerCase().includes(_oq));
   });
@@ -1835,7 +1892,7 @@ function renderOpsSection(){
       <div style="min-width:130px"><select onchange="window._opDep=this.value;render()"><option value="">全部部門</option>${[...new Set(MHR_OPS.map(o=>o.dept).filter(Boolean))].sort().map(d=>`<option value="${esc(d)}"${_odep===d?' selected':''}>${esc(d)}</option>`).join('')}</select></div>
       <div style="min-width:100px"><select onchange="window._opShift=this.value;render()"><option value="">全部班別</option>${['A','B','C'].map(x=>`<option value="${x}"${window._opShift===x?' selected':''}>${x} 班</option>`).join('')}</select></div>
       <div style="min-width:120px"><select onchange="window._opTeam=this.value;render()"><option value="">全部組別</option>${[...new Set(MHR_OPS.map(o=>o.team).filter(Boolean))].sort().map(t=>`<option value="${esc(t)}"${window._opTeam===t?' selected':''}>${esc(t)}</option>`).join('')}</select></div>
-      <div style="min-width:130px"><select onchange="window._opPr=this.value;render()"><option value="">全部製程</option>${[...new Set(MHR_OPS.flatMap(o=>o.procs||[]))].map(c=>`<option value="${esc(c)}"${_opr===c?' selected':''}>${esc(stOf(c).zh)}</option>`).join('')}</select></div>
+      <div style="min-width:130px"><select onchange="window._opPr=this.value;render()"><option value="">全部製程</option><option value="__none"${_opr==='__none'?' selected':''}>（未指定）</option>${[...new Set(MHR_OPS.flatMap(o=>o.procs||[]))].map(c=>`<option value="${esc(c)}"${_opr===c?' selected':''}>${esc(stOf(c).zh)}</option>`).join('')}</select></div>
       <div style="min-width:110px"><select onchange="window._opSt=this.value;render()"><option value="">全部狀態</option><option value="on"${_ost==='on'?' selected':''}>啟用</option><option value="off"${_ost==='off'?' selected':''}>停用</option></select></div>
       ${(_oq||_odep||_opr||_ost||window._opSite||window._opShift||window._opTeam||_osrt.key)?`<div><button class="btn ghost sm" onclick="window._opQ='';window._opDep='';window._opPr='';window._opSt='';window._opSite='';window._opShift='';window._opTeam='';window._opSort=null;render()">清除</button></div>`:''}
       <div class="small muted" style="align-self:center">顯示 ${_olist.length} / ${MHR_OPS.length} 人</div>
@@ -2397,7 +2454,7 @@ function teamOpts(code,shift,sel){ const ts=teamsFor(code,shift);
 function onCreFilter(){ const code=(window._creFirstCode||'');
   const sh=($('#c_shift')||{}).value||'', tm=($('#c_team')||{}).value||'';
   const tw=$('#c_team'); if(tw && tw.getAttribute('data-shift')!==sh){ tw.innerHTML=teamOpts(code,sh,''); tw.setAttribute('data-shift',sh); }
-  const op=$('#c_op'); if(op){ const cur=op.value; op.innerHTML=operatorOpts(cur,code,sh,($('#c_team')||{}).value||''); }
+  const op=$('#c_op'); if(op){ const cur=op.value; op.innerHTML=code?operatorOpts(cur,code,sh,($('#c_team')||{}).value||''):'<option value="">（請先選機種）</option>'; }   /* ★96-5c 未選機種不列人 */
   opBig('c_op','c_opbig'); }
 /* 報工：班別/組別變動 → 重整作業員清單 */
 function onRepFilter(){ const code=(window._repNextCode||'');
@@ -2628,11 +2685,11 @@ function renderCreate(){
       <label style="display:block;font-weight:600;color:var(--navy);margin-top:6px">② 生產資訊</label>
       <div class="grid g2" style="margin-top:4px">
         <div><label>工單號</label><input id="c_wo" class="mono" readonly placeholder="（引用工單後自動帶入）"></div>
-        <div><label>生產日期 <span class="vi">（★94 補登舊資料時可改；預設今天）</span></label><input id="c_pdate" type="date" value="${new Date().toISOString().slice(0,10)}" max="${new Date().toISOString().slice(0,10)}"></div>
+        <div><label>生產日期 <span class="vi">（可回填最近 15 天；預設今天）</span></label><input id="c_pdate" type="date" value="${new Date().toISOString().slice(0,10)}" min="${new Date(Date.now()-15*86400000).toISOString().slice(0,10)}" max="${new Date().toISOString().slice(0,10)}"></div>${''/* ★96-5d 回填範圍限最近15天（使用者定案：不應無期間限制） */}
         <div><label>班別 <span class="vi">（選了會縮小作業員清單）</span></label><select id="c_shift" onchange="onCreFilter()">${shiftOpts('')}</select></div>
         <div><label>組別(線別) <span class="vi">（選填）</span></label><select id="c_team" onchange="onCreFilter()"><option value="">（全部組別）</option></select></div>
         <div><label>設備 / 機台 <span style="color:var(--red)">*</span></label><select id="c_mc"></select></div>
-        <div><label>作業員</label><select id="c_op" onchange="opBig('c_op','c_opbig')">${operatorOpts(lastOp())}</select><div id="c_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>
+        <div><label>作業員</label><select id="c_op" onchange="opBig('c_op','c_opbig')"><option value="">（請先選機種）</option></select><div id="c_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>${''/* ★96-5c 未選機種不列人（與設備欄一致）：選了機種才依首站製程過濾（updFirst 會重建清單） */}
         <div id="c_qc_wrap"></div>
       </div>
       <div id="c_extra" class="grid g2" style="margin-top:6px"></div>
@@ -2651,7 +2708,7 @@ function renderCreate(){
   updFirst();
 }
 function updFirst(){ const pn=$('#c_pn')?$('#c_pn').value:''; const p=pn?prodOf(pn):null;
-  if(!p){ const f=$('#c_first'); if(f) f.innerHTML='<span class="muted small">請先選機種，下面會帶出該機種的製程路線與首站欄位</span>'; const mc=$('#c_mc'); if(mc) mc.innerHTML='<option value="">（請先選機種）</option>'; const ex=$('#c_extra'); if(ex) ex.innerHTML=''; const qw0=$('#c_qc_wrap'); if(qw0) qw0.innerHTML=''; opBig('c_op','c_opbig'); return; }
+  if(!p){ const f=$('#c_first'); if(f) f.innerHTML='<span class="muted small">請先選機種，下面會帶出該機種的製程路線與首站欄位</span>'; const mc=$('#c_mc'); if(mc) mc.innerHTML='<option value="">（請先選機種）</option>'; window._creFirstCode=''; const op0=$('#c_op'); if(op0) op0.innerHTML='<option value="">（請先選機種）</option>'; const ex=$('#c_extra'); if(ex) ex.innerHTML=''; const qw0=$('#c_qc_wrap'); if(qw0) qw0.innerHTML=''; opBig('c_op','c_opbig'); return; }   /* ★96-5c 清機種→作業員清單同步收起 */
   const fc=p.route[0];
   $('#c_first').innerHTML=`機種 <b>${esc(p.model||p.partNo)}</b>${p.customer?' ｜ 客戶 '+esc(p.customer):''}　｜　首站：<b style="color:var(--teal)">${stN(fc)} (${fc})</b>`+(stageNo(p.partNo,fc)?` ｜ 階段料號 <span class="mono">${esc(stageNo(p.partNo,fc))}</span>`:'')+`<div class="flow" style="margin-top:6px">`+p.route.map(c=>`<span class="st ${c===fc?'now':''}">${stN(c)}</span>`).join('<span class="ar"> → </span>')+`</div>`;
   const mc=$('#c_mc'); if(mc) mc.innerHTML=machineOpts(fc,'');
@@ -2699,6 +2756,10 @@ function createBox(){
   const chunks=[]; { let left=qty; const cap=(per>0&&per<qty)?per:qty; while(left>0){ const q=Math.min(cap,left); chunks.push(q); left-=q; } }
   /* ★94 生產日期（補登舊 WIP 用）：批號、箱建立時間都以此為準；不填＝今天 */
   const pdate=(($('#c_pdate')||{}).value)||'';
+  /* ★96-5d 送出再驗一次回填範圍（手打日期可繞過選擇器的 min/max）：僅限 今天往前15天 ～ 今天 */
+  if(pdate){ const today=new Date().toISOString().slice(0,10); const minD=new Date(Date.now()-15*86400000).toISOString().slice(0,10);
+    if(pdate>today) return toast('生產日期不可晚於今天','err');
+    if(pdate<minD) return toast('生產日期僅可回填最近 15 天（'+minD+' 之後）','err'); }
   const lot=genLot(p.model||p.partNo,$('#c_mc').value.trim(),$('#c_shift').value.trim(),p.partNo,pdate);   /* ★93 傳料號：換料號＝新批 */
   /* 補登時把時間戳設成該日的當下時刻（保留時分秒排序性） */
   const stampAt=(()=>{ const now=new Date();
@@ -2743,23 +2804,33 @@ function c128svg(txt){
   let x=10,rects=''; [...bars].forEach((w,i)=>{ const wd=+w; if(i%2===0) rects+=`<rect x="${x}" y="0" width="${wd}" height="100" fill="#000"/>`; x+=wd; });
   return `<svg viewBox="0 0 ${total} 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">${rects}</svg>`;
 }
+/* ★96-2 標籤製程名固定「中文＋越南文」（使用者定案 260730）：標籤是實體正本，
+   不隨列印者的介面語言漂（原 stN 跟 中EN/中VN 切換走，同一站的標籤會長不一樣） */
+function stLabelZhVn(code){ if(code&&String(code).indexOf('+')>=0) return String(code).split('+').map(stLabelZhVn).join('＋');
+  const o=stOf(code); return o.zh+(o.vn?' '+o.vn:(o.en?' '+o.en:'')); }
 function lblCardHTML(c,opt){ opt=opt||{}; const cap=opt.cap||'';
+  /* ★96-1 批次序號（cap）從表頭搬到 QR 側：表頭 60mm 塞不下「標題＋製程＋第N/M箱」會折行、
+     卡片被撐高超出 80mm；表頭回到原定案樣式 */
   return `<div class="lblcard">
-    <div class="hd"><b>SDY 周轉箱標籤</b><span class="small">${stN(c.processCode)}${cap?' · '+esc(cap):''}</span></div>
+    <div class="hd"><b>SDY 周轉箱標籤</b><span class="small">${stLabelZhVn(c.processCode)}</span></div>
     <div class="lblbody">
-    <div class="lblrow"><span>Item 料號</span><b>${esc(c.partNo)}</b></div>
-    ${pnNm(c.partNo)?`<div class="lblrow"><span>品名</span><b class="wr">${esc(pnNm(c.partNo))}</b></div>`:''}
-    ${c.stagePartNo?`<div class="lblrow"><span>階段料號</span><b class="sm">${esc(c.stagePartNo)}</b></div>`:''}
-    <div class="lblrow"><span>LOT 批號</span><b class="sm">${esc(c.lot||'-')}</b></div>
-    <div class="lblrow"><span>CID 箱號</span><b class="big">${esc(c.cid)}</b></div>
-    <div class="lblrow"><span>QTY 數量</span><b class="big">${c.qty}</b></div>
-    <div class="lblrow"><span>DATE 日期</span><b>${new Date(c.createdAt).toLocaleDateString('zh-TW')}</b></div>
-    ${c.operator?`<div class="lblrow"><span>OP 作業員</span><b>${esc(c.operator)}</b></div>`:''}
-    ${c.qc?`<div class="lblrow"><span>QC 質控</span><b>${esc(c.qc)}</b></div>`:''}
-    ${c.mold?`<div class="lblrow"><span>模具 Mold</span><b>${esc(c.mold)}${c.cavity?'（'+esc(c.cavity)+'）':''}</b></div>`:''}
+    ${''/* ★96-1 欄名去中文＝全大寫加冒號（使用者定案 260730「ITEM:/NAME:」樣式）：現場為越南人員、
+        中文欄名不助讀又佔寬；品名無既有英文→暫用 NAME:、階段料號→STAGE:；欄名欄 15mm→11mm，值多 4mm 給長名字 */}
+    <div class="lblrow"><span>ITEM:</span><b>${esc(c.partNo)}</b></div>
+    ${pnNm(c.partNo)?`<div class="lblrow"><span>NAME:</span><b class="wr">${esc(pnNm(c.partNo))}</b></div>`:''}
+    ${c.stagePartNo?`<div class="lblrow"><span>STAGE:</span><b class="sm">${esc(c.stagePartNo)}</b></div>`:''}
+    <div class="lblrow"><span>LOT:</span><b class="sm">${esc(c.lot||'-')}</b></div>
+    <div class="lblrow"><span>CID:</span><b class="big">${esc(c.cid)}</b></div>
+    <div class="lblrow"><span>QTY:</span><b class="big">${c.qty}</b></div>
+    <div class="lblrow"><span>DATE:</span><b>${new Date(c.createdAt).toLocaleDateString('zh-TW')}</b></div>
+    ${c.operator?`<div class="lblrow"><span>OP:</span><b class="nm">${esc(c.operator)}</b></div>`:''}
+    ${c.qc?`<div class="lblrow"><span>QC:</span><b class="nm">${esc(c.qc)}</b></div>`:''}
+    ${c.mold?`<div class="lblrow"><span>MOLD:</span><b>${esc(c.mold)}${c.cavity?'（'+esc(c.cavity)+'）':''}</b></div>`:''}
+    ${''/* ★96-1 條碼下不再重複箱號（使用者定案：CID 列已有）；批次序號 N/M 放 QR 同高度右側空白
+        （Code128 全寬無側邊空白→序號放條碼下方） */}
     ${labelCodeType()==='qr'
-      ? `<div class="barwrap" style="text-align:center"><div class="qrbox" data-cid="${esc(c.cid)}" style="display:inline-block"></div><div class="barid">${esc(c.cid)}</div></div>`
-      : `<div class="barwrap">${c128svg(c.cid)}<div class="barid">${esc(c.cid)}</div></div>`}
+      ? `<div class="barwrap" style="text-align:center;position:relative"><div class="qrbox" data-cid="${esc(c.cid)}" style="display:inline-block"></div>${cap?`<span class="capside">${esc(cap)}</span>`:''}</div>`
+      : `<div class="barwrap">${c128svg(c.cid)}${cap?`<div class="barid"><span class="barcap" style="margin-left:0">${esc(cap)}</span></div>`:''}</div>`}
     </div></div>`;
 }
 /* 把 root 內所有 .qrbox[data-cid] 補上 QR（無 lib 時退化成箱號 badge） */
@@ -2769,14 +2840,14 @@ function fillQRs(root){ (root||document).querySelectorAll('.qrbox[data-cid]').fo
 function showLabel(c){ const a=$('#labelArea'); if(!a) return; a.innerHTML=lblCardHTML(c)+`<div style="margin-top:10px"><button class="btn navy sm" onclick="printLabels(['${esc(c.cid)}'])">🖨 列印標籤</button></div>`; fillQRs(a); }
 /* ★85-10 多箱標籤（建箱分箱用）：全部排出＋一鍵連印（每張帶「第 N / M 箱」） */
 function showLabels(cids){ cids=(cids||[]).filter(Boolean); if(!cids.length) return; const a=$('#labelArea'); if(!a) return;
-  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?('第 '+(i+1)+' / '+cids.length+' 箱'):''}):''; }).join('');
+  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?((i+1)+'/'+cids.length):''}):''; }).join('');
   a.innerHTML=cards+`<div style="margin-top:10px"><button class="btn navy sm" onclick="printLabels([${cids.map(c=>`'${esc(c)}'`).join(',')}])">🖨 列印${cids.length>1?('全部 '+cids.length+' 張'):''}標籤</button></div>`; fillQRs(a); }
 /* 列印多張標籤：開列印浮層、補 QR，按「列印」走 window.print（@media print 只留標籤） */
 function printLabels(cids){ cids=(cids||[]).filter(Boolean); if(!cids.length) return toast('無可列印標籤','err');
   let ov=$('#printOverlay'); if(!ov){ ov=document.createElement('div'); ov.id='printOverlay'; document.body.appendChild(ov); }
   /* 84-1 浮層抵銷 body zoom（zoom 是相乘的：1/z × z = 1）→ 螢幕預覽＝實際 80×60，不再超出視窗 */
   try{ const z=parseFloat(document.body.style.zoom)||1; ov.style.zoom=String(1/z); }catch(e){}
-  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?('第 '+(i+1)+' / '+cids.length+' 箱'):''}):''; }).join('');
+  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?((i+1)+'/'+cids.length):''}):''; }).join('');
   ov.innerHTML=`<div class="po-bar"><b>列印標籤（${cids.length} 張）</b><span><button class="btn navy sm" onclick="window.print()">🖨 列印</button> <button class="btn gray sm" onclick="closePrint()">關閉</button></span></div><div class="po-labels">${cards}</div>`;
   ov.style.display='block'; document.body.classList.add('printing'); fillQRs(ov);
 }
@@ -3147,8 +3218,8 @@ function doPaint(){
       processCode:nx,stagePartNo:stageNo(first.partNo,nx),qty:nr,kind:'NR',paintRepair:true,operator:op,qc,machine:'烤漆線',sources:nrD,disp:[],createdAt:nowISO()}); }
   if(ng>0){ ngCid=genDefCID('NG',nx); db.data.containers.push({cid:ngCid,partNo:first.partNo,name:first.name,lot:first.lot,orderNo:first.orderNo,
       processCode:nx,stagePartNo:stageNo(first.partNo,nx),qty:ng,kind:'NG',operator:op,qc,machine:'烤漆線',sources:ngD,createdAt:nowISO()}); }
-  db.data.reports.push({id:'R'+Date.now(),partNo:first.partNo,lot:first.lot,fromStation:first.processCode,toStation:nx,
-    draws:inputDraws,ok,nr,ng,intoCid:created[0]?created[0].cid:null,nrCid,ngCid,shift:'',operator:op,qc,mix:true,createdAt:nowISO()});
+  db.data.reports.push({id:'R'+Date.now(),partNo:first.partNo,lot:first.lot,orderNo:first.orderNo,fromStation:first.processCode,toStation:nx,
+    draws:inputDraws,ok,nr,ng,intoCid:created[0]?created[0].cid:null,nrCid,ngCid,shift:'',operator:op,qc,mix:true,createdAt:nowISO()});   /* ★96 補 orderNo（原漏存，工單過濾要用；舊記錄靠 intoCid 回查） */
   db.save(); rememberOp(op); if(qc) rememberShiftQc(qc,'');
   const srcList=window._pk.join(' / ');
   const resultHTML=`<div class="note" style="border-color:var(--green);background:#e6f4ec">入爐 ${inTot} → OK ${ok}（紙箱 ${nBox}）/ NR ${nr}${nrCid?'（'+nrCid+'）':''} / NG ${ng}${ngCid?'（'+ngCid+'）':''}</div>
@@ -3174,22 +3245,24 @@ function renderRework(){
     <div class="kpi"><div class="v" style="color:var(--red)">${ngQty}</div><div class="l">${L('累計報廢數')}</div></div>
   </div>
   <div class="card"><h3>${L('① 待會判 / 待重工（NR 不良箱）')}</h3>
-    ${pend.length?`<table><thead><tr><th>不良箱號</th><th>${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程站')}</th><th>${L('來源箱')}</th><th>待處置</th><th></th></tr></thead><tbody>
+    ${''/* ★96-5 縮寬（使用者定案）：機種/料號/品名不必全列→只列料號(滑過看機種/品名)；
+        來源箱只列箱號去重(領用明細=滑過提示；單來源時領N與待處置重複、多來源明細屬追溯細節) */}
+    ${pend.length?`<table><thead><tr><th>不良箱號</th><th>料號<span class="sec">Item</span></th><th>${L('批號')}</th><th>${L('製程站')}</th><th>${L('來源箱')}</th><th>待處置</th><th></th></tr></thead><tbody>
     ${pend.map(c=>`<tr><td><span class="badge" style="background:#fef3e0;color:#b9760f">${esc(c.cid)}</span></td>
-      <td>${pnCell(c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td>
+      <td class="mono small" title="${esc(pnTip(c.partNo))}">${esc(pnoOf(c.partNo)||c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td>
       <td><span class="pill dc">${stN(c.processCode)}</span></td>
-      <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')}</td>
+      <td class="small muted" style="white-space:normal;word-break:break-all" title="${esc((c.sources||[]).map(s=>s.cid+' 領'+s.take).join('\n'))}">${srcCids(c)}</td>
       <td><b style="color:#b9760f">${remaining(c.cid)}</b></td>
       <td>${canDo?`<button class="btn navy sm" onclick="toggleDisp('${c.cid}')">會判處置</button>`:'<span class="muted small">唯讀</span>'}</td></tr>
       <tr id="disp_${c.cid}" style="display:none"><td colspan="7">${dispForm(c.cid)}</td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">目前沒有待會判的 NR 不良箱</div>'}
   </div>
   <div class="card"><h3>${L('② NG 報廢箱')}</h3>
-    ${ngBoxes.length?`<table><thead><tr><th>報廢箱號</th><th>${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程站')}</th><th>數量</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
+    ${ngBoxes.length?`<table><thead><tr><th>報廢箱號</th><th>料號<span class="sec">Item</span></th><th>${L('批號')}</th><th>${L('製程站')}</th><th>數量</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
     ${ngBoxes.map(c=>`<tr style="cursor:pointer" onclick="traceBox('${c.cid}')"><td><span class="badge" style="background:#fdecea;color:var(--red)">${esc(c.cid)}</span></td>
-      <td>${pnCell(c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td>
+      <td class="mono small" title="${esc(pnTip(c.partNo))}">${esc(pnoOf(c.partNo)||c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td>
       <td><span class="pill dc">${stN(c.processCode)}</span></td><td><b style="color:var(--red)">${c.qty}</b></td>
-      <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')}</td>
+      <td class="small muted" style="white-space:normal;word-break:break-all" title="${esc((c.sources||[]).map(s=>s.cid+' 領'+s.take).join('\n'))}">${srcCids(c)}</td>
       <td class="small muted">${esc((c.createdAt||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">尚無報廢箱</div>'}
   </div>
@@ -3240,14 +3313,22 @@ function doDisposition(cid){
 function renderAll(){
   const prodOpts=prodOptions(Lt('全部機種'));
   const stOpts='<option value="">全部製程</option>'+STATIONS.map(s=>`<option value="${s.code}">${stNo(s)}</option>`).join('');
+  /* ★96-3 加「日期」篩選（使用者要求）：選項＝現有箱子的建箱日期（含作廢箱，新到舊），比對 createdAt 日期段 */
+  const aDates=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)).map(c=>String(c.createdAt||'').slice(0,10)).filter(Boolean))].sort().reverse();
+  const aDateOpts='<option value="">'+Lt('全部日期')+'</option>'+aDates.map(d=>`<option value="${d}">${d}</option>`).join('');
+  /* ★96-4 批號篩選（原追溯③「依批號列箱子」移到本頁）：可打字組合框；含作廢箱的批號也列 */
+  window._alLots=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)).map(c=>c.lot).filter(Boolean))].sort().map(l=>({v:l,t:l}));
   $('#view').innerHTML=`
-  <div class="page-h"><h2>${L('全部箱號')}</h2><p>系統內所有箱號完整清單，可搜尋、篩選機種 / 製程 / 狀態。點任一列追溯。</p></div>
+  <div class="page-h"><h2>${L('全部箱號')}</h2><p>系統內所有箱號完整清單，可搜尋、篩選機種 / 批號 / 製程 / 日期 / 狀態。點任一列追溯；滑過箱號可看入庫次序。</p></div>
   <div class="card">
     <div class="row">
-      <div style="flex:1;min-width:200px"><label>${L('搜尋（箱號 / 批號 / 機種 / 機台 / 作業員）')}</label><input id="a_kw" placeholder="輸入關鍵字" oninput="renderAllTable()"></div>
+      <div style="flex:1;min-width:200px"><label>${L('搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）')}</label><input id="a_kw" placeholder="輸入關鍵字" oninput="renderAllTable()"></div>
       <div style="min-width:150px"><label>${L('機種 / 料號')}</label><select id="a_pn" onchange="renderAllTable()">${prodOpts}</select></div>
+      <div style="min-width:190px"><label>${L('批號')} <span class="vi">（可打字）</span></label>${comboHTML('a_lot',window._alLots,Lt('全部批號'),'renderAllTable()')}</div>
       <div style="min-width:140px"><label>${L('製程站')}</label><select id="a_st" onchange="renderAllTable()">${stOpts}</select></div>
+      <div style="min-width:130px"><label>${L('日期')}</label><select id="a_date" onchange="renderAllTable()">${aDateOpts}</select></div>
       <div style="min-width:130px"><label>${L('狀態')}</label><select id="a_state" onchange="renderAllTable()"><option value="">${Lt('全部')}</option><option value="stock">在庫(有結存)</option><option value="moved">已轉出</option></select></div>
+      <div style="align-self:flex-end"><button class="btn ghost sm" onclick="allFilterClear()" title="清空全部篩選">清除</button></div>
     </div>
     <div id="a_table" style="margin-top:14px"></div>
   </div>`;
@@ -3265,12 +3346,14 @@ function aArr(k){ const s=window._allSort; return s.k===k?(s.d>0?' ▲':' ▼'):
 function renderAllTable(){
   const kw=($('#a_kw')?$('#a_kw').value:'').trim().toLowerCase();
   const pn=$('#a_pn')?$('#a_pn').value:''; const st=$('#a_st')?$('#a_st').value:''; const state=$('#a_state')?$('#a_state').value:'';
+  const dt=$('#a_date')?$('#a_date').value:'';   /* ★96-3 日期篩選 */
+  const lt=comboResolve('a_lot',window._alLots||[])||'';   /* ★96-4 批號篩選（打字中對不到=不過濾） */
   /* ★92「全部箱號」頁包含作廢箱（可查詢/可恢復）；其他頁面靠 isNormalBox 自動排除 */
   let rows=db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c));
-  rows=rows.filter(c=>(!pn||c.partNo===pn)&&(!st||c.processCode===st));
+  rows=rows.filter(c=>(!pn||c.partNo===pn)&&(!lt||c.lot===lt)&&(!st||c.processCode===st)&&(!dt||String(c.createdAt||'').slice(0,10)===dt));
   if(state==='stock') rows=rows.filter(c=>remaining(c.cid)>0);
   if(state==='moved') rows=rows.filter(c=>remaining(c.cid)<=0);
-  if(kw) rows=rows.filter(c=>[c.cid,c.lot,c.partNo,c.name,c.operator,c.machine].join(' ').toLowerCase().includes(kw));
+  if(kw) rows=rows.filter(c=>[c.cid,c.orderNo,c.lot,c.partNo,c.name,c.operator,c.machine].join(' ').toLowerCase().includes(kw));   /* ★96 補搜工單號 */
   const so=window._allSort;
   rows=rows.slice().sort((a,b)=>{ const va=aVal(a,so.k),vb=aVal(b,so.k);
     const r=(typeof va==='number'&&typeof vb==='number')?va-vb:String(va).localeCompare(String(vb),'zh-Hant');
@@ -3284,7 +3367,7 @@ function renderAllTable(){
     #a_table th,#a_table td{padding:6px 6px}
     /* ★95 寬表一頁可看：長字欄（工單號/批號/作業員）可折行→整表塞進視窗寬、不再橫向捲；
        批號在底線後斷行（同總覽 <wbr> 作法）；塞不下的極窄螢幕 .tblwrap 橫捲仍在（保險） */
-    #a_table td:nth-child(2){white-space:normal;word-break:break-all;min-width:90px}
+    #a_table td:nth-child(2){white-space:normal;word-break:break-all;min-width:90px;font-size:11px}   /* ★96-5 工單號字縮小（長單號一行放下） */
     #a_table td:nth-child(3){white-space:normal}
     #a_table td:nth-child(9){white-space:normal}
     #a_table .btn.sm{padding:2px 5px;font-size:11px;white-space:nowrap}
@@ -3298,7 +3381,8 @@ function renderAllTable(){
     #a_table .stg{font-size:9.5px;color:var(--muted);font-family:Consolas,monospace}
   </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ OK合計 ${tot} ｜ 結存合計 <b>${remTot}</b>　<span class="muted small">點表頭可排序；機種請看批號首段、料號滑過箱號顯示</span></div>
     ${rows.length?`<div class="tblwrap"><table class="compact" style="width:100%"><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('OK數'))}${TH('drawn',L('已領走'))}${TH('bal',L('結存'))}${TH('st',L('狀態'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th style="white-space:nowrap">操作</th></tr></thead><tbody>
-    ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const tip='機種 '+(p.model||c.partNo)+'｜料號 '+c.partNo+(p.name?'｜'+p.name:'');
+    ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const sq=batchSeq(c);
+      const tip='機種 '+(p.model||c.partNo)+'｜料號 '+c.partNo+(p.name?'｜'+p.name:'')+(sq.n>0&&sq.m>1?'｜第'+sq.n+'/'+sq.m+'次入庫':'');   /* ★96-4 tooltip 補入庫次序（原③表的 Seq 欄資訊） */
       /* ★94 作廢箱整列灰底＋刪除線，一眼分辨（原本只有狀態欄標籤，視覺區隔不夠） */
       /* ★95-2 箱號欄「零留白」定案（repro 實測五種變體後的正解）：
          病因＝作廢/重工列的箱號格一行擠 作廢標籤+箱號+🖨+重工標籤 全 nowrap，把整欄撐到 ~400px，
@@ -3319,33 +3403,61 @@ function renderAllTable(){
     </tbody></table></div>`:'<div class="empty">無符合資料</div>'}`;
 }
 
+/* ★96 追溯加「工單篩選」＋可打字組合框：②機種+工單、③機種+工單 改 datalist 組合框
+   （點開=全清單、打字=縮小、空=全部）；工單清單=有箱資料的工單號；②機種↔工單雙向聯動（traceSync）。
+   ④區間分析選項少、維持原下拉。 */
+function traceWoItems(pn){ return [...new Set(db.data.containers.filter(c=>isNormalBox(c)&&c.orderNo&&(!pn||c.partNo===pn)).map(c=>c.orderNo))].sort().map(w=>({v:w,t:w})); }
+/* ★96-4 ②機種↔工單↔批號三向聯動：改一邊→其餘候選縮小；選定批號→自動帶入機種（批號一定屬單一料號）
+   與工單（該批只屬一張單時）；打字中對不到（null）=不過濾，不卡人 */
+function traceSync(src){
+  const pn=comboResolve('q_pn',window._trPn)||'', wo=comboResolve('q_wo',window._trWo)||'', lot=comboResolve('q_lot',window._trLot)||'';
+  const metas=lotMetaList();
+  const lotItems=list=>list.map(m=>({v:m.lot,t:m.lot})).sort((a,b)=>a.v.localeCompare(b.v));
+  if(src==='lot'){
+    if(lot){ const m=metas.find(x=>x.lot===lot); if(m){
+      const pe=$('#q_pn'); if(pe&&!pe.value.trim()){ const it=comboItemsProd(db.data.products.filter(p=>p.partNo===m.pn))[0]; if(it) pe.value=it.t; }
+      const we=$('#q_wo'); if(we&&!we.value.trim()&&(m.wos||[]).length===1) we.value=m.wos[0]; } }
+  }else if(src==='pn'){
+    comboFill('q_wo', pn?traceWoItems(pn):window._trWo);
+    comboFill('q_lot', pn?lotItems(metas.filter(m=>m.pn===pn)):window._trLot);
+  }else{
+    let items=window._trPn;
+    if(wo){ const pns=[...new Set(db.data.containers.filter(c=>isNormalBox(c)&&c.orderNo===wo).map(c=>c.partNo))];
+      items=comboItemsProd(db.data.products.filter(p=>pns.indexOf(p.partNo)>=0));
+      const el=$('#q_pn'); if(pns.length===1&&el&&!el.value.trim()&&items[0]) el.value=items[0].t; }
+    comboFill('q_pn',items);
+    comboFill('q_lot', wo?lotItems(metas.filter(m=>(m.wos||[]).indexOf(wo)>=0)):window._trLot);
+  }
+  traceAutoQuery();
+}
+/* ★96-4c 即時重查（使用者回饋：切換條件下方數據要跟著變）：三個組合框任何有效變動（含清空）
+   → 直接重跑查詢；打字打到一半（對不到唯一筆=null）不查，避免邊打邊跳錯誤訊息 */
+function traceAutoQuery(){
+  if(!$('#q_out')) return;
+  const pn=comboResolve('q_pn',window._trPn), wo=comboResolve('q_wo',window._trWo), lot=comboResolve('q_lot',window._trLot);
+  if(pn===null||wo===null||lot===null) return;
+  doQuery();
+}
 function renderTrace(){
+  /* ★96-4 批號重構（使用者定案）：②加「批號」維度＝看單一批的流轉/箱/報工；
+     原③依批號查找整卡移除（批號列箱清單歸 08 全部箱號、traceLot 跳 08）；區間分析遞補為③ */
   const prodOpts=prodOptions(Lt('全部機種'));
+  window._trPn=comboItemsProd(); window._trWo=traceWoItems();
+  window._trLot=lotMetaList().map(m=>({v:m.lot,t:m.lot})).sort((a,b)=>a.v.localeCompare(b.v));
   const stOpts='<option value="">全部製程</option>'+STATIONS.map(s=>`<option value="${s.code}">${stNo(s)}</option>`).join('');
-  const lots=[...new Set(db.data.containers.filter(isNormalBox).map(c=>c.lot).filter(Boolean))].sort();
-  const lotOpts='<option value="">選擇批號…</option>'+lots.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
-  const lotDateOf=l=>{ let d=''; db.data.containers.forEach(c=>{ if(isNormalBox(c)&&c.lot===l){ const cd=(c.createdAt||'').slice(0,10); if(cd&&(!d||cd<d)) d=cd; } }); return d; };
-  const dates=[...new Set(lots.map(lotDateOf).filter(Boolean))].sort().reverse();
-  const dateOpts='<option value="">'+Lt('全部日期')+'</option>'+dates.map(d=>`<option value="${d}">${d}</option>`).join('');
   $('#view').innerHTML=`
-  <div class="page-h"><h2>${L('追溯查詢')}</h2><p>箱號直查來源鏈、依機種/製程查箱與報工良率、或依批號查整批。</p></div>
+  <div class="page-h"><h2>${L('追溯查詢')}</h2><p>箱號直查來源鏈、或依機種／工單／批號查流轉與報工良率（批號列箱子請到「全部箱號」用批號篩）。</p></div>
   <div class="card"><h3>${L('① 箱號直查')}</h3><div class="row"><div style="flex:1;min-width:260px"><label>${L('箱號 CID')}</label><input id="t_cid" class="mono" placeholder="輸入任一箱號"></div><button class="btn navy" onclick="doTrace()">${L('追溯')}</button></div></div>
-  <div class="card"><h3>${L('② 依機種 / 製程查詢')}</h3>
-    <div class="row"><div style="flex:2;min-width:200px"><label>${L('機種 / 料號')}</label><select id="q_pn">${prodOpts}</select></div>
-      <div style="flex:1;min-width:150px"><label>${L('製程站')}</label><select id="q_st">${stOpts}</select></div>
-      <div style="min-width:170px"><label>${L('檢視')}</label><select id="q_view"><option value="flow">流轉順序檢視（依製程）</option><option value="box">箱號檢視</option><option value="rep">報工檢視（OK/NR/NG/良率）</option></select></div>
-      <button class="btn" onclick="doQuery()">${L('查詢')}</button></div>
+  <div class="card"><h3>${L('② 依機種 / 工單 / 批號查詢')}</h3>
+    <div class="row"><div style="flex:1.6;min-width:200px"><label>${L('機種 / 料號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_pn',window._trPn,Lt('全部機種'),"traceSync('pn')")}</div>
+      <div style="flex:1.1;min-width:160px"><label>${L('工單號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_wo',window._trWo,Lt('全部工單'),"traceSync('wo')")}</div>
+      <div style="flex:1.3;min-width:190px"><label>${L('批號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_lot',window._trLot,Lt('全部批號'),"traceSync('lot')")}</div>
+      <div style="flex:1;min-width:140px"><label>${L('製程站')}</label><select id="q_st" onchange="doQuery()">${stOpts}</select></div>
+      <div style="min-width:170px"><label>${L('檢視')}</label><select id="q_view" onchange="doQuery()"><option value="flow">流轉順序檢視（依製程）</option><option value="box">箱號檢視</option><option value="rep">報工檢視（OK/NR/NG/良率）</option></select></div>
+      <button class="btn" onclick="doQuery()">${L('查詢')}</button>
+      <button class="btn ghost" onclick="traceQueryClear()" title="清空機種/工單/批號/製程站，重新查別的">清除</button></div>
     <div id="q_out" style="margin-top:14px"></div></div>
-  <div class="card"><h3>${L('③ 依批號查找')}</h3>
-    <p class="small muted" style="margin:-6px 0 10px">批號很多時，先用「機種 / 日期」縮小範圍，再從清單點選；或右邊直接手動輸入。</p>
-    <div class="row">
-      <div style="flex:1;min-width:150px"><label>${L('機種 / 料號')}</label><select id="b_f_pn" onchange="refreshLotOpts()">${prodOpts}</select></div>
-      <div style="flex:1;min-width:140px"><label>${L('日期')}</label><select id="b_f_date" onchange="refreshLotOpts()">${dateOpts}</select></div>
-      <div style="flex:1.4;min-width:220px"><label>${L('選現有批號')}</label><select id="b_lot" onchange="if(this.value){const t=$('#b_lot_txt');if(t)t.value=this.value;}">${lotOpts}</select></div></div>
-    <div class="row"><div style="flex:1;min-width:200px"><label>${L('或手動輸入新批號')}</label><input id="b_lot_txt" class="mono" placeholder="如 ${todayYMD()}-01"></div>
-      <button class="btn navy" onclick="doBatch()">${L('查批號')}</button></div>
-    <div id="b_out" style="margin-top:14px"></div></div>
-  <div class="card"><h3>${L('④ 區間累計不良分析')}</h3>
+  <div class="card"><h3>${L('③ 區間累計不良分析')}</h3>
     <p class="small muted" style="margin:-6px 0 10px">單批良率會被漂亮數字稀釋。此處把選定機種/站、一段期間的<b>所有批次加總</b>，算真實良率，並逐批列出，看不良是否集中在某幾批。</p>
     <div class="row"><div style="flex:1;min-width:160px"><label>${L('機種 / 料號')}</label><select id="iv_pn">${prodOpts}</select></div>
       <div style="flex:1;min-width:130px"><label>${L('製程站')}</label><select id="iv_st">${stOpts}</select></div>
@@ -3361,23 +3473,21 @@ let traceState=null;
 function saveTraceState(){
   traceState={
     t_cid:$('#t_cid')?$('#t_cid').value:'',
-    q_pn:$('#q_pn')?$('#q_pn').value:'', q_st:$('#q_st')?$('#q_st').value:'', q_view:$('#q_view')?$('#q_view').value:'',
-    b_lot:$('#b_lot')?$('#b_lot').value:'', b_lot_txt:$('#b_lot_txt')?$('#b_lot_txt').value:'',
+    q_pn:$('#q_pn')?$('#q_pn').value:'', q_wo:$('#q_wo')?$('#q_wo').value:'', q_lot:$('#q_lot')?$('#q_lot').value:'', q_st:$('#q_st')?$('#q_st').value:'', q_view:$('#q_view')?$('#q_view').value:'',
     iv_pn:$('#iv_pn')?$('#iv_pn').value:'', iv_st:$('#iv_st')?$('#iv_st').value:'', iv_from:$('#iv_from')?$('#iv_from').value:'', iv_to:$('#iv_to')?$('#iv_to').value:'',
-    t_out:$('#t_out')?$('#t_out').innerHTML:'', q_out:$('#q_out')?$('#q_out').innerHTML:'', b_out:$('#b_out')?$('#b_out').innerHTML:'', iv_out:$('#iv_out')?$('#iv_out').innerHTML:'',
+    t_out:$('#t_out')?$('#t_out').innerHTML:'', q_out:$('#q_out')?$('#q_out').innerHTML:'', iv_out:$('#iv_out')?$('#iv_out').innerHTML:'',
   };
 }
 function restoreTraceState(){
   if(!traceState) return; const s=traceState;
   const set=(id,v)=>{ const el=$('#'+id); if(el&&v!=null) el.value=v; };
-  set('t_cid',s.t_cid); set('q_pn',s.q_pn); set('q_st',s.q_st); set('q_view',s.q_view);
-  set('b_lot',s.b_lot); set('b_lot_txt',s.b_lot_txt);
+  set('t_cid',s.t_cid); set('q_pn',s.q_pn); set('q_wo',s.q_wo); set('q_lot',s.q_lot); set('q_st',s.q_st); set('q_view',s.q_view);
   set('iv_pn',s.iv_pn); set('iv_st',s.iv_st); set('iv_from',s.iv_from); set('iv_to',s.iv_to);
   const put=(id,v)=>{ const el=$('#'+id); if(el&&v) el.innerHTML=v; };
-  put('t_out',s.t_out); put('q_out',s.q_out); put('b_out',s.b_out); put('iv_out',s.iv_out);
+  put('t_out',s.t_out); put('q_out',s.q_out); put('iv_out',s.iv_out);
 }
 // 用某一種方式查找時，清掉其它區塊的舊結果，避免殘留混淆
-function clearTraceOuts(keep){ ['t_out','q_out','b_out','iv_out'].forEach(id=>{ if(id!==keep){ const el=$('#'+id); if(el) el.innerHTML=''; } }); }
+function clearTraceOuts(keep){ ['t_out','q_out','iv_out'].forEach(id=>{ if(id!==keep){ const el=$('#'+id); if(el) el.innerHTML=''; } }); }
 function doInterval(){
   const pn=$('#iv_pn').value, st=$('#iv_st').value;
   const from=$('#iv_from').value, to=$('#iv_to').value;
@@ -3419,21 +3529,28 @@ function doInterval(){
     <div class="small muted" style="margin-top:8px">⚠ 標記＝該批不良率超過區間平均 1.5 倍。即使整體良率漂亮，集中爆量的批次也會在此凸顯。</div>`;
 }
 function doQuery(){
-  const pn=$('#q_pn').value, st=$('#q_st').value, view=$('#q_view')?$('#q_view').value:'flow';
+  /* ★96 加工單、★96-4 加批號：pn/wo/lot 由組合框解析（''=全部、null=打的字對不到唯一一筆）；三種檢視都套過濾 */
+  const st=$('#q_st').value, view=$('#q_view')?$('#q_view').value:'flow';
   const out=$('#q_out'); clearTraceOuts('q_out');
+  let pn=comboResolve('q_pn',window._trPn); const wo=comboResolve('q_wo',window._trWo), lot=comboResolve('q_lot',window._trLot);
+  if(pn===null){ out.innerHTML='<div class="empty">機種/料號「'+esc($('#q_pn').value)+'」對不到唯一一筆——請打完整些，或從下拉清單點選</div>'; return; }
+  if(wo===null){ out.innerHTML='<div class="empty">工單號「'+esc($('#q_wo').value)+'」對不到唯一一筆——請打完整些，或從下拉清單點選</div>'; return; }
+  if(lot===null){ out.innerHTML='<div class="empty">批號「'+esc($('#q_lot').value)+'」對不到唯一一筆——請打完整些，或從下拉清單點選</div>'; return; }
+  if(lot&&!pn){ const m=lotMetaList().find(x=>x.lot===lot); if(m) pn=m.pn; }   /* ★96-4 選批號未選機種→自動補（一批只屬一個料號） */
+  const woTag=(wo?'　｜　工單 <b>'+esc(wo)+'</b>':'')+(lot?'　｜　批號 <b>'+esc(lot)+'</b>':'');
   if(view==='flow'){
-    if(!pn){ out.innerHTML='<div class="empty">流轉順序檢視請先選一個機種（才能依該機種製程順序排列）</div>'; return; }
-    const p=prodOf(pn); const led=stationLedger(pn);
+    if(!pn){ out.innerHTML='<div class="empty">流轉順序檢視請先選一個機種/料號'+(wo?'（一張工單有多個料號時，請再挑其中一個）':'（才能依該機種製程順序排列）')+'</div>'; return; }
+    const p=prodOf(pn); const led=stationLedger(pn,wo,lot);
     const route=p.route.filter(c=>!st||c===st);
     if(!route.some(c=>led[c])){ out.innerHTML='<div class="empty">此機種尚無流轉資料</div>'; return; }
-    out.innerHTML=`<div class="step">機種 <b>${esc(pn)}</b>${pnNm(pn)?' <span class="muted small">— '+esc(pnNm(pn))+'</span>':''} — 依製程順序看料的進出（投入 → OK產出 → 已轉下站 / 結存）</div>
+    out.innerHTML=`<div class="step">機種 <b>${esc(pn)}</b>${pnNm(pn)?' <span class="muted small">— '+esc(pnNm(pn))+'</span>':''}${woTag} — 依製程順序看料的進出（投入 → OK產出 → 已轉下站 / 結存）</div>
       <table><thead><tr><th>${L('順序')}</th><th>${L('製程站')}</th><th>${L('投入(領料)')}</th><th>${L('OK產出')}</th><th>${L('已轉下站')}</th><th>${L('結存(在庫)')}</th><th>NR</th><th>NG</th><th>${L('良率')}</th></tr></thead><tbody>
       ${route.map((c,i)=>{ const x=led[c]||{input:0,out:0,moved:0,stock:0,nr:0,ng:0}; const proc=x.out+x.nr+x.ng; const y=proc?(x.out/proc*100).toFixed(1)+'%':'—'; const last=c===lastStation(pn);
         return `<tr>
           <td><span style="display:inline-block;width:22px;height:22px;line-height:22px;text-align:center;background:var(--navy);color:#fff;border-radius:5px;font-size:11px">${p.route.indexOf(c)+1}</span></td>
           <td><span class="pill ${isOS(pn,c)?'os':(last?'pk':'dc')}">${stN(c)}</span>${isOS(pn,c)?' <span class="small muted">委外</span>':''}${last?' <span class="small muted">成品</span>':''}</td>
           <td>${x.input?'<b>'+x.input+'</b>':'<span class="muted">首站</span>'}</td>
-          <td><a class="lk" onclick="flowDetail('${c}','${pn}')">${x.out}</a></td>
+          <td><a class="lk" onclick="flowDetail('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}')">${x.out}</a></td>
           <td class="muted">${x.moved}</td>
           <td><b style="color:var(--teal)">${x.stock}</b></td>
           <td>${x.nr?'<span style="color:#b9760f">'+x.nr+'</span>':'<span class="muted">0</span>'}</td>
@@ -3445,11 +3562,13 @@ function doQuery(){
     return;
   }
   if(view==='rep'){
-    const reps=db.data.reports.filter(r=>(!pn||r.partNo===pn)&&(!st||r.toStation===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    /* ★96 工單過濾：報工記錄比 r.orderNo；舊記錄（烤漆出爐曾漏存 orderNo）靠產出箱 intoCid 回查 */
+    const woOf={}, lotOf={}; if(wo||lot) db.data.containers.forEach(c=>{ if(c.cid){ woOf[c.cid]=c.orderNo||''; lotOf[c.cid]=c.lot||''; } });   /* ★96-4b 批號也走產出箱回查保險 */
+    const reps=db.data.reports.filter(r=>(!pn||r.partNo===pn)&&(!st||r.toStation===st)&&(!wo||r.orderNo===wo||(r.intoCid&&woOf[r.intoCid]===wo))&&(!lot||r.lot===lot||(r.intoCid&&lotOf[r.intoCid]===lot))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
     if(!reps.length){ out.innerHTML='<div class="empty">無報工紀錄</div>'; return; }
     const sok=reps.reduce((a,r)=>a+(+r.ok||0),0),snr=reps.reduce((a,r)=>a+(+r.nr||0),0),sng=reps.reduce((a,r)=>a+(+r.ng||0),0);
     const sp=sok+snr+sng; const rate=n=>sp?(n/sp*100).toFixed(1)+'%':'—';
-    out.innerHTML=`<div class="step">共 <b>${reps.length}</b> 筆報工 ｜ OK <b>${sok}</b> / NR ${snr} / NG ${sng} ｜ 總良率 <b>${rate(sok)}</b></div>
+    out.innerHTML=`<div class="step">共 <b>${reps.length}</b> 筆報工 ｜ OK <b>${sok}</b> / NR ${snr} / NG ${sng} ｜ 總良率 <b>${rate(sok)}</b>${woTag}</div>
       <table><thead><tr><th>${L('時間')}</th><th>${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程站')}</th><th>${L('領料')}</th><th>OK</th><th>NR</th><th>NG</th><th>${L('良率')}</th><th>${L('班別')}</th><th>${L('作業員')}</th><th>${L('產出箱')}</th></tr></thead><tbody>
       ${reps.map(r=>{ const t=(+r.ok||0)+(+r.nr||0)+(+r.ng||0); const y=t?((r.ok/t*100).toFixed(1)+'%'):'—'; const take=(r.draws||[]).reduce((a,d)=>a+(+d.take||0),0);
         return `<tr><td class="small muted">${esc((r.createdAt||'').replace('T',' ').slice(0,16))}</td><td>${pnCell(r.partNo)}</td><td class="mono small">${esc(r.lot||'-')}</td>
@@ -3459,10 +3578,10 @@ function doQuery(){
           <td>${r.intoCid?`<span class="badge" style="cursor:pointer" onclick="traceFromQuery('${r.intoCid}')">${esc(r.intoCid)}</span>`:'<span class="muted small">—</span>'}</td></tr>`; }).join('')}</tbody></table>`;
     return;
   }
-  const rows=db.data.containers.filter(c=>isNormalBox(c)&&(!pn||c.partNo===pn)&&(!st||c.processCode===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const rows=db.data.containers.filter(c=>isNormalBox(c)&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)&&(!st||c.processCode===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   if(!rows.length){ out.innerHTML='<div class="empty">無符合資料</div>'; return; }
   const tot=rows.reduce((a,c)=>a+(+c.qty||0),0);
-  out.innerHTML=`<div class="step">共 <b>${rows.length}</b> 箱，OK合計 <b>${tot}</b> pcs（點列追溯）</div>
+  out.innerHTML=`<div class="step">共 <b>${rows.length}</b> 箱，OK合計 <b>${tot}</b> pcs（點列追溯）${woTag}</div>
     <table><thead><tr><th>${L('箱號')}</th><th>${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程')}</th><th>${L('OK數')}</th><th>${L('結存')}</th><th>${L('狀態')}</th></tr></thead><tbody>
     ${rows.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')"><td><span class="badge">${esc(c.cid)}</span></td><td>${pnCell(c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td>
       <td><span class="pill ${isOS(c.partNo,c.processCode)?'os':(isFinished(c)?'pk':'dc')}">${stN(c.processCode)}</span></td>
@@ -3470,44 +3589,10 @@ function doQuery(){
       <td class="small">${remaining(c.cid)>0?'<span class="pill ok">在庫</span>':'<span class="muted">已轉出</span>'}</td></tr>`).join('')}</tbody></table>`;
 }
 // 批號太多時，用機種＋日期把批號清單縮小（用箱子的真實欄位，不靠拆批號字串）
-function lotMetaList(){ const m={}; db.data.containers.forEach(c=>{ if(!isNormalBox(c)||!c.lot) return; const o=m[c.lot]||(m[c.lot]={lot:c.lot,pn:c.partNo,date:''}); const cd=(c.createdAt||'').slice(0,10); if(cd&&(!o.date||cd<o.date)) o.date=cd; }); return Object.values(m); }
-function refreshLotOpts(){ const sel=$('#b_lot'); if(!sel) return; const pn=$('#b_f_pn')?$('#b_f_pn').value:''; const dt=$('#b_f_date')?$('#b_f_date').value:''; const cur=sel.value;
-  const ms=lotMetaList().filter(m=>(!pn||m.pn===pn)&&(!dt||m.date===dt)).map(m=>m.lot).sort();
-  sel.innerHTML='<option value="">'+(ms.length?'選擇批號…':'（無符合批號）')+'</option>'+ms.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('');
-  if(ms.indexOf(cur)>=0) sel.value=cur; }
-function doBatch(){
-  const lot=($('#b_lot_txt').value.trim()||$('#b_lot').value).trim();
-  const out=$('#b_out'); clearTraceOuts('b_out'); if(!lot){ out.innerHTML='<div class="empty">請選擇或輸入批號</div>'; return; }
-  const boxes=db.data.containers.filter(c=>isNormalBox(c)&&c.lot===lot).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  const defects=db.data.containers.filter(c=>isDefect(c)&&c.lot===lot).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
-  if(!boxes.length){ out.innerHTML=`<div class="note" style="border-color:var(--red);background:var(--redbg)">查無批號 ${esc(lot)}</div>`; return; }
-  const reps=db.data.reports.filter(r=>r.lot===lot);
-  const pn=boxes[0].partNo;
-  const sok=reps.reduce((a,r)=>a+(+r.ok||0),0),snr=reps.reduce((a,r)=>a+(+r.nr||0),0),sng=reps.reduce((a,r)=>a+(+r.ng||0),0);
-  // 同批在首站(壓鑄)的入庫次數
-  const firstCode=(prodOf(pn)||{route:[]}).route[0];
-  const firstBoxes=boxes.filter(c=>c.processCode===firstCode);
-  const wos=[...new Set(boxes.map(b=>b.orderNo).filter(Boolean))];
-  out.innerHTML=`<div class="note" data-hl="lot:${lot}">批號 <b>${esc(lot)}</b>（機種 ${esc(pn)}）｜ 工單 <b>${wos.length?esc(wos.join('、')):'—'}</b> — 共 ${boxes.length} 箱、${reps.length} 筆報工 ｜ 累計 OK ${sok} / NR ${snr} / NG ${sng}
-    ${firstBoxes.length>1?`<br><span class="small">📌 同一批分 <b>${firstBoxes.length}</b> 次產出入庫（像一張工單分多次入庫）：每次一個新箱號、批號相同。</span>`:''}</div>
-    <table><thead><tr><th>${L('箱號')}</th><th>工單號</th><th>${L('製程')}</th><th>${L('入庫次序')}</th><th>${L('OK數')}</th><th>${L('結存')}</th><th>${L('來源')}</th><th>${L('作業員')}</th><th>${L('時間')}</th></tr></thead><tbody>
-    ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')"><td data-cid="${c.cid}" data-focus="box"><span class="badge">${esc(c.cid)}</span></td>
-      <td class="mono small">${esc(c.orderNo||'—')}</td>
-      <td><span class="pill ${isOS(c.partNo,c.processCode)?'os':(isFinished(c)?'pk':'dc')}">${stN(c.processCode)}</span></td>
-      <td class="small muted">${seqTag(c)||'<span class="muted">單次</span>'}</td>
-      ${hlCell(c.cid,'ok',`${c.qty}`)}${hlCell(c.cid,'balance',`<b>${remaining(c.cid)}</b>`)}
-      <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')||'首站'}</td>
-      <td class="small muted">${esc(c.operator||'-')}</td><td class="small muted">${esc((c.createdAt||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')}</tbody></table>`;
-  if(defects.length){ out.innerHTML+=`<div class="note" style="margin-top:14px;border-color:var(--red);background:var(--redbg)">🔴 此批不良箱（NR 待重工 / NG 報廢）共 ${defects.length} 箱</div>
-    <table><thead><tr><th>不良箱號</th><th>${L('製程')}</th><th>類型</th><th>數量</th><th>待處置</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
-    ${defects.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')"><td><span class="badge" style="background:${c.kind==='NG'?'#fdecea':'#fef3e0'};color:${c.kind==='NG'?'var(--red)':'#b9760f'}">${esc(c.cid)}</span></td>
-      <td><span class="pill dc">${stN(c.processCode)}</span></td>
-      <td>${c.kind==='NG'?'<span style="color:var(--red)">NG 報廢</span>':'<span style="color:#b9760f">NR 可重工</span>'}</td>
-      <td>${c.qty}</td><td>${c.kind==='NR'?'<b style="color:#b9760f">'+remaining(c.cid)+'</b>':'<span class="muted">—</span>'}</td>
-      <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')}</td>
-      <td class="small muted">${esc((c.createdAt||'').replace('T',' ').slice(0,16))}</td></tr>`).join('')}</tbody></table>`; }
-  applyHL();
-}
+function lotMetaList(){ const m={}; db.data.containers.forEach(c=>{ if(!isNormalBox(c)||!c.lot) return; const o=m[c.lot]||(m[c.lot]={lot:c.lot,pn:c.partNo,date:'',wos:[]}); const cd=(c.createdAt||'').slice(0,10); if(cd&&(!o.date||cd<o.date)) o.date=cd; if(c.orderNo&&o.wos.indexOf(c.orderNo)<0) o.wos.push(c.orderNo); }); return Object.values(m); }   /* ★96 wos=該批引用過的工單（同批可能跨單，用包含判斷） */
+/* ★96-4 refreshLotOpts / doBatch 已移除（原③依批號查找整卡拿掉）：
+   批號流轉→②（q_lot 維度）；批號列箱→08 全部箱號（a_lot 篩選；traceLot 會自動跳過去）。
+   lotMetaList 保留（②組合框聯動與 08 批號清單都用）。 */
 function traceFromQuery(cid,focus){ setHLCells([cid],focus||'box'); $('#t_cid').value=cid; doTrace(); applyHL(); }
 /* 從工單進度跨頁連到追溯查詢 */
 function traceBox(cid,focus){ setHLCells([cid],focus||'box'); go('trace'); setTimeout(()=>{ const e=$('#t_cid'); if(e){e.value=cid; doTrace();} applyHL(); },80); }
@@ -3518,9 +3603,26 @@ function traceBox(cid,focus){ setHLCells([cid],focus||'box'); go('trace'); setTi
    新增任何表格只要用 hlCell，就自動有一致行為，不必各自手刻。 */
 function traceCell(cid,focus){ if($('#t_cid')) traceFromQuery(cid,focus); else traceBox(cid,focus); }
 function hlCell(cid,kind,inner,cls){ return `<td data-cid="${cid}" data-focus="${kind}" style="cursor:pointer"${cls?` class="${cls}"`:''} onclick="event.stopPropagation();traceCell('${cid}','${kind}')">${inner}</td>`; }
-function traceLot(lot,hl){ if(hl&&hl.cids){ setHLCells(hl.cids,hl.focus); } else { setHL('lot',lot); } go('trace'); setTimeout(()=>{ const sel=$('#b_lot'); if(sel&&[...sel.options].some(o=>o.value===lot)) sel.value=lot; const e=$('#b_lot_txt'); if(e)e.value=lot; if(typeof doBatch==='function')doBatch(); applyHL(); },80); }
-function flowDetail(code,pn){
-  const boxes=db.data.containers.filter(c=>isNormalBox(c)&&c.processCode===code&&c.partNo===pn).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+/* ★96-4 ②「清除」：組合框選定後要重查，得逐格手動刪字（使用者實測回饋）→ 一鍵清空＋候選清單復原 */
+function traceQueryClear(){
+  ['q_pn','q_wo','q_lot'].forEach(id=>{ const e=$('#'+id); if(e) e.value=''; });
+  const st=$('#q_st'); if(st) st.value='';
+  comboFill('q_pn',window._trPn||[]); comboFill('q_wo',window._trWo||[]); comboFill('q_lot',window._trLot||[]);
+  const out=$('#q_out'); if(out) out.innerHTML='';
+  const fe=$('#q_pn'); if(fe) fe.focus();
+}
+/* ★96-4 08「清除」：同款一鍵清空全部篩選 */
+function allFilterClear(){
+  ['a_kw','a_lot'].forEach(id=>{ const e=$('#'+id); if(e) e.value=''; });
+  ['a_pn','a_st','a_date','a_state'].forEach(id=>{ const e=$('#'+id); if(e) e.value=''; });
+  comboFill('a_lot',window._alLots||[]); renderAllTable();
+}
+/* ★96-4 批號整批箱清單移至 08 全部箱號（原③依批號查找已移除）：點批號→08 自動帶批號篩選；
+   帶 cids 的呼叫（總覽結存/工單進度格）沿用既有 data-cid 高亮 */
+function traceLot(lot,hl){ if(hl&&hl.cids) setHLCells(hl.cids,hl.focus);
+  go('all'); setTimeout(()=>{ const e=$('#a_lot'); if(e) e.value=lot; if(typeof renderAllTable==='function') renderAllTable(); applyHL(); },80); }
+function flowDetail(code,pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（流轉檢視展開的箱清單同步過濾） */
+  const boxes=db.data.containers.filter(c=>isNormalBox(c)&&c.processCode===code&&c.partNo===pn&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
   const el=$('#flow_detail'); if(!el) return;
   el.innerHTML=`<div class="note" style="margin-top:14px">${stN(code)} · 共 ${boxes.length} 箱（點箱號可追溯）</div>
     <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('入庫次序')}</th><th>${L('OK數')}</th><th>${L('已領走')}</th><th>${L('結存')}</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
