@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v99-20-4</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v99-24-5</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -370,7 +370,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v99-20-4</span>
+      <span class="tag">開發測試版 v99-24-5</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1011,7 +1011,55 @@ function getMolds(){ return MHR_MOLDS; }
 /* ★99-20 補廠區過濾（比照 machinesFor 行 928 的既有範本）。
    ⚠ 必須是 siteReadable：現行唯一一筆模具沒有廠區，siteReadable('')===true ⇒ 現有資料零變化；
      若誤用 siteWritable 會整批消失、壓鑄建箱當場卡死。 */
-function moldsFor(pn,kind){ return getMolds().filter(m=>m.active!==false && siteReadable(m.site) && (!m.partNo||m.partNo===pn) && (!kind||(m.kind||'mold')===kind)); }
+/* ★99-21（0p）模具可見性收斂成單一出處（使用者 260814 於 99-20 回歸 §13-1c 抓到）：
+   原本三個出口都只判模具自己的 m.site，**完全沒有納入「適用機種」的廠區** ⇒
+   實測切「敬得觀音」→ ⚙模具/治夾具 顯示 M-01，它的「適用機種」印著 V5-001（大永的機種），
+   而同一個機種在 ⚙產品/BOM 與 07 機種下拉都已被 prodsVisible() 濾掉 ⇒ 三個頁面兩種答案、他廠機種編號外洩。
+   規則＝**綁了機種就跟著那個機種的可見性走，沒綁才算通用**。
+   ⚠ 三個出口（本函式／jigsFor／模具主檔清單）一律走這裡，不要再逐處補片。
+   ✅ 現有唯一一筆模具 M-01 的 site 是空的：舊寫法 siteReadable('')===true 各廠皆可見；
+      新寫法因為它綁了 V5-001 → 改看大永 ⇒ 這正是要修的行為，不是 regression。
+   ★★★這裡**必須用 prodReadable(p) 而不是 siteReadable(prodSiteOf(pn))**（預驗 43-30 抓到）：
+      siteReadable 只認 p.site，不認「跨廠區共用」旗標 ⇒ 綁 BM04／HS01A 的治夾具會對大永整批消失，
+      而現場製程示範與整條回歸動線跑的就是 BM04。共用的判斷只有 prodReadable 這一份，別另外長一套。
+   ★★★99-24 修正（260817 使用者實測抓到 99-21 的修法沒生效）：
+     現場的 `M-01` 綁的是 `V5-001`，而**產品主檔根本沒有這個料號**（清單只印 `V5-001`、後面沒有「— 品名」
+     就是證據：那一格只有 `prodOf(m.partNo)` 存在時才會補品名）。
+     99-21 原本寫「機種查不到就退回判模具自己的 site」，而 M-01 的 site 是空的 ⇒ `siteReadable('')` 恆真
+     ⇒ **限定敬得觀音時照樣看得到大永的機種編號**，等於沒修。
+     ⇒ 改成 **fail-closed**（[[multi-site-multi-process-framework]] 六條鐵則之一「範圍 fail-closed」）：
+       綁了機種卻推不出廠區 ⇒ **限定廠區時不給看**；只有「不限廠區」（`userSiteShorts()` 回 null）才顯示。
+     ⚠ 這樣不會弄壞建箱：`moldsFor()` 另外還要求 `m.partNo===pn`，而 `V5-001` 不存在於主檔
+       ⇒ 沒有任何一次建箱會去選它，本來就是孤兒資料。 */
+/* ★★★99-24 第二次修正（260817 使用者釐清語意）：
+   ⚠⚠ **`m.site` 存的是「開模廠商」，不是廠區** —— 欄位名叫 `site` 是誤導的源頭。
+     畫面上那一欄的標籤就是「廠商」，下拉 `siteList()` 又把內部廠區與委外廠商混在一起，
+     所以拿它去跟使用者的廠區範圍比對（`siteReadable(m.site)`）**在語意上根本是錯的**：
+       ・開模廠商填「昇榮」⇒ `isOutSite()` 短路為真 ⇒ 各廠都看得到（他廠機種又外洩）
+       ・開模廠商填「大永」（自家模房）⇒ 被當成廠區大永
+   ★使用者定調：**模具的廠區只有一個來源＝它綁的機種（BOM）的廠區**。
+     ⇒ 廠區「純推導、不另外存」：沒有欄位要維護，也就沒有「模具廠區跟機種對不起來」的可能。
+   三條規則：
+     ①沒綁機種＝通用模具 ⇒ 各廠皆可見（通用本來就是通用）
+     ②綁了主檔裡的機種 ⇒ 跟著該機種的可見性 `prodReadable(p)`（**含跨廠區共用旗標**，
+       所以 BM04／HS01A 的模具在各廠都看得到，回歸動線不會斷）
+     ③綁了**主檔查無**的機種（孤兒資料，如現場的 `M-01` 綁 `V5-001`）⇒ 推不出廠區
+       ⇒ **fail-closed**（[[multi-site-multi-process-framework]]「範圍 fail-closed」）：限定廠區時不給看，
+         只有「不限廠區」才顯示，免得他廠機種編號從這裡漏出去。 */
+function moldReadable(m){ if(!m) return false;
+  if(!m.partNo) return true;                           /* ①通用模具：各廠皆可見 */
+  const p=prodOf(m.partNo);
+  if(p) return prodReadable(p);                        /* ②跟著 BOM 的廠區（含跨廠共用） */
+  return !userSiteShorts(); }                          /* ③機種不在 BOM 主檔 ⇒ fail-closed */
+/* ★★99-24 模具的「**寫入範圍**」＝所綁機種（BOM）的廠區。
+   ⚠⚠ 原本 5 個 wGuard 全都把 `m.site` 當廠區傳進去，而那是**開模廠商** ——
+     開模廠商改成自由文字之後，限定廠區的帳號一打「XX模具廠」，`siteWritable()` 找不到就把自己擋死。
+   ・沒綁機種（通用模具）⇒ 沒有可推的廠區 ⇒ 用 `oneSite()`（帳號自己的廠區）當基準：
+     不限廠區的 admin 回 ''＝放行；限定單一廠區者回自己那個＝放行。不會擋到正常操作。
+   ・★**只放寬讀、不放寬寫**：跨廠共用機種（BM04／HS01A）歸屬敬得觀音 ⇒ 大永帳號**看得到但改不動**，
+     這與 `prodReadable`／`siteWritable` 那組既有規則一致，不是這裡新增的限制。 */
+function moldScopeSite(m){ const pn=(m&&m.partNo)||''; return (pn&&prodSiteOf(pn))||oneSite(); }
+function moldsFor(pn,kind){ return getMolds().filter(m=>m.active!==false && moldReadable(m) && (!m.partNo||m.partNo===pn) && (!kind||(m.kind||'mold')===kind)); }
 function moldOpts(pn,sel,kind){ return '<option value="">（選模具）</option>'+moldsFor(pn,kind).map(m=>`<option${m.id===sel?' selected':''}>${esc(m.id)}</option>`).join(''); }
 /* ===== A1 機加帶治夾具：設備清單(模具/治夾具主檔)加「類別」＋「使用站別」 =====
    類別：模具(壓鑄專屬，沿用建箱模穴流程)／治具／夾具／檢具／輔具。
@@ -1020,7 +1068,7 @@ const MOLD_CATS=[{k:'mold',zh:'模具'},{k:'jig',zh:'治具'},{k:'clamp',zh:'夾
 function moldCatZh(k){ const c=MOLD_CATS.find(x=>x.k===k); return c?c.zh:(k||'治具'); }
 /* 某機種某站可用的治夾具：非模具類、使用站別含此站；partNo 空＝通用 */
 /* ★99-20 治夾具下拉補廠區過濾——原本設備有濾、治夾具沒有，大永的箱掛得上敬得的治具（盤查抓到的既有破口） */
-function jigsFor(pn,code){ if(!code) return []; return getMolds().filter(m=>m.active!==false && siteReadable(m.site) && m.kind!=='mold' && (!m.partNo||m.partNo===pn) && Array.isArray(m.stations) && m.stations.includes(code)); }
+function jigsFor(pn,code){ if(!code) return []; return getMolds().filter(m=>m.active!==false && moldReadable(m) && m.kind!=='mold' && (!m.partNo||m.partNo===pn) && Array.isArray(m.stations) && m.stations.includes(code)); }   /* ★99-21（0p）改走 moldReadable */
 function stationHasJig(pn,code){ return jigsFor(pn,code).length>0; }
 /* 治夾具複選 chips（建箱 / 報工共用），讀取用 readChecks(domId) */
 function jigChips(pn,code,sel){ const list=jigsFor(pn,code); const s=sel||[];
@@ -1359,8 +1407,20 @@ function reworkDispose(nrCid,reworkOK,scrapNG,releaseOK,reworkOrder,judgeSrc,jud
      `新箱.sources → NR箱` 查得到，`NR箱.disp → 新箱` **完全沒存** ⇒ 06「已會判紀錄」
      只寫「2 顆去重工」、不說進了哪一箱，要找得自己去 08 用 批號＋製程站＋時間 對。
      ★對照組＝Q 質控早就做到了（p.boxCids 記下所有產出箱）——同一種需求一邊做了一邊沒做。 */
+  /* ★★99-23（backlog 4f）重工箱不再從原工單「跳槽」到 R 單號（使用者 260814 定案＝A 案）。
+     【原本】`orderNo: ord||nb.orderNo` ⇒ **只要在會判填了 R 單號，重工箱的 order_no 就變成那個字串**。
+       後果①：07／00 用**原工單**篩選看不到重工箱 ⇒ 那批料在原工單的帳上憑空少一塊。
+       後果②：清除測試資料的 SQL 按 order_no 刪 → 重工箱掛在 R 單號底下**刪不掉**（260812 回歸就中過，
+              `NR-DC-260812-001` 判 2 顆重工、R 單號填 `XXX`，那箱就掛在 order_no='XXX'）。
+     【A 案】**order_no 一律維持原工單**（料的歸屬）；R 單號另存在 `reworkOrder`**當標記**（已有欄位、已在
+       08 的紫色 pill／07 箱別欄／06 已會判紀錄三處顯示）。
+     【為什麼不走 B 案「真的掛 R 單」】R 單號現在**沒有主檔、不驗格式、不查重**（見 backlog 4d），
+       拿它當工單主鍵撐不住；而且 07／00 得先能把 S 單與 R 單「串起來看」才不會讓原工單永遠少一塊
+       —— 那是「重工工單落地成真的單」那個更大的題目，不該卡在交付前。
+     ⚠ 放行箱（release）本來就傳 ord=''，一直都掛原工單，這次不受影響。
+     ⚠ 舊資料不自動搬（既有那箱 order_no 已是 R 單號）—— 遷移 SQL 另附，由使用者決定要不要跑。 */
   const mkOK=(qty,wt,ord,st)=>{ const cid=genCID(st); db.data.containers.push({cid,partNo:nb.partNo,name:nb.name,lot:nb.lot,
-    orderNo:ord||nb.orderNo,processCode:st,stagePartNo:stageNo(nb.partNo,st),qty,operator:judge||'',
+    orderNo:nb.orderNo||'',processCode:st,stagePartNo:stageNo(nb.partNo,st),qty,operator:judge||'',
     machine:wt==='rework'?'重工':'',shift:'',workType:wt,reworkOrder:ord||'',reworkFrom:nb.processCode,sources:[{cid:nrCid,take:qty}],createdAt:at}); return cid; };
   let reworkCid='', releaseCid='', ngCid='';
   if(reworkOK>0) reworkCid=mkOK(reworkOK,'rework',reworkOrder||'',rwSt);
@@ -1900,8 +1960,10 @@ function viewDash(){
   <div class="grid g5" style="margin-bottom:18px">${''/* ★97-2 五張 KPI 卡排成一行 */}
     <div class="kpi"><div class="v">${db.data.products.length}</div><div class="l">${L('產品/機種')}</div></div>
     <div class="kpi"><div class="v" style="color:var(--gold)">${inProg.length}</div><div class="l">${L('在製批次')}</div></div>
-    <div class="kpi"><div class="v" style="color:#b9760f">${nr}</div><div class="l">${L('累計 NR 可重工')}</div></div>
-    <div class="kpi"><div class="v" style="color:var(--red)">${ng}</div><div class="l">${L('累計 NG 報廢')}</div></div>
+    ${''/* ★99-21（0w2）補 hover 說明：這兩個數字＝reports 加總的「質控當下判定量」，不含 06 會判後轉報廢的量，
+           所以與 06 那兩張 KPI 對不起來是正常的（06＝箱的現有量）。兩邊都對，只是基準不同。 */}
+    <div class="kpi" title="質控當下判為 NR 的累計量（不因之後會判處置而變動）"><div class="v" style="color:#b9760f">${nr}</div><div class="l">${L('累計 NR 可重工')}</div></div>
+    <div class="kpi" title="質控當下判為 NG 的累計量，不含「NR 會判後轉報廢」；06 不良／重工 的「NG 箱現有量」是箱的現值（含轉入），兩個基準不同"><div class="v" style="color:var(--red)">${ng}</div><div class="l">${L('累計 NG 報廢')}</div></div>
     <div class="kpi" style="cursor:pointer" onclick="goQcInsp('')"><div class="v" style="color:#b9760f">${(db.data.pending||[]).filter(p=>p.status==='pending').length}</div><div class="l">${L('⏳ 待質控（點入質控檢驗）')}</div></div>
   </div>
   <div class="card"><h3>${L('目前在製批次')}</h3>
@@ -1940,6 +2002,16 @@ function wipSync(src){
   if(src==='lot'&&lot){ const m=metas.find(x=>x.lot===lot); if(m){
     if(pe&&!pe.value) pe.value=m.pn;
     const we=$('#wip_wo'); if(we&&!we.value.trim()&&(m.wos||[]).length===1) we.value=m.wos[0]; } }
+  /* ★99-21（0g）選工單也要自動帶機種（使用者 260814 於 99-20 回歸實測）：原本自動帶入只寫在 lot 分支，
+     選工單只做「收斂選項」沒有「帶值」⇒ 機種欄仍顯示「全部機種」。
+     ★後果不是少了綠底而已：工單本質綁定一個機種，系統不認 ⇒ 表格停在橘底「多機種合計」模式、
+     排序改按期末在手量降冪，而這張表的定位就是「由上到下＝製程先後」⇒ 那句話在工單檢視下是假的
+     （實測：組立排第一、毛邊排最後，看起來像組立是首站）。與 98-25 被抓到的是同一個病，只是入口從機種換成工單。
+     ⚠ 只在「該工單只對應一個機種」時才帶（ERP 一單多明細可能跨機種，那時不猜）。
+     ⚠ 位置必須在上面重建 #wip_pn 選項之後——選項是依 wo/lot 收斂重建的，先填值會被蓋掉。 */
+  if(src==='wo'&&wo&&pe&&!pe.value){
+    const pns=[...new Set(metas.filter(m=>(m.wos||[]).indexOf(wo)>=0).map(m=>m.pn).filter(Boolean))];
+    if(pns.length===1) pe.value=pns[0]; }
   updateWip();
 }
 function wipClear(){ ['wip_pn','wip_wo','wip_lot'].forEach(id=>{ const e=$('#'+id); if(e) e.value=''; }); wipSync(''); }
@@ -3010,9 +3082,13 @@ async function addMach(){
    而且 DB 真的寫進去、不會報錯（最難察覺的一種）。改吃 _uuid＝DB 主鍵。 */
 async function setMachField(uu,field,val){
   const m=getMachines().find(x=>x._uuid===uu); if(!m||!m._uuid) return;
-  if(wGuard('machmaster','e',m.site,'設備 '+m.id)) return;
+  /* ★99-21（0r）擋下後要重繪（使用者 260814 回歸 §13-2b 實測）：原本兩道守門都是直接 return，
+     render() 只在成功路徑（下面 if(field==="site") render()）⇒ 被擋下時**畫面上的值停在使用者剛改的那個**，
+     出現「分組標題寫 📍敬得觀音（15 台）、該列廠區下拉卻寫大永」的自相矛盾。
+     ✅ 資料沒被弄壞（PATCH 根本沒送出，且 patch 只寫被改的那一欄），純顯示問題 → 補一次 render() 彈回原值。 */
+  if(wGuard('machmaster','e',m.site,'設備 '+m.id)){ render(); return; }
   /* ★只查 m.site 會漏掉「把設備搬去別廠」這條逃逸路徑：目的地也要在範圍內 */
-  if(field==='site' && wGuard('machmaster','e',(val||'').trim(),'把設備 '+m.id+' 改掛到「'+((val||'').trim()||'未指定')+'」')) return;
+  if(field==='site' && wGuard('machmaster','e',(val||'').trim(),'把設備 '+m.id+' 改掛到「'+((val||'').trim()||'未指定')+'」')){ render(); return; }
   const clean=(val||'').toString().trim();
   const patch={updated_at:new Date().toISOString()}; patch[field]=clean||null;
   const r=await sbWrite('PATCH','mhr_machines?id=eq.'+encodeURIComponent(m._uuid),patch);
@@ -3153,27 +3229,31 @@ function renderMoldMaster(){
   const pnOpts=prodOptions('（通用 / 不限機種）', editing&&editing.partNo, prodsVisible());   /* ★99-20-3 依廠區收斂 */
   const kindOpts=MOLD_CATS.map(c=>`<option value="${c.k}"${(editing?editing.kind===c.k:c.k==='mold')?' selected':''}>${esc(c.zh)}</option>`).join('');
   const edStations=(editing&&Array.isArray(editing.stations))?editing.stations:[];
-  const siteSel='<option value="">（未指定）</option>'+siteList().map(n=>`<option${editing&&editing.site===n?' selected':''}>${esc(n)}</option>`).join('');
+  /* ★99-24 原本的 siteSel（廠商主檔下拉）已移除——開模廠商改自由文字輸入，見下方 md_site。
+     移除理由（使用者 260817）：siteList() 回的是「內部廠區＋**製程委外廠商**」，
+     但開模廠商可能是敬得／大永自己開，也可能是**其他模具廠商**，而模具廠根本不在那份主檔裡
+     ⇒ 現場想填「XX模具廠」填不進去，只能從製程委外廠商裡勉強挑一個＝語意汙染的來源。
+     這欄「只是一個記錄、不是必填」，所以不綁主檔、直接讓人打字。 */
   const catPill=(k)=>{ const map={mold:['模具','#e3f0f2','#1c7a86'],jig:['治具','#e7eef7','#34618c'],clamp:['夾具','#e9eefa','#2b4c86'],gauge:['檢具','#ede6f5','#6a4c93'],aux:['輔具','#e6f4ec','#2e8b57']}; const c=map[k]||['治具','#e7eef7','#34618c']; return `<span class="pill" style="background:${c[1]};color:${c[2]}">${c[0]}</span>`; };
   const stCell=(m)=>{ const a=Array.isArray(m.stations)?m.stations:[]; return a.length?a.map(c=>esc(stN(c))).join('、'):(m.kind==='mold'?'<span class="muted small">壓鑄建箱</span>':'<span class="muted">—</span>'); };
-  const mlist=getMolds().filter(m=>siteReadable(m.site));   /* ★siteReadable：空廠區各廠皆可見 */
+  const mlist=getMolds().filter(m=>moldReadable(m));   /* ★99-21（0p）改走 moldReadable：綁了機種就看機種的廠區，沒綁才算通用（原本只判 m.site ⇒ 他廠機種編號從這頁外洩） */
   const rows=mlist.map(m=>`<tr><td class="mono">${esc(m.id)}</td><td>${catPill(m.kind)}</td><td>${m.partNo?esc(m.partNo)+(prodOf(m.partNo)?' <span class="muted small">— '+esc(prodOf(m.partNo).name||'')+'</span>':''):'<span class="muted">通用</span>'}</td><td class="small">${stCell(m)}</td><td>${m.site?esc(m.site):'<span class="muted">—</span>'}</td><td>${+m.cav>0?esc(String(m.cav))+' 穴':'<span class="muted">—</span>'}</td><td>${m.active!==false?'<span class="pill ok">啟用</span>':'<span class="pill ng">停用</span>'}</td><td style="white-space:nowrap">${ed?`<button class="btn ghost sm" onclick="editMold('${m._uuid}')">編輯</button> <button class="btn ghost sm" onclick="toggleMold('${m._uuid}')">${m.active!==false?'停用':'啟用'}</button> <button class="btn gray sm" onclick="delMold('${m._uuid}')">刪除</button>`:'<span class="muted small">唯讀</span>'}</td></tr>`).join('');
   v.innerHTML=`<div class="page-h"><h2>模具 / 治夾具 · 設備清單 Molds &amp; Jigs</h2><p>模具、治具、夾具、檢具、輔具都在這裡管理，每筆標「類別」與「使用站別」（可多站）。壓鑄建箱的模具下拉只取「模具」類；治具／夾具等則在所指定的使用站別報工／建箱時自動跳出複選。可綁機種（只在該機種出現）或設通用，並標所屬廠商。</p></div>
   ${ed?`<div class="card"><h3 style="cursor:pointer;user-select:none" onclick="window._moldAdd=!window._moldAdd;render()">${(editing||window._moldAdd)?'▾':'▸'} ${editing?'編輯項目':'新增項目'}${(editing||window._moldAdd)?'':' <span class="vi">（點擊展開）</span>'}</h3><div style="display:${(editing||window._moldAdd)?'':'none'};margin-top:10px"><div class="row">
     <div><label>模號 / 編號</label><input id="md_id" placeholder="如 M-12 / JIG-03" value="${editing?esc(editing.id):''}"></div>
     <div><label>類別</label><select id="md_kind">${kindOpts}</select></div>
     <div style="flex:1;min-width:220px"><label>適用機種</label><select id="md_pn">${pnOpts}</select></div>
-    <div><label>廠商</label><select id="md_site">${siteSel}</select></div>
+    <div><label>開模廠商 <span class="vi">（選填，僅記錄）</span></label><input id="md_site" placeholder="如 自家模房／OO模具廠" value="${editing?esc(editing.site||''):''}"></div>${''/* ★99-24 正名（使用者 260817 釐清）：這欄是「開模廠商」，**不是廠區**。原本只寫「廠商」，害得 moldReadable 一度拿它當廠區比對 ⇒ 填委外廠商就各廠可見、填自家模房就被當成該廠區。廠區一律從 BOM 推，見 moldReadable() 的說明。 */}
     <div style="width:110px"><label>穴數</label><input id="md_cav" type="number" min="1" placeholder="如 4" value="${editing?(editing.cav||''):''}"></div>
     <div>${editing?`<button class="btn navy" onclick="saveMold()">儲存更新</button> <button class="btn gray" onclick="cancelMold()">取消</button>`:`<button class="btn" onclick="addMold()">＋新增</button>`}</div>
   </div>
     <div style="margin-top:8px"><label>使用站別 <span class="vi">（可多選；報工/建箱要選此治夾具的站。模具類可免，壓鑄建箱自動取用）</span></label><div id="md_stations">${stationChips(edStations)}</div></div>
   </div></div>`:''}
-  <div class="card"><h3>清單（${mlist.length}）</h3><div class="tblfit"><table><thead><tr><th>模號 / 編號</th><th>類別</th><th>適用機種</th><th>使用站別</th><th>廠商</th><th>穴數</th><th>狀態</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  <div class="card"><h3>清單（${mlist.length}）</h3><div class="tblfit"><table><thead><tr><th>模號 / 編號</th><th>類別</th><th>適用機種</th><th>使用站別</th><th>開模廠商</th><th>穴數</th><th>狀態</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 /* ★88 模具寫入全直寫雲端（mhr_molds） */
 async function addMold(){
-  if(wGuard('moldmaster','c',(($('#md_site')||{}).value||''),'新增模具/治夾具')) return;
+  if(wGuard('moldmaster','c',moldScopeSite({partNo:($('#md_pn')||{}).value||''}),'新增模具/治夾具')) return;   /* ★99-24 範圍看所綁機種，不是開模廠商 */
   const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err');
   if(getMolds().some(x=>x.id===id&&(x.partNo||'')===pn)) return toast('已存在相同模號+機種','err');
   const r=await sbWrite('POST','mhr_molds',moldRow({id,partNo:pn,kind,site,cav,stations,active:true}));
@@ -3182,18 +3262,21 @@ async function addMold(){
 function editMold(u){ window._editMold=u; render(); if(window.scrollTo)window.scrollTo(0,0); }
 function cancelMold(){ window._editMold=''; render(); }
 async function saveMold(){ const em=(typeof window._editMold==='string')?window._editMold:''; if(!em) return; const m=getMolds(); const cur=m.find(x=>x._uuid===em); if(!cur||!cur._uuid) return; const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err'); if(m.some(x=>x._uuid!==em&&x.id===id&&(x.partNo||'')===pn)) return toast('已存在相同模號+機種','err');
-  if(wGuard('moldmaster','e',cur.site,'模具/治夾具 '+cur.id)) return;                    /* ①原歸屬 */
-  if(site!==cur.site && wGuard('moldmaster','e',site,'把 '+cur.id+' 改掛到「'+(site||'未指定')+'」')) return;  /* ②新歸屬＝防搬廠 */
+  /* ★99-24 兩道守門的「歸屬」改看**所綁機種**（BOM 的廠區），不再看 `site`（那是開模廠商）。
+     ②防搬廠的語意也跟著變：搬廠＝**把適用機種改成別廠的機種**，不是改開模廠商。 */
+  if(wGuard('moldmaster','e',moldScopeSite(cur),'模具/治夾具 '+cur.id)) return;                    /* ①原歸屬（依原機種） */
+  { const newScope=moldScopeSite({partNo:pn});
+    if(newScope!==moldScopeSite(cur) && wGuard('moldmaster','e',newScope,'把 '+cur.id+' 改綁到機種「'+(pn||'通用')+'」（屬 '+(newScope||'未指定')+'）')) return; }   /* ②新歸屬＝防搬廠 */
   const nv={...cur,id,partNo:pn,kind,site,cav,stations};
   const r=await sbWrite('PATCH','mhr_molds?id=eq.'+encodeURIComponent(cur._uuid),moldRow(nv));
   if(!r.ok) return toast(r.error||'更新失敗','err');
   Object.assign(cur,nv); window._editMold=''; toast('已更新（已存雲端）','ok'); render(); }
 async function toggleMold(u){ const m=getMolds().find(x=>x._uuid===u); if(!m||!m._uuid) return;
-  if(wGuard('moldmaster','e',m.site,'停用/啟用 '+m.id)) return;
+  if(wGuard('moldmaster','e',moldScopeSite(m),'停用/啟用 '+m.id)) return;   /* ★99-24 範圍看所綁機種 */
   const r=await sbWrite('PATCH','mhr_molds?id=eq.'+encodeURIComponent(m._uuid),{active:!(m.active!==false),updated_at:new Date().toISOString()});
   if(!r.ok) return toast(r.error||'失敗','err'); m.active=!(m.active!==false); render(); }
 async function delMold(u){ const m=getMolds().find(x=>x._uuid===u); if(!m||!m._uuid) return;
-  if(wGuard('moldmaster','d',m.site,'刪除 '+m.id)) return;   /* 守門在 confirm 之前 */
+  if(wGuard('moldmaster','d',moldScopeSite(m),'刪除 '+m.id)) return;   /* ★99-24 範圍看所綁機種 */   /* 守門在 confirm 之前 */
   if(!confirm('刪除模具/治夾具「'+m.id+'」？')) return;
   const r=await sbWrite('DELETE','mhr_molds?id=eq.'+encodeURIComponent(m._uuid));
   if(!r.ok) return toast(r.error||'失敗','err'); window._editMold=''; toast('已刪除','ok'); await loadMolds(); render(); }
@@ -4072,6 +4155,27 @@ function vbList(){
 async function vbDone(){ if(wGuard('receive','e',undefined,'委外回廠點收')) return;
   if(!window._vb.length) return toast('請先掃箱','err');
   for(let i=0;i<window._vb.length;i++){ const a=+(($('#vb_a'+i)||{}).value||0); if(!(a>=0)) return toast(window._vb[i]+' 實回數不正確','err'); }
+  /* ★99-22（backlog 0e）結案且有帳差 → 廠商送貨單號必填（比照 98-12 委外轉出必選廠商）。
+     【問題】畫面自己寫「短少＝開立扣款單的依據」，但送貨單號留空照樣送得出去 ⇒ 帳差記錄與 CSV 的
+       備註只剩「（本批結案短少）」，**沒有憑證可對帳、扣款單開不出來**。260814 回歸第 2 批
+       （CN26081400001 27→25，短少 −2）就是留空照樣送出。委外天天在跑，這是會出錢的欄位。
+     【擋的範圍】只擋「**結案且認列了帳差**」那一種：
+       ・分批回廠（未勾結案）acDiff 恆為 0 → 不擋（本來就不是短少，也還沒要對帳）
+       ・結案但數量剛好（acDiff===0）→ 不擋（沒有帳差就沒有扣款）
+       ・★超交（acDiff>0）也擋 —— 它同樣產生一筆認列到廠商的帳差記錄，畫面寫明「可與先前短交沖銷」，
+         沖銷一樣要憑單號；而且超交是廠商真的送料回來，實體上一定有送貨單。
+     ⚠⚠ **一定要擋在任何寫入之前**（獨立前置迴圈）：下面那個迴圈會改 c.writeOff、push 待驗單與帳差記錄，
+        中途 return 會留下改了一半的記憶體狀態，使用者再按一次就重複累加。 */
+  for(let i=0;i<window._vb.length;i++){
+    const cid=window._vb[i]; const c=findC(cid); if(!c) continue;
+    const expect=remaining(cid), actual=+(($('#vb_a'+i)||{}).value||0), diff=actual-expect;
+    const fin=!!(($('#vb_f'+i)||{}).checked);
+    const acDiff=(!fin&&diff<0)?0:diff;                       /* 與下方主迴圈同一條算式 */
+    if(acDiff!==0 && !((($('#vb_dn'+i)||{}).value)||'').trim())
+      return toast(cid+'：本批結案且有'+(acDiff<0?'短少 '+(-acDiff):'超交 +'+acDiff)
+        +' pcs → 廠商送貨單號必填（那是開立扣款單／沖銷的憑證）。'
+        +'（若廠商還會再送回，請改成不勾「本批結案」＝分批回廠，就不會記成短少）','err');
+  }
   const by=sessionName()||'—'; const at=nowISO(); let nDiff=0,nPart=0,qDiff=0; const pids=[];
   for(let i=0;i<window._vb.length;i++){
     const cid=window._vb[i]; const c=findC(cid); if(!c) continue;
@@ -5015,9 +5119,13 @@ function renderRework(){
   <div class="page-h"><h2>${L('不良 / 重工')}</h2><p>生產自檢的不良進紅色不良箱(NR)；由工程＋品保<b>會判</b>後處置：重工回流 / 報廢 / 改判放行。會判結果＝QMS 檢驗結果的串接點（目前手動，預留 QMS 接口）。</p></div>
   <div class="grid g4" style="margin-bottom:16px">
     <div class="kpi"><div class="v" style="color:#b9760f">${pend.length}</div><div class="l">${L('待會判 NR 箱')}</div></div>
-    <div class="kpi"><div class="v" style="color:#b9760f">${pendQty}</div><div class="l">${L('待重工數量')}</div></div>
+    ${''/* ★99-21（0w2）命名對齊（使用者 260814 上線後實測）：06 與 00 的 NR／NG KPI 資料源不同、算的都對，
+           但 00 叫「累計 NG 報廢」（＝質控當下判的量）、06 也叫「累計報廢數」（＝NG 箱現有量、含會判轉入），
+           兩邊都寫「累計」意思卻不同 ⇒ 現場一定會問「到底哪個對」。
+           ★只改文案與 hover 說明，**不動算式**——兩個數字各有用途（00 看品質、06 看現場還有多少實體要處理）。 */}
+    <div class="kpi" title="NR 不良箱的剩餘量（已會判處置掉的不算）"><div class="v" style="color:#b9760f">${pendQty}</div><div class="l">${L('待重工數量')}</div></div>
     <div class="kpi"><div class="v" style="color:var(--red)">${ngBoxes.length}</div><div class="l">${L('NG 報廢箱')}</div></div>
-    <div class="kpi"><div class="v" style="color:var(--red)">${ngQty}</div><div class="l">${L('累計報廢數')}</div></div>
+    <div class="kpi" title="NG 報廢箱目前的箱上數量，含「NR 會判後轉報廢」轉進來的量；與 00 總覽的「累計 NG 報廢」（質控當下判的量）基準不同，兩個都對"><div class="v" style="color:var(--red)">${ngQty}</div><div class="l">${L('NG 箱現有量')}</div></div>
   </div>
   ${''/* ★99-18 篩選列：四向交集收斂（每欄候選＝符合其餘欄位的集合）＋清除。三張卡片一起吃這組條件。 */}
   <div class="card" style="margin-bottom:12px"><h3>🔍 ${L('篩選')} <span class="vi">（機種／批號／製程站／日期；三張表一起套）</span></h3>
@@ -5127,7 +5235,7 @@ function renderAll(){
   <div class="page-h"><h2>${L('全部箱號')}</h2><p>系統內所有箱號完整清單，可搜尋、篩選機種 / 批號 / 製程 / 日期 / 狀態。點任一列追溯；滑過箱號可看入庫次序。</p></div>
   <div class="card">
     <div class="row">
-      <div style="flex:1;min-width:200px"><label>${L('搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）')}</label><input id="a_kw" placeholder="輸入關鍵字" oninput="renderAllTable()"></div>
+      <div style="flex:1;min-width:200px"><label>${L('搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）')} <span class="vi">（含重工工單號）</span></label><input id="a_kw" placeholder="輸入關鍵字" oninput="renderAllTable()"></div>${''/* ★99-23（4f）標註含重工工單號：重工箱的 order_no 改回原工單後，R 單號只在 reworkOrder，要讓現場知道打得到 */}
       <div style="min-width:150px"><label>${L('機種 / 料號')}</label><select id="a_pn" onchange="renderAllTable()">${prodOpts}</select></div>
       <div style="min-width:180px"><label>${L('工單號')} <span class="vi">（可打字）</span></label>${comboHTML('a_wo',window._alWos,Lt('全部工單'),'renderAllTable()')}</div>
       <div style="min-width:190px"><label>${L('批號')} <span class="vi">（可打字）</span></label>${comboHTML('a_lot',window._alLots,Lt('全部批號'),'renderAllTable()')}</div>
@@ -5158,7 +5266,7 @@ function allCascadeBase(skip,noKw){
     if(skip!=='st'&&st&&c.processCode!==st) return false;
     if(skip!=='dt'&&dt&&prodDayOf(c.createdAt)!==dt) return false;
     /* 比對欄位與 renderAllTable 的搜尋完全一致，否則會出現「下拉有選項但列表 0 筆」 */
-    if(kw&&![c.cid,c.orderNo,c.lot,c.partNo,c.name,c.operator,c.machine].join(' ').toLowerCase().includes(kw)) return false;
+    if(kw&&![c.cid,c.orderNo,c.lot,c.partNo,c.name,c.operator,c.machine,c.reworkOrder].join(' ').toLowerCase().includes(kw)) return false;   /* ★99-23（4f）補 reworkOrder：order_no 改回原工單後，R 單號只剩這個欄位找得到 */
     return true; }); }
 function allSyncOpts(){
   let cleared=false;
@@ -5196,7 +5304,7 @@ function renderAllTable(){
   rows=rows.filter(c=>(!pn||c.partNo===pn)&&(!aw||c.orderNo===aw)&&(!lt||c.lot===lt)&&(!st||c.processCode===st)&&(!dt||prodDayOf(c.createdAt)===dt));
   if(state==='stock') rows=rows.filter(c=>remaining(c.cid)>0);
   if(state==='moved') rows=rows.filter(c=>remaining(c.cid)<=0);
-  if(kw) rows=rows.filter(c=>[c.cid,c.orderNo,c.lot,c.partNo,c.name,c.operator,c.machine].join(' ').toLowerCase().includes(kw));   /* ★96 補搜工單號 */
+  if(kw) rows=rows.filter(c=>[c.cid,c.orderNo,c.lot,c.partNo,c.name,c.operator,c.machine,c.reworkOrder].join(' ').toLowerCase().includes(kw));   /* ★96 補搜工單號；★99-23（4f）補 reworkOrder ⚠ 必須與 allCascadeBase 那行一字不差，否則會「下拉有選項但列表 0 筆」 */
   const so=window._allSort;
   rows=rows.slice().sort((a,b)=>{ const va=aVal(a,so.k),vb=aVal(b,so.k);
     const r=(typeof va==='number'&&typeof vb==='number')?va-vb:String(va).localeCompare(String(vb),'zh-Hant');
@@ -5211,22 +5319,50 @@ function renderAllTable(){
   el.innerHTML=`<style>
     /* 84-7 欄簡化（使用者定案欄序：箱號→工單號→批號→製程→數量群→狀態→作業員→時間；機種=批號首段可讀、料號滑過箱號看）
        ＋表頭凍結（.tblwrap 捲動＋sticky，本頁無欄寬拖動 JS 不踩舊坑）＋點表頭排序。欄砍兩支後字級回升 12px */
-    #a_table table{font-size:12px}
-    #a_table th,#a_table td{padding:6px 6px}
-    /* ★95 寬表一頁可看：長字欄（工單號/批號/作業員）可折行→整表塞進視窗寬、不再橫向捲；
-       批號在底線後斷行（同總覽 <wbr> 作法）；塞不下的極窄螢幕 .tblwrap 橫捲仍在（保險） */
-    #a_table td:nth-child(2){white-space:normal;word-break:break-all;min-width:90px;font-size:11px}   /* ★96-5 工單號字縮小（長單號一行放下） */
-    #a_table td:nth-child(3){white-space:normal}
-    #a_table td:nth-child(10){white-space:normal}
-    #a_table .btn.sm{padding:2px 5px;font-size:11px;white-space:nowrap}
-    #a_table .badge{font-size:11px}
-    #a_table .mono{font-size:11px}
-    #a_table .pill{font-size:10.5px;white-space:nowrap}
+    ${''/* ★★99-24（0i 同類，使用者 260817 實測圈出：工單號 `WO-BM04-260/1`、批號、作業員三欄折行）
+          【原本為什麼會折】95／96-5 當年為了「表格不要超出畫面」，**刻意**把第 2（工單號）／3（批號）／
+            10（作業員）三欄設成 `white-space:normal`＋`word-break:break-all` ⇒ 識別碼被從中間切斷，
+            現場讀錯、複製漏字；作業員 `Nguyễn Văn Cường 阮文強` 更被切成四行。
+          【使用者定案＝A 案】縮字＋釘欄寬，**不走橫向捲動**（B 案被否決）。
+          【實測】repro 用現場真實資料（含 ERP 長工單號 `TY-Starlink 1221-260700067`＝26 碼、
+            作業員 19 碼中越混排）逐欄量：縮字後總需求 902px、可用 891px ⇒ 靠重配欄寬吸收。
+            結果：**1366／1440／1600 → 12 欄全部一行**；1280 只剩幾個 pill 差 1–2px。
+          ⚠ `table-layout:fixed`＋`nowrap` 之下，超長值會**溢出到隔壁欄**，所以補 `text-overflow:ellipsis`
+            當安全網（欄寬是照真實最長值配的，正常資料不會走到這條）。
+          ⚠ 箱號欄的「重工 pill」與「🧾待驗單號」本來就各自成行（cell 是堆疊式），
+            欄寬只保證**箱號 badge＋🖨 那一行**不折（實測需 98px，給 ~106px）。 */}
+    #a_table table{font-size:10px;table-layout:fixed;width:100%}
+    ${''/* ★99-24-5：nowrap＋ellipsis **只套 td**。99-24-3 連 th 一起套 ⇒ 未投產欄的說明副標
+          「在本站＝待轉出｜已轉出＝待投產」被切成「在本站＝」。**表頭本來就該可以折行**（它是說明不是識別碼），
+          折成兩行只是表頭變高，不影響資料列對齊。 */}
+    #a_table td{padding:4px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #a_table th{padding:4px 4px;font-size:10px;white-space:normal;word-break:break-word}
+    #a_table .small{font-size:10px}
+    #a_table th:nth-child(1), #a_table td:nth-child(1) {width:11.5%}  /* 箱號（badge＋🖨 不可折；pill／待驗單號自成行） */
+    #a_table th:nth-child(2), #a_table td:nth-child(2) {width:16.4%}  /* 工單號（要放得下 ERP 的 26 碼長單號） */
+    #a_table th:nth-child(3), #a_table td:nth-child(3) {width:12.4%}  /* 批號 23 碼（識別碼，不可折） */
+    #a_table th:nth-child(4), #a_table td:nth-child(4) {width:8.6%}   /* 製程 pill（中英並排） */
+    #a_table th:nth-child(5), #a_table td:nth-child(5) {width:3.9%}   /* 產出數 */
+    #a_table th:nth-child(6), #a_table td:nth-child(6) {width:3.9%}   /* 已轉出 */
+    #a_table th:nth-child(7), #a_table td:nth-child(7) {width:3.9%}   /* 已投產 */
+    #a_table th:nth-child(8), #a_table td:nth-child(8) {width:3.9%}   /* 未投產 */
+    #a_table th:nth-child(9), #a_table td:nth-child(9) {width:9.4%}   /* 目前位置 pill（最長「在 組立 Assembly」） */
+    #a_table th:nth-child(10),#a_table td:nth-child(10){width:15.4%}  /* 作業員（中越混排最長 19 碼，不可折） */
+    #a_table th:nth-child(11),#a_table td:nth-child(11){width:6.0%}   /* 時間 */
+    #a_table th:nth-child(12),#a_table td:nth-child(12){width:4.7%}   /* 操作 */
+    /* ★95 寬表一頁可看：整表塞進視窗寬、不橫向捲；塞不下的極窄螢幕 .tblwrap 橫捲仍在（保險）。
+       ⚠ 95 原本的手段是「長字欄（工單號/批號/作業員）可折行」，★99-24 已改成「縮字＋釘欄寬」——
+         折行會把識別碼從中間切斷（實測 WO-BM04-260 / 1、作業員被切四行），代價比原本要解的問題大。 */
+    ${''/* ★99-24 移除：原 nth-child(2)/(3)/(10) 的 white-space:normal ＝ 工單號／批號／作業員三欄折行的直接原因，改由上面的釘欄寬處理 */}
+    #a_table .btn.sm{padding:2px 4px;font-size:9px;white-space:nowrap}
+    #a_table .badge{font-size:9px;padding:2px 5px;letter-spacing:.2px}
+    #a_table .mono{font-size:9px}
+    #a_table .pill{font-size:9px;padding:1px 6px;white-space:nowrap}
     #a_table .tblwrap{max-height:65vh;overflow:auto}
     #a_table thead th{position:sticky;top:0;z-index:3;background:var(--navy)}
     #a_table th:nth-child(5),#a_table td:nth-child(5),#a_table th:nth-child(6),#a_table td:nth-child(6),#a_table th:nth-child(7),#a_table td:nth-child(7),#a_table th:nth-child(8),#a_table td:nth-child(8){text-align:right}
-    #a_table td:nth-child(11){white-space:nowrap;font-size:11px}
-    #a_table .stg{font-size:9.5px;color:var(--muted);font-family:Consolas,monospace}
+    #a_table td:nth-child(11){white-space:nowrap;font-size:10px}
+    #a_table .stg{font-size:8.5px;color:var(--muted);font-family:Consolas,monospace}
   </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ 產出合計 ${tot} ｜ 未投產合計 <b>${remTot}</b><span class="small muted">（在本站＝<b>待轉出</b> ${remAtStation}${remHanded?'｜已轉出＝下站<b>待投產</b> '+remHanded:''}）</span>　<span class="muted small">欄名與 07 追溯一致：已轉出＝整箱點交走（0＝還在本站）；已投產＝下站領去做掉；未投產＝還沒被做掉——在本站就是該站的<b>待轉出</b>、已轉出到下站就是下站的<b>待投產</b></span></div>
     ${rows.length?`<div class="tblwrap"><table class="compact" style="width:100%"><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('產出數'))}${TH('out',L('已轉出'))}${TH('drawn',L('已投產'))}${TH('bal','未投產<div class="vi" style="font-size:9.5px;font-weight:400;white-space:nowrap">在本站＝待轉出｜已轉出＝待投產</div>')}${TH('st',L('目前位置'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th style="white-space:nowrap">操作</th></tr></thead><tbody>
     ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const sq=batchSeq(c);
@@ -5523,7 +5659,11 @@ function doQuery(){
           <td>${waitQc?`<a class="lk" style="color:#b9760f;font-weight:700" title="點入質控檢驗（自動篩本站待質控單）" onclick="goQcInsp('${c}','${esc(wo||'')}','${esc(lot||'')}')">${waitQc}</a>`:'<span class="muted">—</span>'}</td>
           <td>${hasStk?(diffQ?`<b style="color:${diffQ<0?'var(--red)':'#3355aa'}" title="物控清點差異合計（${stkBoxes.length} 箱清點過）">${diffQ>0?'+':''}${diffQ}</b>`:'<span class="muted">0</span>'):'<span class="muted" title="本站尚無箱做過物控清點">—</span>'}</td>
           <td>${movedOut?`<a class="lk muted" title="看已轉出的箱" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','moved')">${movedOut}</a>`:'<span class="muted">—</span>'}</td>
-          <td>${waitOut?`<a class="lk" style="color:var(--teal);font-weight:700" title="看待轉出的箱（在本站等點交）" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','stock')">${waitOut}</a>`:'<span class="muted">—</span>'}</td>
+          ${''/* ★99-21（0f）末站用詞（使用者 260814 於 99-20 回歸提出）：waitOut＝x.stock 沒有末站特判，
+                 組立（末站）成品入庫後仍被標成「待轉出」、tooltip 還寫「在本站等點交」⇒ 現場會問「要點交去哪」。
+                 ★算式完全不動（末站 moved 結構性恆為 0，待轉出＝OK 本來就成立），只改標籤與說明。
+                 用詞對齊 00 總覽的「期末在手量」——同一個數字兩頁講法不一致是 98-27 只整理了 00 沒整理 07。 */}
+          <td>${waitOut?`<a class="lk" style="color:var(--teal);font-weight:700" title="${last?'看本站的成品箱（已驗產箱、已入庫；末站不轉出）':'看待轉出的箱（在本站等點交）'}" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','stock')">${waitOut}</a>${last?'<br><span class="small muted">成品在庫</span>':''}`:'<span class="muted">—</span>'}</td>
           <td style="background:#eaf5ef"><b style="color:var(--teal);font-size:1.05em">${wip}</b></td></tr>`; }).join(''); })()}
       </tbody></table>
       <div class="small muted" style="margin-top:8px">由上到下＝製程先後。勾稽關係：<b>接收＋委外帳差＝已投產＋待投產</b>（★<b>委外帳差</b>＝該站<b>委外回廠點收</b>的短交／超收合計，負＝短少、正＝超收；料是全數轉出去給廠商的，短少是回廠點收才發現的，所以<b>接收＝上站的已轉出</b>，兩邊對得起來；非委外站顯示「—」；明細與扣款依據見檢視「⚖ 帳差記錄」）；<b>已投產＝已驗＋待質控</b>；<b>已驗＝OK＋NR＋NG</b>（良率＝OK÷已驗）——這是<b>質控當時驗的量</b>，物控少點不會改到它；★<b>清點帳差</b>＝該站<b>物控清點時實際記錄的差異合計</b>（負＝短少、正＝超收；只在「質控產箱→物控清點」發生；本站沒有箱清點過顯示「—」；認列單位與明細見檢視「⚖ 帳差記錄」）；★<b>已轉出＋待轉出＝OK＋清點帳差</b>（少掉的既不在已轉出、也不在待轉出）；★<b>製程存量＝待投產＋待質控＋待轉出</b>（該站現場實際有多少料）。首站無上一站、原料不追蹤，<b>接收與待投產留空</b>（該站的投入看「已投產」）。點 OK／NR／NG 可展開箱號。</div>
@@ -5559,25 +5699,63 @@ function doQuery(){
              內容長就折行（刻意的取捨：寧可折行變高，不要欄寬跳動或橫捲）。 */}
       <style>
         #diff_tbl{table-layout:fixed;width:100%}
-        #diff_tbl th,#diff_tbl td{padding:4px 7px;white-space:normal;word-break:break-word;vertical-align:top}
+        ${''/* ★99-21（0i）內距 7→4：13 欄 × 左右各省 3px ＝ 多出 78px 內容空間，是「放得下」的關鍵之一 */}
+        #diff_tbl th,#diff_tbl td{padding:4px 4px;white-space:normal;word-break:break-word;vertical-align:top}
         ${''/* ★98-24 比例重配（98-22 第一版沒抓好，實測箱號 badge 撐出欄外壓到料號、批號折在奇怪的位置）：
               箱號／批號是最長的兩欄要給足；料號雖然短（HS01A）但也可能很長（S52.F800200.11G01B）；
               數字欄壓到最小。 */}
-        #diff_tbl th:nth-child(1), #diff_tbl td:nth-child(1) {width:9%}    /* 時間 */
-        #diff_tbl th:nth-child(2), #diff_tbl td:nth-child(2) {width:11%}   /* 箱號 */
-        #diff_tbl th:nth-child(3), #diff_tbl td:nth-child(3) {width:8%}    /* 料號 */
-        #diff_tbl th:nth-child(4), #diff_tbl td:nth-child(4) {width:14%}   /* 批號 */
-        #diff_tbl th:nth-child(5), #diff_tbl td:nth-child(5) {width:9%}    /* 工單號 */
-        #diff_tbl th:nth-child(6), #diff_tbl td:nth-child(6) {width:8%}    /* 製程站 */
-        #diff_tbl th:nth-child(7), #diff_tbl td:nth-child(7) {width:8%}    /* 段別 */
-        #diff_tbl th:nth-child(8), #diff_tbl td:nth-child(8) {width:4%}    /* 應收 */
-        #diff_tbl th:nth-child(9), #diff_tbl td:nth-child(9) {width:4%}    /* 實收 */
-        #diff_tbl th:nth-child(10),#diff_tbl td:nth-child(10){width:4.5%}  /* 帳差 */
-        #diff_tbl th:nth-child(11),#diff_tbl td:nth-child(11){width:6.5%}  /* 認列單位 */
-        #diff_tbl th:nth-child(12),#diff_tbl td:nth-child(12){width:5%}    /* 經手人 */
-        #diff_tbl th:nth-child(13),#diff_tbl td:nth-child(13){width:9%}    /* 備註 */
+        ${''/* ★★99-21（0i）欄寬依實測重配（使用者 260814：「能放進去，不管是動欄寬或是縮小字體，都可以」）。
+              98-24 那組比例是「用眼睛調的」，重配後改成**量出來的**：repro 頁把 260814 回歸那三筆真實資料
+              放進同一套 CSS，逐欄量「內容自然單行寬 vs 欄位可用寬」，再依實需分配並留餘裕。
+              ★實測結果（含縮字＋內距 4px）：
+                桌機 1280 ／筆電 1366 ／桌機 1440 —— **13 欄全部一行**（三列高度都是 24px、齊平）。
+                對照：現行 99-20-4 在 1280 折 8 欄（列高 60/61/45）；只縮字不動欄寬折 6 欄（列高 38/37/37）。
+              ⚠ iPad 橫式 1024（表寬 730px）仍會折 —— 13 欄要全一行需要約 904px，物理上放不下。
+                 缺口已從現行的 51/75/57/109px 降到 20/18/26/27px。**不加 min-width 去換橫捲**，
+                 因為 98-22 當初的定案就是「寧可折行變高，不要欄寬跳動或橫捲」，那條沒有被推翻。
+              ⚠ 應收／實收／帳差／認列單位 四個窄欄的**表頭**仍可能折兩行——現行版本本來就這樣（不是 regression）。
+                 為了讓表頭少一行而去擠識別碼欄是本末倒置，刻意不做。 */}
+        ${''/* ★★99-24 依「真實資料」重量一次（260817 使用者實測：批號與時間仍折行）。
+              99-21 那組比例是拿**回歸測試那批**量的，比現場短兩截：
+                ・時間 我以為是 `08-14 15:32`（11 碼），實際 `localDT` 固定回 **`YYYY-MM-DD HH:MM`＝16 碼**
+                ・批號 我用 `BM04_260814_A_DC01_01`（21 碼），實際是 **`HS01A_260727_A_DC201_01`＝23 碼**
+                  （敬得的機台編號 `DC201` 比大永的 `DC01` 多一碼）
+              ⇒ 用短樣本量出來的欄寬，真資料一上去就撐爆。這一版每欄都取「系統裡真的會出現的最長值」。
+              ★repro 實測（表寬 987px＝視窗 1280）：**內容總需求 852px ≤ 可用總量 883px，本來就放得下，是我分配錯**。
+                逐欄真實需求：時間 79／箱號 77／料號 89／批號 114／工單號 76／製程站 74／段別 70／
+                應收 28／實收 28／帳差 10／認列單位 30／經手人 44／備註 134。
+              ★重配後實測：**1366／1440／1600 → 13 欄全部一行**（三列高度都 24px）；
+                1280 只剩「備註」差 1px —— 備註是**唯一沒有長度上限的自由文字欄**，
+                為它再去擠識別碼欄是本末倒置，刻意不做。 */}
+        #diff_tbl th:nth-child(1), #diff_tbl td:nth-child(1) {width:9.1%}  /* 時間 2026-08-06 09:15（固定 16 碼） */
+        #diff_tbl th:nth-child(2), #diff_tbl td:nth-child(2) {width:9.0%}  /* 箱號 13 碼（識別碼，不可折） */
+        #diff_tbl th:nth-child(3), #diff_tbl td:nth-child(3) {width:10.4%} /* 料號 最長 S52.F800200.11G01B（18 碼） */
+        #diff_tbl th:nth-child(4), #diff_tbl td:nth-child(4) {width:13.4%} /* 批號 最長 HS01A_260727_A_DC201_01（23 碼，識別碼不可折） */
+        #diff_tbl th:nth-child(5), #diff_tbl td:nth-child(5) {width:8.7%}  /* 工單號 */
+        #diff_tbl th:nth-child(6), #diff_tbl td:nth-child(6) {width:8.5%}  /* 製程站（中英並排，最長 壓鑄 Die Casting） */
+        #diff_tbl th:nth-child(7), #diff_tbl td:nth-child(7) {width:8.0%}  /* 段別 pill＋廠商 */
+        #diff_tbl th:nth-child(8), #diff_tbl td:nth-child(8) {width:3.6%}  /* 應收（要放得下五位數 30846） */
+        #diff_tbl th:nth-child(9), #diff_tbl td:nth-child(9) {width:3.6%}  /* 實收 */
+        #diff_tbl th:nth-child(10),#diff_tbl td:nth-child(10){width:2.0%}  /* 帳差 */
+        #diff_tbl th:nth-child(11),#diff_tbl td:nth-child(11){width:3.9%}  /* 認列單位 */
+        #diff_tbl th:nth-child(12),#diff_tbl td:nth-child(12){width:5.5%}  /* 經手人 */
+        #diff_tbl th:nth-child(13),#diff_tbl td:nth-child(13){width:14.3%} /* 備註（自由文字、唯一無長度上限，餘裕全給它） */
         ${''/* badge 是 inline-block 且不換行，fixed 版面下會直接溢出欄外 → 允許它在欄內收斂 */}
         #diff_tbl td .badge{display:inline-block;max-width:100%;white-space:normal;word-break:break-all}
+        ${''/* ★99-21（0i）縮一級字（使用者 260814 實測指定「就是縮字，不要改別的」）：
+              98-22 的 table-layout:fixed 做到了「不溢出」，代價是折行——實測折了 箱號(13碼被斷成 CN260814000/01)、
+              批號(21碼)、製程站、經手人、備註 五欄。★箱號／批號是識別碼，折行會讀錯、複製漏字。
+              依 mhr 字級規則降一級：非標題中文 12→10、mono 英數 12→9（badge 內距同步收）。
+              ★收斂在這一處 style，不逐欄加 inline style。
+              ★repro 實測（1280 桌機／表寬 986px，260814 回歸那三筆真實資料）：
+                縮字前 8 欄折行 → 縮字後 6 欄；箱號 117→77px（可用 95）✅、批號 145→109px（可用 124）✅ 都收進一行。
+                ⚠ 製程站／經手人／備註 仍差 6～9px（備註最長那筆差 59px）＝欄寬比例的限制，不是字級的限制。 */}
+        #diff_tbl th{font-size:10px;padding:5px 7px}
+        #diff_tbl td{font-size:10px}
+        #diff_tbl td.small,#diff_tbl .small{font-size:10px}
+        #diff_tbl .mono{font-size:9px}
+        #diff_tbl .badge{font-size:9px;padding:2px 5px;letter-spacing:.2px}
+        #diff_tbl .pill{font-size:9px;padding:1px 6px}
       </style>
       <div style="overflow-x:auto"><table id="diff_tbl" class="compact"><thead><tr><th>${L('時間')}</th><th>${L('箱號')}</th><th>${L('料號')}</th><th>${L('批號')}</th><th>${L('工單號')}</th><th>${L('製程站')}</th><th>${L('段別')}</th>
         <th style="text-align:right">${L('應收')}</th><th style="text-align:right">${L('實收')}</th><th style="text-align:right">${L('帳差')}</th><th>${L('認列單位')}</th><th>${L('經手人')}</th><th>${L('備註')}</th></tr></thead><tbody>
@@ -5647,13 +5825,16 @@ function doQuery(){
     const sok=reps.reduce((a,r)=>a+(+r.ok||0),0),snr=reps.reduce((a,r)=>a+(+r.nr||0),0),sng=reps.reduce((a,r)=>a+(+r.ng||0),0);
     const sp=sok+snr+sng; const rate=n=>sp?(n/sp*100).toFixed(1)+'%':'—';
     out.innerHTML=`<div class="step">共 <b>${reps.length}</b> 筆報工 ｜ OK <b>${sok}</b> / NR ${snr} / NG ${sng} ｜ 總良率 <b>${rate(sok)}</b>${woTag}</div>
-      <table><thead><tr><th>${L('時間')}</th><th>${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程站')}</th><th>${L('領料')}</th><th>OK</th><th>NR</th><th>NG</th><th>${L('良率')}</th><th>${L('班別')}</th><th>${L('作業員')}</th><th>${L('產出箱')}</th></tr></thead><tbody>
+      ${''/* ★99-21（0k③）報工檢視漏包容器：同一支函式裡「箱號移轉記錄」檢視是 <div style="overflow-x:auto"><table>，
+             這裡只有裸 <table> ⇒ 12 欄沒有任何寬度約束、直接撐出畫面。99-5 抽 .tblfit 時漏了這張表，補上。
+             機種／料號欄標 .wrap＝pnCell 的「料號 — 品名」可折行（那是全站最會撐爆欄寬的一欄）。 */}
+      <div class="tblfit"><table><thead><tr><th>${L('時間')}</th><th class="wrap">${L('機種 / 料號')}</th><th>${L('批號')}</th><th>${L('製程站')}</th><th>${L('領料')}</th><th>OK</th><th>NR</th><th>NG</th><th>${L('良率')}</th><th>${L('班別')}</th><th>${L('作業員')}</th><th>${L('產出箱')}</th></tr></thead><tbody>
       ${reps.map(r=>{ const t=(+r.ok||0)+(+r.nr||0)+(+r.ng||0); const y=t?((r.ok/t*100).toFixed(1)+'%'):'—'; const take=(r.draws||[]).reduce((a,d)=>a+(+d.take||0),0);
-        return `<tr><td class="small muted">${esc(localDT(r.createdAt))}</td><td>${pnCell(r.partNo)}</td><td class="mono small">${esc(r.lot||'-')}</td>
+        return `<tr><td class="small muted">${esc(localDT(r.createdAt))}</td><td class="wrap">${pnCell(r.partNo)}</td><td class="mono small">${esc(r.lot||'-')}</td>
           <td><span class="pill ${isOS(r.partNo,r.toStation)?'os':(isFinished({partNo:r.partNo,processCode:r.toStation})?'pk':'dc')}">${stN(r.toStation)}</span></td>
-          <td>${take}</td><td><b>${r.ok}</b></td><td style="color:#b9760f">${r.nr||0}</td><td style="color:var(--red)">${r.ng||0}</td><td><b>${y}</b></td>
+          <td>${take}</td><td><b>${r.ok||0}</b></td><td style="color:#b9760f">${r.nr||0}</td><td style="color:var(--red)">${r.ng||0}</td><td><b>${y}</b></td>${''/* ★99-21（0k①）OK 欄補 ||0：同一行的 nr／ng 都有、只有 ok 漏掉 ⇒ 舊報工記錄（清點移轉事件）沒有 ok 欄位時整格印 undefined。彙總用的是 (+r.ok||0)，所以合計一直是對的、只有逐列顯示壞掉 */}
           <td class="small">${esc(r.shift||'-')}</td><td class="small muted">${esc(r.operator||'-')}</td>
-          <td>${r.intoCid?`<span class="badge" style="cursor:pointer" onclick="traceFromQuery('${r.intoCid}')">${esc(r.intoCid)}</span>`:'<span class="muted small">—</span>'}</td></tr>`; }).join('')}</tbody></table>`;
+          <td>${r.intoCid?`<span class="badge" style="cursor:pointer" onclick="traceFromQuery('${r.intoCid}')">${esc(r.intoCid)}</span>`:'<span class="muted small">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`;
     return;
   }
   const rows=db.data.containers.filter(c=>isNormalBox(c)&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)&&(!st||c.processCode===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -5750,7 +5931,8 @@ function flowStock(code,pn,wo,lot,kind){
   const el=$('#flow_detail'); if(!el) return;
   const sum=boxes.reduce((a,c)=>{ const rem=remaining(c.cid); const hand=(isReceived(c)&&rem>0)?rem:0;
     return a+(kind==='stock'?rem:(drawnOut(c.cid)+hand)); },0);
-  el.innerHTML=`<div class="note" style="margin-top:14px;border-color:${kind==='stock'?'var(--teal)':'#3355aa'}">${stN(code)} · <b>${kind==='stock'?'待轉出':'已轉出'}</b> ${sum} pcs／${boxes.length} 箱　<span class="small muted">${kind==='stock'?'（已驗產箱、還在本站等點交下站）':'（已點交移轉走 或 已被下站領用投產）'}（點箱號可追溯）</span></div>
+  const last=code===lastStation(pn);   /* ★99-21（0f）末站特判：pn 為空（全部機種）時 lastStation 回 null ⇒ 恆 false，退回原用詞，不亂猜 */
+  el.innerHTML=`<div class="note" style="margin-top:14px;border-color:${kind==='stock'?'var(--teal)':'#3355aa'}">${stN(code)} · <b>${kind==='stock'?(last?'成品在庫':'待轉出'):'已轉出'}</b> ${sum} pcs／${boxes.length} 箱　<span class="small muted">${kind==='stock'?(last?'（已驗產箱、已入庫；末站不轉出）':'（已驗產箱、還在本站等點交下站）'):'（已點交移轉走 或 已被下站領用投產）'}（點箱號可追溯）</span></div>
     <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('產出數')}</th><th>${L('已投產')}</th><th>${L('未投產')}</th><th>${L('目前位置')}</th><th>${L('時間')}</th></tr></thead><tbody>
     ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')">
       <td><span class="badge">${esc(c.cid)}</span></td><td class="mono small">${esc(c.lot||'-')}</td>
