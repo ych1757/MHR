@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v99-46</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v99-47-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v99-46</span>
+      <span class="tag">開發測試版 v99-47-1</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1103,6 +1103,20 @@ function ordScopeReadable(o){ const st=ordSiteOf(o);
   if(st==='*') return true;
   if(st) return siteReadable(st);
   return !userSiteShorts(); }
+/* ═══ ★★★99-47 廠區隔離落地：箱／報工／待驗單 三種交易資料一律「透過它的工單」判斷廠區 ═══
+   【鏈路】箱 ─(order_no + part_no)→ 工單 ─(site)→ 廠區。99-46 已把資料備好，這一版才真的過濾。
+   ⚠⚠ **ordOfKey 必須吃 (no, part_no) 複合鍵** —— mhr_orders 的主鍵就是複合的，
+     同一個工單號可以有多筆明細（TY-Starlink 有 3 筆）。只用 no 會抓到別的機種那一筆，
+     260818 盤點時就是這樣把箱數從 126 算成 258 的。
+   ⚠ **fail-closed 自動成立、不必特別寫**：對不到工單 ⇒ ordSiteOf(undefined) 回 ''
+     ⇒ ordScopeReadable 回 !userSiteShorts() ⇒ 限定廠區的看不到、不限廠區的 admin 看得到（才有人救得回來）。
+   ★★三支都收斂到 ordScopeReadable（99-46 建的單一出處）——**任何頁面都不要自己寫 siteReadable**，
+     否則就是 [[centralize-shared-rule-not-per-page]] 那隻地鼠：規則改一次要改七頁。 */
+function ordOfKey(no,partNo){ if(!no) return null;
+  return getOrders().find(o=>o.no===no && (o.partNo||'')===(partNo||'')) || null; }
+function boxScopeReadable(c){  return !c || ordScopeReadable(ordOfKey(c.orderNo, c.partNo)); }
+function repScopeReadable(r){  return !r || ordScopeReadable(ordOfKey(r.orderNo, r.partNo)); }
+function pendScopeReadable(p){ return !p || ordScopeReadable(ordOfKey(p.orderNo, p.partNo)); }
 function userSiteShorts(){
   const base=siteScopeBase(); const v=window._viewSite;
   if(v&&(base===null||base.includes(v))) return [v];   /* 覆寫只在權限範圍內生效 */
@@ -2152,13 +2166,15 @@ function stationLedger(pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（�
      （實測：批號查詢每站投入全變「首站」）。箱子欄位齊全＝正本，報工對不上就用 intoCid 回查產出箱。 */
   let boxWo=null, boxLot=null;
   if(wo||lot){ boxWo={}; boxLot={}; db.data.containers.forEach(c=>{ if(!c.cid) return; boxWo[c.cid]=c.orderNo||''; boxLot[c.cid]=c.lot||''; }); }
-  db.data.containers.forEach(c=>{ if(pn&&c.partNo!==pn) return; if(wo&&c.orderNo!==wo) return; if(lot&&c.lot!==lot) return; if(!isNormalBox(c)) return;
+  db.data.containers.forEach(c=>{ if(!boxScopeReadable(c)) return;   /* ★99-47 廠區過濾（00 總覽與 07 追溯共用這一支，改這裡兩頁一起生效） */
+    if(pn&&c.partNo!==pn) return; if(wo&&c.orderNo!==wo) return; if(lot&&c.lot!==lot) return; if(!isNormalBox(c)) return;
     const w=g(c.processCode); const mv=drawnOut(c.cid); const rem=(+c.qty||0)-mv;
     /* ★97 點交＝移轉（使用者定義）：已點交未領的結存計入「已轉下站」、不再算本站在庫——
        跟接收站的「⏭已收待投產」左右對帳（壓鑄轉200 ↔ 機加已收200）。OK產出=已轉下站+結存 恆等式不變 */
     const hand=(isReceived(c)&&rem>0)?rem:0;
     w.out+=(+c.qty||0); w.moved+=mv+hand; w.stock+=rem-hand; if(rem-hand>0) w.boxes++; });
-  db.data.reports.forEach(r=>{ if(pn&&r.partNo!==pn) return;
+  db.data.reports.forEach(r=>{ if(!repScopeReadable(r)) return;   /* ★99-47 廠區過濾（報工也要過濾，否則 07 的左右對帳會一邊有一邊沒有） */
+    if(pn&&r.partNo!==pn) return;
     if(wo&&!(r.orderNo===wo||(r.intoCid&&boxWo[r.intoCid]===wo))) return;
     if(lot&&!(r.lot===lot||(r.intoCid&&boxLot[r.intoCid]===lot))) return;
     const w=g(r.toStation);
@@ -2170,10 +2186,18 @@ function stationLedger(pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（�
 }
 
 /* ---------- 00 總覽 ---------- */
+/* ★★★99-47-1 修 99-47 的漏網：**00 總覽有自己的資料源，不走 stationLedger()**。
+   99-47 只改了 stationLedger()／lotMetaList()，以為 00 全靠那兩支 —— 實測（敬得觀音檢視）
+   發現「目前在製批次」表與四張 KPI 卡**完全沒被過濾**，V5（TY-Starlink，大永）照樣列出來。
+   ⇒ viewDash() 這四個來源要各自套過濾：
+     ①在製批次的箱源 cs　②累計 NR　③累計 NG　④待質控（待驗單）
+   ⚠ 產品/機種 KPI 改走既有的 prodsVisible()（那支本來就吃廠區，1057 行），不要另外寫一套。
+   ★教訓：**「改共用函式就以為全站到位」是錯的** —— 頁面可能有自己的資料源。
+     99-47 的 7 個插入點是照「基底函式」盤的，漏了「頁面自己算的」這一類。 */
 function viewDash(){
-  const cs=db.data.containers;
-  const nr=db.data.reports.reduce((a,r)=>a+(+r.nr||0),0);
-  const ng=db.data.reports.reduce((a,r)=>a+(+r.ng||0),0);
+  const cs=db.data.containers.filter(boxScopeReadable);                                   /* ★99-47-1 廠區過濾 */
+  const nr=db.data.reports.filter(repScopeReadable).reduce((a,r)=>a+(+r.nr||0),0);        /* ★99-47-1 */
+  const ng=db.data.reports.filter(repScopeReadable).reduce((a,r)=>a+(+r.ng||0),0);        /* ★99-47-1 */
   // 批次（機種+批號）
   const bmap={};
   cs.forEach(c=>{ if(!isNormalBox(c)) return; const k=c.partNo+'|'+(c.lot||'-'); const b=bmap[k]||(bmap[k]={pn:c.partNo,lot:c.lot||'-',stock:[]}); if(isWIP(c)) b.stock.push(c); });
@@ -2206,13 +2230,13 @@ function viewDash(){
   return `
   <div class="page-h"><h2>${L('總覽')}</h2><p>線邊製程流轉 — 在製批次、各製程產出與結存（不含倉別/出貨/重工）</p></div>${''/* ★97-2 移除寫死的「大永 SDY」：本系統是集團平台、非單一廠專屬 */}
   <div class="grid g5" style="margin-bottom:18px">${''/* ★97-2 五張 KPI 卡排成一行 */}
-    <div class="kpi"><div class="v">${db.data.products.length}</div><div class="l">${L('產品/機種')}</div></div>
+    <div class="kpi"><div class="v">${prodsVisible().length}</div><div class="l">${L('產品/機種')}</div></div>${''/* ★99-47-1 走既有的 prodsVisible()（1057 行，本來就吃廠區），不要另外寫一套 */}
     <div class="kpi"><div class="v" style="color:var(--gold)">${inProg.length}</div><div class="l">${L('在製批次')}</div></div>
     ${''/* ★99-21（0w2）補 hover 說明：這兩個數字＝reports 加總的「質控當下判定量」，不含 06 會判後轉報廢的量，
            所以與 06 那兩張 KPI 對不起來是正常的（06＝箱的現有量）。兩邊都對，只是基準不同。 */}
     <div class="kpi" title="質控當下判為 NR 的累計量（不因之後會判處置而變動）"><div class="v" style="color:#b9760f">${nr}</div><div class="l">${L('累計 NR 可重工')}</div></div>
     <div class="kpi" title="質控當下判為 NG 的累計量，不含「NR 會判後轉報廢」；06 不良／重工 的「NG 箱現有量」是箱的現值（含轉入），兩個基準不同"><div class="v" style="color:var(--red)">${ng}</div><div class="l">${L('累計 NG 報廢')}</div></div>
-    <div class="kpi" style="cursor:pointer" onclick="goQcInsp('')"><div class="v" style="color:#b9760f">${(db.data.pending||[]).filter(p=>p.status==='pending').length}</div><div class="l">${L('⏳ 待質控（點入質控檢驗）')}</div></div>
+    <div class="kpi" style="cursor:pointer" onclick="goQcInsp('')"><div class="v" style="color:#b9760f">${(db.data.pending||[]).filter(p=>pendScopeReadable(p)&&p.status==='pending').length}</div>${''/* ★99-47-1 廠區過濾 */}<div class="l">${L('⏳ 待質控（點入質控檢驗）')}</div></div>
   </div>
   <div class="card"><h3>${L('目前在製批次')}</h3>
     <p class="small muted" style="margin:-6px 0 12px">同機種可多批同時跑，用批號(Lot)分辨。「在庫」為各批仍未轉出的結存。</p>
@@ -3832,7 +3856,7 @@ function ordFClear(){ window._ordF={cust:'',model:'',status:''}; window._ordFLas
 function renderOrders(){
   const v=$('#view'); const ed=can('order','c');
   const pnSel=prodOptions('（選機種 / 料號）','',prodsVisible());   /* ★99-20-3 依廠區收斂（BM04/HS01A 有勾共用，大永照樣選得到＝動線不斷） */
-  const allOrd=getOrders();
+  const allOrd=getOrders().filter(ordScopeReadable);   /* ★99-47 廠區過濾（別廠開的單不該看得到） */
   const F=window._ordF=Object.assign({cust:'',model:'',status:''},window._ordF||{});
   const optsFor=k=>{ const oth=Object.assign({},F); oth[k]='';
     return [...new Set(allOrd.filter(o=>ordHit(o,oth)).map(o=>ordMeta(o)[k]).filter(Boolean))]
@@ -4406,14 +4430,14 @@ function sessionName(){ const s=getSession(); return (s&&s.profile&&(s.profile.n
    待清點清單＝所有還沒移轉、還有結存的正常箱：
    ①質控剛產出的新箱（原本要先走🅐）②97 前的舊箱（原本直接走🅑）③末站成品箱（只入庫不移轉）
    → 舊箱不再需要另外的移轉管道，切換日的 269 箱自然接得上。 */
-function rvPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&remaining(c.cid)>0&&!isReceived(c)
-  &&(nextStation(c.partNo,c.processCode)||needStockin(c))); }
+function rvPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&boxScopeReadable(c)&&remaining(c.cid)>0&&!isReceived(c)
+  &&(nextStation(c.partNo,c.processCode)||needStockin(c))); }   /* ★99-47 廠區過濾 */
 /* ═══ ★97 🅐 物控接收（stockin）：每站質控產箱後，物控掃箱清點→入暫存區（質控→物控） ═══
    範圍＝97 起質控產的箱（pid 非空）；舊箱（pid 空）視同已入庫＝零遷移。
    未入庫：後站不能點交、不能委外轉出（rvAdd 擋）。帳差＝箱量改實收＋責任歸屬（質控段/物控段）。 */
 window._sk=[];
 function needStockin(c){ return !!(c&&c.pid&&!c.stockin&&isNormalBox(c)); }   /* 正常箱限定：NR/NG 走會判、作廢不計 */
-function stkPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&needStockin(c)); }
+function stkPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&boxScopeReadable(c)&&needStockin(c)); }   /* ★99-47 廠區過濾 */
 function skAdd(cid0){
   const inp=$('#sk_cid'); const cid=(cid0||(inp?inp.value:'')||'').trim().toUpperCase(); if(!cid) return;
   const c=findC(cid); if(!c) return toast('找不到箱號','err');
@@ -5398,12 +5422,12 @@ function renderQcInsp(){
   let st=window._qiSt||''; const fs=(window._qiFs===undefined)?'pending':window._qiFs;
   const qwo=(window._qiWo||'').trim().toLowerCase(), qlt=(window._qiLot||'').trim().toLowerCase(), qdt=window._qiDate||'';
   /* ★97 篩選連動（通則：多項篩選必連動）：站別選項＝符合其餘條件(狀態/工單/批號/日期)的站；現選站失效→自動清 */
-  const stPool=(db.data.pending||[]).filter(p=>(!fs||p.status===fs)&&(!qwo||String(p.orderNo||'').toLowerCase().includes(qwo))&&(!qlt||String(p.lot||'').toLowerCase().includes(qlt))&&(!qdt||prodDayOf(p.createdAt)===qdt));
+  const stPool=(db.data.pending||[]).filter(p=>pendScopeReadable(p)&&(!fs||p.status===fs)&&(!qwo||String(p.orderNo||'').toLowerCase().includes(qwo))&&(!qlt||String(p.lot||'').toLowerCase().includes(qlt))&&(!qdt||prodDayOf(p.createdAt)===qdt));   /* ★99-47 廠區過濾 */
   const stAvail=[...new Set(stPool.map(p=>p.processCode))];
   if(st&&!stAvail.includes(st)){ st=''; window._qiSt=''; }
   /* ★97-7 工單/批號候選清單（交集收斂）＝符合「其餘條件」的待驗單，供組合框下拉用 */
-  const _qBase=(db.data.pending||[]).filter(p=>(!fs||p.status===fs)&&(!st||p.processCode===st)
-    &&(!qdt||prodDayOf(p.createdAt)===qdt));
+  const _qBase=(db.data.pending||[]).filter(p=>pendScopeReadable(p)&&(!fs||p.status===fs)&&(!st||p.processCode===st)
+    &&(!qdt||prodDayOf(p.createdAt)===qdt));   /* ★99-47 廠區過濾 */
   const _qU=arr=>[...new Set(arr.filter(Boolean))].sort().map(v=>({v,t:v}));
   const _qWoItems =_qU(_qBase.filter(p=>!qlt||String(p.lot||'').toLowerCase().includes(qlt)).map(p=>p.orderNo));
   const _qLotItems=_qU(_qBase.filter(p=>!qwo||String(p.orderNo||'').toLowerCase().includes(qwo)).map(p=>p.lot));
@@ -5647,7 +5671,7 @@ function reworkOrderOpts(){ return getOrders().filter(o=>o.status!=='完成').ma
    ⚠ 組合框 handler 走 **onchange**（第 5 參數）不是 oninput：06 的 handler 會整頁 render，
      用 oninput 會每打一個字就重繪、輸入框失焦（97-7／05 已踩過）。 */
 window._rwPn=''; window._rwLot=''; window._rwSt=''; window._rwDate='';
-function rwBase(){ return db.data.containers.filter(c=>c&&(c.kind==='NR'||c.kind==='NG')); }
+function rwBase(){ return db.data.containers.filter(c=>c&&(c.kind==='NR'||c.kind==='NG')&&boxScopeReadable(c)); }   /* ★99-47 廠區過濾 */
 /* ★99-30（backlog 0s）06 加關鍵字搜尋。
    【為什麼 06 比 08 更需要】①**會判是責任判定**（放行／報廢／重工），操作前要能確定「就是這一箱」，
      繞篩選容易點錯行 ②★**06 有 08 沒有的維度＝「來源箱」**——現場拿著**來源箱號**要反查它產出的 NR 箱，
@@ -5895,7 +5919,7 @@ function renderAllTable(){
   const lt=comboResolve('a_lot',window._alLots||[])||'';   /* ★96-4 批號篩選（打字中對不到=不過濾） */
   const aw=comboResolve('a_wo',window._alWos||[])||'';   /* ★96-6 ④工單篩選 */
   /* ★92「全部箱號」頁包含作廢箱（可查詢/可恢復）；其他頁面靠 isNormalBox 自動排除 */
-  let rows=db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c));
+  let rows=db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)&&boxScopeReadable(c));   /* ★99-47 廠區過濾 */
   rows=rows.filter(c=>(!pn||c.partNo===pn)&&(!aw||c.orderNo===aw)&&(!lt||c.lot===lt)&&(!st||c.processCode===st)&&(!dt||prodDayOf(c.createdAt)===dt));
   if(state==='stock') rows=rows.filter(c=>remaining(c.cid)>0);
   if(state==='moved') rows=rows.filter(c=>remaining(c.cid)<=0);
@@ -6452,7 +6476,7 @@ function doQuery(){
       <td class="small">${remaining(c.cid)>0?'<span class="pill ok">在庫</span>':'<span class="muted">已轉出</span>'}</td></tr>`).join('')}</tbody></table>`;
 }
 // 批號太多時，用機種＋日期把批號清單縮小（用箱子的真實欄位，不靠拆批號字串）
-function lotMetaList(){ const m={}; db.data.containers.forEach(c=>{ if(!isNormalBox(c)||!c.lot) return; const o=m[c.lot]||(m[c.lot]={lot:c.lot,pn:c.partNo,date:'',wos:[],sts:[]}); const cd=prodDayOf(c.createdAt); if(cd&&(!o.date||cd<o.date)) o.date=cd;   /* ★99-2 批號首日也用生產日 */ if(c.orderNo&&o.wos.indexOf(c.orderNo)<0) o.wos.push(c.orderNo); if(c.processCode&&o.sts.indexOf(c.processCode)<0) o.sts.push(c.processCode); }); return Object.values(m); }   /* ★98-15 sts＝該批走過的製程站（給 07 篩選連動用；與 wos 同一套寫法） */   /* ★96 wos=該批引用過的工單（同批可能跨單，用包含判斷） */
+function lotMetaList(){ const m={}; db.data.containers.forEach(c=>{ if(!isNormalBox(c)||!c.lot||!boxScopeReadable(c)) return;   /* ★99-47 廠區過濾（07 批號下拉與 08 批號清單共用） */ const o=m[c.lot]||(m[c.lot]={lot:c.lot,pn:c.partNo,date:'',wos:[],sts:[]}); const cd=prodDayOf(c.createdAt); if(cd&&(!o.date||cd<o.date)) o.date=cd;   /* ★99-2 批號首日也用生產日 */ if(c.orderNo&&o.wos.indexOf(c.orderNo)<0) o.wos.push(c.orderNo); if(c.processCode&&o.sts.indexOf(c.processCode)<0) o.sts.push(c.processCode); }); return Object.values(m); }   /* ★98-15 sts＝該批走過的製程站（給 07 篩選連動用；與 wos 同一套寫法） */   /* ★96 wos=該批引用過的工單（同批可能跨單，用包含判斷） */
 /* ★96-4 refreshLotOpts / doBatch 已移除（原③依批號查找整卡拿掉）：
    批號流轉→②（q_lot 維度）；批號列箱→08 全部箱號（a_lot 篩選；traceLot 會自動跳過去）。
    lotMetaList 保留（②組合框聯動與 08 批號清單都用）。 */
