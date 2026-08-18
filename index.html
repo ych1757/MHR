@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v99-24-5</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v99-40</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -237,6 +237,33 @@
   .note{background:var(--goldbg);border-left:4px solid var(--gold);padding:11px 14px;border-radius:6px;font-size:12.5px;margin-bottom:16px}
   /* 84-5 標籤＝直式 寬60mm×高80mm（使用者定案）＝原本樣式（深藍表頭卡）＋Code 128（值靠左、每欄獨立一列、含 CID 列） */
   .lblcard{border:1.5px solid var(--navy);border-radius:2.5mm;width:60mm;height:80mm;background:#fff;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden}
+  /* ★★99-35（0u）不良箱標籤：識別靠**形狀**（粗框＋反白大字別章），顏色只是加強——
+     60×80mm 多用單色熱感應標籤機，色相印不出來。★尺寸完全不動，與 OK 標籤同一台機器同一捲紙。 */
+  .lblcard.nrbox{border:1.5mm solid #B9760F}
+  .lblcard.ngbox{border:1.5mm solid var(--red)}
+  /* ★★99-40 不良箱內容區補償 padding：三張標籤的欄位寬度要完全一樣（使用者 260817 圈出）。
+     ⚠ 病徵：NAME「BOTTOM U3-04（檢包成品）」在 OK 標籤一行放得下，在 NR／NG 折成兩行。
+       字級其實一樣——是 99-35 給不良箱加的 1.5mm 粗框吃掉內寬（.lblcard 是 box-sizing:border-box，
+       外框從 60mm 裡面扣）：OK 只有 1.5px≈0.4mm，NR/NG 是 1.5mm，左右合計差約 2.2mm，
+       剛好把 NAME 擠掉兩個字。
+     ⇒ 內容區寬度對齊（.lblbody 預設 padding 左右 3mm）：
+         OK    ＝60 − 2×(0.4 + 3.0) ＝ 53.2mm
+         NR/NG ＝60 − 2×(1.5 + 1.9) ＝ 53.2mm ✅
+     ★為什麼不用 inset box-shadow 把粗框移出版面：**列印時瀏覽器預設不印背景圖形**，
+       box-shadow 會整個消失；而粗框存在的理由正是「熱感應標籤機是單色的，不能靠顏色分辨」
+       （斷言 53-10）。border 一定會印，box-shadow 不一定 ⇒ 只能動 padding，不能動框。
+     ・60×80mm 外框尺寸一個位元都沒動（斷言 53-16）。 */
+  .lblcard.nrbox .lblbody,.lblcard.ngbox .lblbody{padding-left:1.9mm;padding-right:1.9mm}
+  .lblcard .hd2{flex:0 0 auto;color:#fff;padding:.9mm 2.5mm .8mm;overflow:hidden}
+  .lblcard .hd2.nr{background:#B9760F} .lblcard .hd2.ng{background:var(--red)}
+  .lblcard .hd2 .l1{line-height:1.05;white-space:nowrap;display:flex;align-items:baseline}
+  .lblcard .hd2 .l1 b{font-size:13pt;font-weight:900;letter-spacing:.3mm}
+  .lblcard .hd2 .l1 .rush{background:#fff;color:#c00;padding:0 1mm;border-radius:.8mm;font-weight:900;font-size:8pt;margin-left:1.5mm}
+  /* ★第 2 行：副標可縮可截；站別靠右釘死（flex:0 0 auto + nowrap）＝永遠不被切 */
+  .lblcard .hd2 .l2{display:flex;justify-content:space-between;align-items:baseline;gap:2mm;
+                    font-size:7pt;font-weight:700;line-height:1.05;margin-top:.3mm;opacity:.95}
+  .lblcard .hd2 .l2 .sub{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lblcard .hd2 .l2 .st{flex:0 0 auto;white-space:nowrap}
   .lblcard .hd{display:flex;justify-content:space-between;align-items:center;background:var(--navy);padding:1.4mm 2.5mm;flex:0 0 auto;overflow:hidden}
   /* ★96-1 表頭鎖一行＋縮高（使用者定案）；★96-2 內距微收＝21 站「中＋越」全數實測放得下（最長=振研 Đánh bóng rung） */
   .lblcard .hd b{color:#fff;font-size:10pt;white-space:nowrap}
@@ -370,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v99-24-5</span>
+      <span class="tag">開發測試版 v99-40</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1376,24 +1403,76 @@ async function voidBox(cid){ if(wGuard('create','e',undefined,'作廢/恢復箱 
 }
 function nowISO(){ return new Date().toISOString(); }
 // 不良箱號：類型-站碼-YYMMDD-序（一眼看出 哪種不良＋哪一站）
-function genDefCID(kind,code){ const pre=kind+'-'+(code||'').split('+')[0]+'-'+todayYMD()+'-';
-  /* ★96-2 同 genCID 改「取最大流水+1」防刪箱後撞號（不良箱量少、維持 3 碼） */
+/* ★★99-34（backlog 0v）不良箱號的日期段改吃**生產日**，比照 genCID。
+   【原病徵】同一張待驗單、同一次質控送出，四個識別碼裡**三個跟生產日、一個跟今天**：
+     批號 LOT（genLot，✅生產日）／待驗單號 PID（nextPID，✅）／正常箱號 CID（genCID，✅）／
+     **NR·NG 箱號（genDefCID → `todayYMD()`，❌質控當下）**。
+   【什麼時候看得出來】①補登：8/10 的料 8/14 補打單 → 正常箱 `DC260810…`、NR 箱 `NR-DC-260814-001`
+     ②打單與質控跨換日點。當天打單當天驗看不出來。
+   【這是漏改不是設計取捨】程式行 1287 註解就寫著「pdate＝生產日期；補登舊 WIP 時箱號日期段用**實際生產日**」
+     —— 正常箱刻意走生產日，NR/NG 沒跟上。使用者 260814 定調：「同一張待驗單、同一批料，只是產出不一樣
+     數量的 OK/NR/NG，不應該箱號日期不一樣。」
+   ⚠ 「NR 箱是累積容器所以沒有單一生產日」這個說法**不成立**：`addDefect` 的合併鍵是
+     `lot+processCode+partNo`，而**批號本身就含日期段** ⇒ 同一批號必然對應同一個 pdate，唯一、沒有歧義。
+   ★日期字串的轉法與 genCID 完全一致（`YYYY-MM-DD` → 去掉 `-` 取後 6 碼），不另寫一套。 */
+/* ★99-39 前綴抽出來共用：呼叫端要拿它去問雲端最大號（cloudMaxSeq），必須與 genDefCID 完全同源，
+   分頭各寫一份就是「改一邊漏一邊」——前綴一旦不一致，floor 會問到別的序列上，等於沒防護。 */
+function defCIDPrefix(kind,code,pdate){
+  return kind+'-'+(code||'').split('+')[0]+'-'+(pdate?String(pdate).replace(/-/g,'').slice(2):todayYMD())+'-'; }
+/* ★★99-39 加 floor＝雲端當前最大號（比照 genCID）。
+   ⚠ 為什麼非加不可：99-39 讓「每次檢驗各自產箱」（見 addDefect meta.split），
+     ⇒ 每次檢驗都要配一個新號，不再像以前那樣同批同站永遠共用一個箱號。
+     兩台裝置同時驗同批同站，各自只看本機 → 兩邊都算出同一個 -002，
+     而 cid 是雲端主鍵（upsert on_conflict=cid）⇒ **撞號不報錯，是靜默蓋掉＝資料消失**。
+   ★順序鐵則：**先有雲端取號，才能拿掉合併**，反過來做就是在製造資料遺失。
+   ・位數維持 3 碼：padStart 只補不切，第 1000 箱自動變 4 碼、parseInt 也吃得下
+     ⇒ 位數是顯示寬度不是容量上限（使用者 260817 指出，已查證）。 */
+function genDefCID(kind,code,pdate,floor){ const pre=defCIDPrefix(kind,code,pdate);
+  /* ★96-2 同 genCID 改「取最大流水+1」防刪箱後撞號 */
   const mx=db.data.containers.reduce((a,c)=>{ if(!c.cid||c.cid.indexOf(pre)!==0) return a;
     const t=parseInt(c.cid.slice(pre.length),10); return (isFinite(t)&&t>a)?t:a; },0);
-  return pre+String(mx+1).padStart(3,'0'); }
+  return pre+String(Math.max(mx,floor||0)+1).padStart(3,'0'); }
 // 把領料量依序切給 OK/NR/NG，每個來源箱只被計一次 → 源箱結存才正確
 function splitDraws(draws,amounts){ const pool=draws.map(d=>({cid:d.cid,left:+d.take||0}));
   return amounts.map(amt=>{ let need=+amt||0; const out=[]; for(const p of pool){ if(need<=0)break; if(p.left<=0)continue; const t=Math.min(p.left,need); p.left-=t; need-=t; out.push({cid:p.cid,take:t}); } return out; }); }
-// 報工不良 → 產生/累加 NR 不良箱 或 NG 報廢箱（批+站一個、累加）
+/* 報工不良 → 產生 NR 不良箱 或 NG 報廢箱
+   ★★99-39（缺陷 F）加 `meta.split`：true＝**這次檢驗自己一箱**，不併進既有箱號。
+   ⚠ 現場模型（使用者 260817 原話，反覆澄清三次才確定）：
+     「我們產出都會放在**周轉箱**，按 OK／NR／NG」
+     「**每一次待驗單檢驗**，對應不良品或報廢品，**也會單獨產生箱號跟標籤**」
+     「**標簽數量單獨不會累加**」
+     ⇒ 一箱／一標／一個數字，三者一致。
+   ⚠ 舊行為（同 kind＋同 lot＋同站＋同料號就合併累加）的後果：
+     現場分兩次檢驗＝兩個實體周轉箱、兩張標，系統卻只有一個箱號 ⇒ **實體對不上箱號**；
+     只搬走其中一箱時，系統會以為全部都走了。
+   ★為什麼用旗標而不是直接拿掉合併：
+     只有「待驗單檢驗」這條路（doQcInsp）確認過現場是一次一箱；
+     `reworkDispose`（會判把 NR 判成報廢）**使用者沒談過**，且它是同步函式、拿不到雲端號
+     ⇒ 那條路維持原行為，一行都不碰。要改要先問現場。 */
 function addDefect(kind,station,first,drawsForKind,meta,qtyOverride){ meta=meta||{}; const add=(qtyOverride!==undefined)?(+qtyOverride||0):drawsForKind.reduce((a,d)=>a+(+d.take||0),0); if(add<=0) return null;   /* ★97 首站(無draws)可帶量 */
-  let b=db.data.containers.find(c=>c.kind===kind&&c.lot===first.lot&&c.processCode===station&&c.partNo===first.partNo);
+  let b=meta.split?null:db.data.containers.find(c=>c.kind===kind&&c.lot===first.lot&&c.processCode===station&&c.partNo===first.partNo);
   if(b){ b.qty+=add; b.sources.push(...drawsForKind); if(!b.qc&&meta.qc) b.qc=meta.qc; }
-  else { b={cid:genDefCID(kind,station),partNo:first.partNo,name:first.name,lot:first.lot,orderNo:first.orderNo,
+  /* ★99-34（0v）生產日走 meta.pdate 傳進來（新增參數會動到 4 個呼叫點，走 meta 最省接縫）。
+     ⚠ 沒傳就退回 todayYMD()——舊呼叫與 seedDemo 不受影響。 */
+  else { b={cid:genDefCID(kind,station,meta.pdate,meta.floor),partNo:first.partNo,name:first.name,lot:first.lot,orderNo:first.orderNo,
       processCode:station,stagePartNo:stageNo(first.partNo,station),qty:add,kind,
       operator:meta.op||'',qc:meta.qc||'',machine:meta.mc||'',shift:meta.shift||'',vendor:meta.vendor||'',
       sources:drawsForKind.slice(),disp:[],createdAt:meta.createdAt||nowISO()};
     db.data.containers.push(b); }
   return b.cid; }
+/* ★★99-39（缺陷 F 的另一半）同機種＋同製程「目前待會判」總量。
+   使用者 260817 定案：「提示的數量，是**同機種、同一個製程**的」「只是讓當事人馬上看到，**不用再去 06／07 查**」。
+   ⚠ 這是**獨立資訊，不是任何一箱的數量** —— 把它跟箱的數量混為一談，正是作廢的 99-38 犯的錯：
+     現場會照著那個數字去找一個裝了 N 顆的箱子，而那個箱子不存在。
+   ・範圍：同機種＋同製程，**不分批號、不分日期**（使用者明確指定）。
+   ・量＝ remaining()＝qty − 已被下游領走 − 核銷；會判處置後會自動遞減，不必另外扣。
+   ・只算 NR（可重工待會判）；NG 是報廢終點，不進會判。作廢箱（voidAt）排除。 */
+function pendingJudgeQty(model,station){
+  if(!model||!station) return 0;
+  return (db.data.containers||[]).reduce((a,c)=>{
+    if(!c||c.kind!=='NR'||c.voidAt||c.processCode!==station) return a;
+    const p=prodOf(c.partNo); if(!p||p.model!==model) return a;
+    const r=remaining(c.cid); return a+(r>0?r:0); },0); }
 // 會判處置：對 NR 不良箱結存做 重工回流 / 報廢 / 改判放行（重工＋NG 皆從 NR 箱領出，扣其結存）
 function reworkDispose(nrCid,reworkOK,scrapNG,releaseOK,reworkOrder,judgeSrc,judge,createdAt,reworkStation){
   const nb=findC(nrCid); if(!nb||nb.kind!=='NR') return false; const rem=remaining(nrCid);
@@ -1425,7 +1504,20 @@ function reworkDispose(nrCid,reworkOK,scrapNG,releaseOK,reworkOrder,judgeSrc,jud
   let reworkCid='', releaseCid='', ngCid='';
   if(reworkOK>0) reworkCid=mkOK(reworkOK,'rework',reworkOrder||'',rwSt);
   if(releaseOK>0) releaseCid=mkOK(releaseOK,'release','',nb.processCode);
-  if(scrapNG>0) ngCid=addDefect('NG',nb.processCode,nb,[{cid:nrCid,take:scrapNG}],{op:judge||'',createdAt:at})||'';
+  /* ★★99-34（0v）會判把 NR 判成報廢 → 產生的 NG 箱要用哪一天？**使用者 260817 定案＝A 案：原料生產日**。
+     會判是事後動作，手上只有 NR 箱、拿不到待驗單的 pdate ⇒ **從 NR 箱自己的箱號把日期段取回來**
+     （`NR-DC-260729-001` → `260729` → `2026-07-29`），這樣新的 NG 箱跟批號、跟原料同一天，整條追溯鏈日期一致。
+     ⚠ 不能直接把 `260729` 丟給 genDefCID —— 它跟 genCID 一樣是吃 `YYYY-MM-DD` 再 `.slice(2)`，
+       傳 6 碼會被切成 `0729`。所以這裡先還原成完整日期。
+     ⚠ 退路順序：①NR 箱號的日期段 ②批號裡的日期段（`BM04_260729_A_DC01_01`）③都取不到才回 null＝今天。
+       批號當第二順位是因為它跟箱號本來就該同一天，比「會判當天」更接近事實。 */
+  const ngPdate=(function(){
+    const m=/-(\d{6})-\d+$/.exec(nb.cid||'');
+    if(m) return '20'+m[1].slice(0,2)+'-'+m[1].slice(2,4)+'-'+m[1].slice(4,6);
+    const l=/_(\d{6})_/.exec(nb.lot||'');
+    if(l) return '20'+l[1].slice(0,2)+'-'+l[1].slice(2,4)+'-'+l[1].slice(4,6);
+    return null; })();
+  if(scrapNG>0) ngCid=addDefect('NG',nb.processCode,nb,[{cid:nrCid,take:scrapNG}],{op:judge||'',createdAt:at,pdate:ngPdate})||'';
   /* ★99-14 把產出箱號記回 disp（比照 Q 的 p.boxCids）。三個欄位分開存＝畫面能標「哪一箱是重工/放行/報廢」；
      boxCids＝非空的集合，給「要不要顯示產出箱欄」與日後掃描用。⚠ 純加欄位、進既有 disp jsonb ⇒ 零 SQL；
      舊記錄沒有這幾個欄位 → 畫面顯示「—」，不要回填猜測值。 */
@@ -2085,14 +2177,47 @@ function wipDetail(code,pn,kind,wo,lot){   /* ★97-2 展開的箱清單同步�
   if(kind==='stock') boxes=boxes.filter(c=>remaining(c.cid)>0&&!isReceived(c));
   const title={out:'OK產出',moved:'已轉下站',stock:'期末在手量'}[kind];
   const el=$('#wip_detail');
-  el.innerHTML=`<div class="note" style="margin-top:14px">${stN(code)} · ${title} · 共 ${boxes.length} 箱（點箱號可追溯）</div>
-    <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('OK數')}</th><th>${L('已領走')}</th><th>${L('結存')}</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
+  /* ★★99-31（backlog 0h）明細表欄位**鏡射上方那一列**，讓它自己勾稽得起來。
+     【原病徵】壓鑄列「OK產出 112」，點開明細標題寫「共 1 箱」（箱數對），
+       但那一箱的「OK數」是 **111** ⇒ 112 湊不出來。上方說明白紙黑字承諾「點數字可展開是**哪些箱號湊出來的**」
+       ⇒ 湊不起來就是違反自己的說明。
+     【根因＝兩個不同來源擺在同一張卡片】
+       ・欄位的「OK產出」＝ `okQc`（**質控當時驗的量**，說明區明寫「物控少點不會改到它」）
+       ・明細的「OK數」＝ `c.qty`（**箱的現值**，已被清點帳差 −1 下修）
+       ⇒ 同一支函式、同一組箱、同一個 `c.qty`：點「已轉下站 111」對得起來，只有「OK產出 112」對不上。
+       只在**清點帳差 ≠ 0** 的列發作。不是算錯，是明細沒把旁邊那欄的 −1 接起來。
+     【定案做法（使用者 260814 提出，比補一句說明好）】欄位改成鏡射上方那一列：
+       箱號｜批號｜**OK產出｜清點帳差｜已轉下站｜期末在手量**｜來源｜時間
+       ⇒ 逐箱加總＝上方該列，四欄全部勾稽得上；現場也不用在腦裡換算「OK數 vs OK產出」。
+     【★★施工坑（backlog 明確警告，不可只改標籤）】**「已領走」≠「已轉下站」**：
+       ・明細原本的「已領走」＝ `drawnOut(cid)`（下站真的領去做掉的）
+       ・上方的「已轉下站」＝ **已點交移轉＋已領用**（`moved` 篩選含 `isReceived(c)&&remaining(c.cid)>0`
+         ＝已點交但還沒被領）
+       ⇒ 只要有箱「已點交到下站、下站還沒開工」，純改名就會**少算**＝製造新的對不上。
+       正解＝**改算式不只改標籤**：`已轉下站 = drawnOut(cid) + (已點交未領的 remaining)`。
+     【原始值怎麼回推】`OK產出 = c.qty − 該箱帳差`（本例 111 −(−1) = 112）；帳差讀 `c.stockin.diff`。 */
+  const dOf=c=>(c&&c.stockin&&+c.stockin.diff)||0;                 // 該箱的清點帳差（負＝短少）
+  const okOut=c=>(+c.qty||0)-dOf(c);                               // OK產出＝箱現值扣掉帳差＝質控當時驗的量
+  const movedOf=c=>drawnOut(c.cid)+((isReceived(c)&&remaining(c.cid)>0)?remaining(c.cid):0);   // ★已轉下站＝已領用＋已點交未領
+  /* ★★期末在手量＝**還留在本站**的量，不是 remaining()。
+     已點交到下站的箱，它的 remaining 已經算進「已轉下站」了（上一行）；
+     這裡若再用 remaining()，同一箱會被**重複計入兩欄**，勾稽「已轉下站＋期末在手量＝OK產出＋清點帳差」
+     當場就破（預驗 51-11 抓到）。上方那一列的 stock 篩選寫的就是 `remaining>0 && !isReceived`。 */
+  const remHere=c=>(isReceived(c)?0:remaining(c.cid));
+  const T={ok:0,diff:0,moved:0,rem:0};
+  boxes.forEach(c=>{ T.ok+=okOut(c); T.diff+=dOf(c); T.moved+=movedOf(c); T.rem+=remHere(c); });
+  const sg=v=>v?((v>0?'+':'')+v):'<span class="muted">—</span>';
+  el.innerHTML=`<div class="note" style="margin-top:14px">${stN(code)} · ${title} · 共 ${boxes.length} 箱（點箱號可追溯）
+      <span class="small muted">　欄位與上方那一列同名同義，逐箱加總＝該列的數字</span></div>
+    <div class="tblfit"><table><thead><tr><th class="fix stick">${L('箱號')}</th><th class="wrap">${L('批號')}</th><th class="num">${L('OK產出')}</th><th class="num">${L('清點帳差')}</th><th class="num">${L('已轉下站')}</th><th class="num">${L('期末在手量')}</th><th class="wrap">${L('來源')}</th><th class="fix">${L('時間')}</th></tr></thead><tbody>
     ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceBox('${c.cid}')">
-      <td><span class="badge">${esc(c.cid)}</span></td><td class="mono small">${esc(c.lot||'-')}</td>
-      ${hlCell(c.cid,'ok',`${c.qty}`)}<td class="muted">${drawnOut(c.cid)}</td>${hlCell(c.cid,'balance',`<b>${remaining(c.cid)}</b>`)}
-      <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')||'首站'}</td>
-      <td class="small muted">${esc(localDT(c.createdAt))}</td></tr>`).join('')||'<tr><td colspan=7 class="empty">無</td></tr>'}
-    </tbody></table>`;
+      ${cidCell(c.cid)}<td class="mono small wrap">${esc(c.lot||'-')}</td>${''/* ★cidCell() 自己就回傳整個 <td class="fix stick">，不要再包一層 */}
+      ${hlCell(c.cid,'ok',`${okOut(c)}`,'num')}<td class="num small">${sg(dOf(c))}</td><td class="num muted">${movedOf(c)}</td>${hlCell(c.cid,'balance',`<b>${remHere(c)}</b>`,'num')}
+      <td class="small muted wrap">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')||'首站'}</td>
+      <td class="small muted fix">${esc(localDT(c.createdAt))}</td></tr>`).join('')||'<tr><td colspan=8 class="empty">無</td></tr>'}
+    </tbody>${boxes.length?`<tfoot><tr style="background:var(--light);font-weight:700">
+      <td class="fix stick">合計</td><td></td><td class="num">${T.ok}</td><td class="num">${sg(T.diff)}</td><td class="num">${T.moved}</td><td class="num">${T.rem}</td><td></td><td></td></tr></tfoot>`:''}
+    </table></div>`;
 }
 
 /* ---------- 01 產品 / BOM ---------- */
@@ -2258,7 +2383,30 @@ window._permTab=window._permTab||'oms';
 window._editUser=null;
 
 function permTab(t){ window._permTab=t; window._editUser=null; render(); }
-async function reloadPerm(){ await loadMhrOrg(); await loadMhrUsers(); render(); }
+/* ★★99-33（260817 使用者實測「按了沒反應」）名單管理的「重新載入」要有回饋、不可吞錯、且要連 OMS 一起重載。
+   【原本三個問題】
+     ①**成功時完全沒有回饋**：`MHR_USERS_STATUS='載入中…'` 有設，但中間**沒有 render**，整段跑完才重繪一次
+       ⇒ 畫面從「已載入 13 筆」變回「已載入 13 筆」、數字也沒變 ⇒ 看起來就是沒反應（其實跑了）。
+     ②**失敗會被吞掉**：`loadMhrOrg()` 沒有 try/catch、也不設狀態；只要 `sbGet` 拋錯，
+       這個 async function 就在第一行 reject，**連 `loadMhrUsers()` 和 `render()` 都到不了**
+       ⇒ 這時是真的完全沒反應，連錯誤訊息都沒有。
+     ③**只重載 MHR 名單、不重載 OMS 名單**：使用者剛在 OMS 授權完人回來按這裡，期待的是「把新授權的人抓進來」，
+       但那份是 `fetchOmsUsers()` 管的、按鈕在側欄左下角 ⇒ 按了當然看不到新的人。最小驚訝原則：一起重載。
+   ⚠ 先設 `MHR_USERS_STATUS='載入中…'` 再 render，是為了避開 renderPerm 裡
+     `if(MHR_USERS_STATUS==='未載入'){…reloadPerm()}` 的無限迴圈（那個 guard 判的就是這個狀態）。 */
+async function reloadPerm(){
+  MHR_USERS_STATUS='載入中…'; render();
+  try{
+    await loadMhrOrg();
+    await loadMhrUsers();
+    fetchOmsUsers();                                  /* OMS 那份自己會 render＋更新狀態，不 await 免得互相拖慢 */
+    toast('名單已重新載入（MHR '+MHR_USERS.length+' 筆）','ok');
+  }catch(e){
+    MHR_USERS_STATUS='載入失敗：'+((e&&e.message)||e);
+    toast('重新載入失敗：'+((e&&e.message)||e),'err');
+  }
+  render();
+}
 
 /* 範圍編輯器：類型決定要填什麼（廠區級→勾廠區/事業群；委外級→選廠商；Admin→全部） */
 function scopeEditor(p){
@@ -2865,8 +3013,19 @@ function renderPermPage(){
   v.innerHTML=pageHead+tabBar+`
   ${form}
   ${(()=>{ /* ★85-8 對調：新增人員移到名單上方（與三主檔一致），預設折疊 */
-    const open=!!window._userAdd;
-    return `<div class="card"><h3 style="cursor:pointer;user-select:none" onclick="window._userAdd=!window._userAdd;render()">${open?'▾':'▸'} ＋ 新增人員${open?'':' <span class="vi">（點擊展開）</span>'}</h3>
+    /* ★★99-33（260817 使用者實測）「我在 OMS 加了人，MHR 卻沒出現」。
+       【查證結果：資料一直是對的】OMS 那句查詢實際回的 11 人裡就有 `GT2019805 高凌仙`，
+         他從頭到尾都在「① 從 OMS 名單勾選」裡等著被按「＋加入 MHR」。
+       【真正的缺陷＝可發現性】這張卡**預設收合**，收合時**完全看不出裡面有人在等**。
+         使用者的心智模型是「OMS 授權了 → MHR 就該出現」，但實際上還要來這裡按一下，
+         而那個入口是藏起來的 ⇒ 看起來就像系統沒同步。
+       【修法】①收合時**把待加入人數印在標題上**（有人時用金色，一眼看得到）
+               ②**有人在等就預設展開**；但使用者自己收合過就尊重他的選擇（`_userAdd` 明確為 false）。
+       ⚠ 展開狀態變成「算出來的」之後，onclick 不能再寫 `!window._userAdd`
+         （初值 undefined 時會跟顯示狀態不同步、要按兩下才收得起來）⇒ 改成對**當前實際狀態**取反。 */
+    const open=(window._userAdd===undefined)?(pend.length>0):!!window._userAdd;
+    const waitTag=pend.length?` <span class="vi" style="color:var(--gold);font-weight:700">（OMS 有 ${pend.length} 人已授權、尚未加入 MHR）</span>`:'';
+    return `<div class="card"><h3 style="cursor:pointer;user-select:none" onclick="window._userAdd=${open?'false':'true'};render()">${open?'▾':'▸'} ＋ 新增人員${waitTag}${open?'':(pend.length?'':' <span class="vi">（點擊展開）</span>')}</h3>
     <div style="display:${open?'':'none'}">
     <div style="margin-bottom:10px">
       <button class="btn ${window._permTab==='oms'?'':'ghost'} sm" onclick="permTab('oms')">① 從 OMS 名單勾選（集團內部）</button>
@@ -3764,14 +3923,22 @@ async function createBox(){ if(wGuard('create','c',undefined,'首站打單')) re
       /* ★99-9 時區漏網（同 pendZoneHTML）：today 是生產日、右邊卻是 createdAt 的 UTC 裸切。
          夜班在當地 07:00–08:00 建的箱其生產日仍算前一天，UTC 日卻已跳今天
          → 這條「同機台同班別換了機種」的提醒在交接時段會漏跳或誤跳。兩邊都改生產日。 */
-      const today=todayProdDay();
+      /* ★★99-36（缺陷 A）比對基準改吃「這張單的生產日」，不是寫死的「今天」。
+         ⚠ 現場實證（260817）：補登 8/10 的單，被拿去跟一張 8/05 的補登單比，卻跳「今天已在生產」。
+           兩張生產日根本不同 ⇒ 純誤報。只要現場補登過任何一天，這條防呆就會對所有補登亂叫；
+           叫久了就會養成習慣性按確定，**防呆等於失效**（跟 0n 預驗 48-10 抓到的是同一種病）。
+         ・這裡是「呼叫端」的一半；另一半是資料端 createdAt 沒跟著生產日（見本檔 bAt 那段註解）。
+           兩半都修才完整：資料端讓既有箱歸到對的日子，呼叫端讓比對站在對的日子上。 */
+      const baseDay=(($('#c_pdate')||{}).value)||todayProdDay();
       const other=db.data.containers.find(c=>c.machine===mc && c.shift===sh && c.partNo!==p.partNo
-        && isNormalBox(c) && prodDayOf(c.createdAt)===today);
+        && isNormalBox(c) && prodDayOf(c.createdAt)===baseDay);
       if(other){
         const op=prodOf(other.partNo)||{};
         /* ★94 訊息附上批號對照，讓現場一眼看懂「按確定會變成什麼」 */
         const nextLot=genLot(p.model||p.partNo,mc,sh,p.partNo,(($('#c_pdate')||{}).value)||'');
-        if(!confirm('⚠ 機台 '+mc+' 今天 '+(sh||'—')+' 班已在生產：\n'
+        /* ★99-36 訊息把「今天」換成實際比對的那一天：補登時寫死「今天」會讓現場對不上眼前的單 */
+        const dayTxt=(baseDay===todayProdDay())?'今天':baseDay;
+        if(!confirm('⚠ 機台 '+mc+' '+dayTxt+' '+(sh||'—')+' 班已在生產：\n'
           +'　料號　'+other.partNo+(op.name?'（'+op.name+'）':'')+'\n'
           +'　批號　'+other.lot+'\n\n'
           +'現在要建立的是：\n'
@@ -3791,6 +3958,40 @@ async function createBox(){ if(wGuard('create','c',undefined,'首站打單')) re
     if(pdate>today) return toast('生產日期不可晚於今天','err');
     if(pdate<minD) return toast('生產日期僅可回填最近 15 天（'+minD+' 之後）','err'); }
   const lot=genLot(p.model||p.partNo,$('#c_mc').value.trim(),$('#c_shift').value.trim(),p.partNo,pdate);   /* ★93 傳料號：換料號＝新批 */
+  /* ★99-28（backlog 0n）批號跨工單時給提示（使用者 260814 定調同意）。
+     ⚠⚠ **這不是批號缺陷**——backlog 0m 已經駁回過那個說法：批號＝**物理批次**（同機台同班同日同料號＝
+       同模同料同製程參數連續生產出來的東西），**跨工單共用是正確的**；工單是管理維度，存在 orderNo 欄位。
+       真有問題時，另一張工單的料**本來就該一起召回**，按工單拆批號反而會漏掉。
+     【那這條在防什麼】防的是**另一件事**——使用者在 02 **選錯工單**。系統分不出這兩種，但**現場分得出**：
+       ｜前單沒做完又下新單、同機台繼續做同料號 ⇒ ✅正常，本來就該共用批號｜
+       ｜使用者選錯工單 ⇒ ❌操作錯誤，原本**完全沒有提示**｜
+     ⇒ 給他看、讓他確認。使用者定調原話：「只要不影響現在批號的規則跟跳號，具有唯一性，
+       內部程式多一個判斷因子，提升安全性我是沒意見」。
+     ★★**不可以做的事**：不改 `genLot`（一行都不動）、不改跳號邏輯、不改批號格式與長度。**只加呼叫端的提示。**
+     ⚠ 位置必須在 `nextCID()`／`nextPID()` 之前——那兩支會配號（有副作用），確認框要擋在配號之前。
+     ⚠ 要同時看**箱**與**待驗單**：需記質控的站打單只產待驗單、還沒有箱，只掃箱會漏掉。
+     ・與 94 防呆（同機台同班換料號）分工：94 防「機台／班別選錯」，本條防「工單選錯」，兩者互補不重疊。
+     ・使用者說這情境「比較少」⇒ 這個框很少跳，不會變雜訊。 */
+  { const woNow=($('#c_wo')?$('#c_wo').value.trim():'');
+    if(lot&&woNow){
+      const owners=new Set(); let mine=false;
+      const scan=(o)=>{ if(!o||o.lot!==lot||o.partNo!==p.partNo||!o.orderNo) return;
+        if(o.orderNo===woNow) mine=true; else owners.add(o.orderNo); };
+      (db.data.containers||[]).forEach(c=>{ if(c&&isNormalBox(c)) scan(c); });
+      (db.data.pending||[]).forEach(q=>{ if(q&&q.status!=='void') scan(q); });
+      const list=[...owners];
+      /* ★★只在「**本次工單第一次加入這個批號**」時問一次（`mine` 為 false）。
+         否則批號一旦合法跨兩張單，之後每打一次都會跳 ⇒ 變雜訊，現場就會養成習慣性按確定，
+         防呆等於失效（預驗 48-10 抓到的就是這件事）。
+         這個時機也最精準：要攔的正是「把這個批號接到另一張工單」的那一刻。 */
+      if(list.length && !mine && !confirm('⚠ 這個批號已經掛在別的工單底下\n\n'
+        +'　批號　　　'+lot+'\n'
+        +'　目前掛在　'+list.join('、')+'\n'
+        +'　本次工單　'+woNow+'\n\n'
+        +'兩張單會共用同一個批號——同機台、同班別、同料號就是「同一批料」，這是正常的。\n'   /* ★99-36（缺陷D）confirm() 是純文字不吃 Markdown，原本的 ** ** 會把星號直接印在現場的框上 */
+        +'（批號是物理批次，工單另外記在箱上，追溯不會混淆。）\n\n'
+        +'［確定］＝確認是延續同一批生產　［取消］＝回去檢查工單是不是選錯')) return;
+    } }
   /* 補登時把時間戳設成該生產日的「當下當地時分秒」，並用廠區時區換算回 UTC。
      ★99-2 原本用 `new Date(pdate+'T'+本地時分秒)`＝依瀏覽器時區解讀，台灣的人補登大永的箱
      會偏 1 小時、極端情況跨過換日點 → 改成一律用廠區時區組回 UTC，prodDayOf() 必定還原成 pdate。
@@ -3865,8 +4066,26 @@ function stLabelZhVn(code){ if(code&&String(code).indexOf('+')>=0) return String
 function lblCardHTML(c,opt){ opt=opt||{}; const cap=opt.cap||'';
   /* ★96-1 批次序號（cap）從表頭搬到 QR 側：表頭 60mm 塞不下「標題＋製程＋第N/M箱」會折行、
      卡片被撐高超出 80mm；表頭回到原定案樣式 */
-  return `<div class="lblcard">
-    <div class="hd"><b>SDY 周轉箱標籤</b>${c.rush?'<span style="background:#c00;color:#fff;padding:0 5px;border-radius:3px;font-weight:900;margin-left:4px">急</span>':''}<span class="small">${stLabelZhVn(c.processCode)}</span></div>
+  return `<div class="lblcard${c.kind==='NR'?' nrbox':(c.kind==='NG'?' ngbox':'')}">
+    ${''/* ★★99-35（backlog 0u）不良箱要印標籤，但**不能印得跟良品箱一樣**。
+           【為什麼】現場現在靠**實體區域隔離**分辨不良品；一旦貼上長得一模一樣的標，那道保護就沒了——
+             反而更危險（NR 箱會被當良品領走）。搞混的後果還不對稱：把 NG 當 NR 拿去重工＝**報廢品流回產線**。
+           【★不靠顏色】60×80mm 標籤多半用**單色熱感應標籤機**，色相印不出來 ⇒ 識別做在**形狀**上：
+             ①整張粗外框（1.5mm ↔ 正常箱 0.4mm）②表頭反白大字別章（單色印出來是實心黑底）。
+             顏色（NR 橘／NG 紅）只是螢幕與彩色印表機的加強。
+           【表頭收合（使用者 260817 實測回饋「太佔空間」）】原設計是「表頭條＋另一個別章塊」兩層深色，
+             合成**一層**（表頭自己當別章）省約 6mm；斜紋帶依使用者要求拿掉（再省 3mm）。
+           【★站別不可截斷（使用者圈出）】大字別章與站別擠同一行會把站名切掉（只剩「壓鑄」）⇒
+             **別章獨占第 1 行；第 2 行＝副標＋站別，站別靠右並 `flex:0 0 auto;nowrap` 釘死**——
+             它永遠不縮不截，空間不夠是副標先出現「…」（副標比較不重要）。
+           ⚠ 尺寸 60×80mm 一個 mm 都沒動，跟 OK 標籤同一台機器同一捲紙。
+           ⚠ 急件章維持原樣：NR/NG 也可能是急件。 */}
+    ${(c.kind==='NR'||c.kind==='NG')
+      ? `<div class="hd2 ${c.kind==='NG'?'ng':'nr'}">
+           <div class="l1"><b>${c.kind==='NG'?'NG 報廢 SCRAP':'NR 不良品 REWORK'}</b>${c.rush?'<span class="rush">急</span>':''}</div>
+           <div class="l2"><span class="sub">${c.kind==='NG'?'不可再投產 · 不可回產線':'待處置 · 不可直接投產'}</span><span class="st">${stLabelZhVn(c.processCode)}</span></div>
+         </div>`
+      : `<div class="hd"><b>SDY 周轉箱標籤</b>${c.rush?'<span style="background:#c00;color:#fff;padding:0 5px;border-radius:3px;font-weight:900;margin-left:4px">急</span>':''}<span class="small">${stLabelZhVn(c.processCode)}</span></div>`}
     <div class="lblbody">
     ${''/* ★96-1 欄名去中文＝全大寫加冒號（使用者定案 260730「ITEM:/NAME:」樣式）：現場為越南人員、
         中文欄名不助讀又佔寬；品名無既有英文→暫用 NAME:、階段料號→STAGE:；欄名欄 15mm→11mm，值多 4mm 給長名字 */}
@@ -3875,9 +4094,21 @@ function lblCardHTML(c,opt){ opt=opt||{}; const cap=opt.cap||'';
     ${c.stagePartNo?`<div class="lblrow"><span>STAGE:</span><b class="sm">${esc(c.stagePartNo)}</b></div>`:''}
     <div class="lblrow"><span>LOT:</span><b class="sm">${esc(c.lot||'-')}</b></div>
     <div class="lblrow"><span>CID:</span><b class="big">${esc(c.cid)}</b></div>
+    ${''/* ★99-35（0u）SRC＝來源箱號：現成資料（不良箱的 sources 就記著），印上去現場不用回系統查。
+           多來源時去重＋只印第一個並標「＋N」，避免撐爆版面（混批可能好幾箱）。 */}
+    ${(c.kind==='NR'||c.kind==='NG')?(()=>{ const ids=[...new Set((c.sources||[]).map(s=>s&&s.cid).filter(Boolean))];
+       return ids.length?`<div class="lblrow"><span>SRC:</span><b class="sm">${esc(ids[0])}${ids.length>1?' +'+(ids.length-1):''}</b></div>`:''; })():''}
     <div class="lblrow"><span>QTY:</span><b class="big">${c.qty}</b></div>
-    <div class="lblrow"><span>DATE:</span><b>${new Date(c.createdAt).toLocaleDateString('zh-TW')}</b></div>
-    ${c.operator?`<div class="lblrow"><span>OP:</span><b class="nm">${esc(c.operator)}</b></div>`:''}
+    ${''/* ★★99-37（缺陷B）DATE 改走 prodDayOf()＝生產日＋廠區時區。
+           ⚠ 原本 `new Date(c.createdAt).toLocaleDateString('zh-TW')` 有兩個錯：
+             ① 補登時印質控當下 ⇒ 同一張標籤上 CID 寫 260810、DATE 卻印 2026/8/17，自己打自己的臉
+                （99-36 已從資料端修掉 createdAt；這裡是顯示端的另一半）
+             ② 吃**瀏覽器**時區，不是廠區時區 ⇒ 台灣的人印大永的標籤，跨換日點會差一天
+           ・同檔 seqTag()（1191）99-9 就已經改走 prodDayOf 了，這行是當時的漏網。
+           ・格式補零成 2026/08/10：跟 CID 的 260810 對得起來，也比原本的 2026/8/17 好認。 */}
+    <div class="lblrow"><span>DATE:</span><b>${esc(String(prodDayOf(c.createdAt)||'').replace(/-/g,'/'))}</b></div>
+    ${''/* ★99-35（0u）不良箱不印 OP（使用者確認）：不良箱是**質控**產出的，掛 QC 才對得起責任。 */}
+    ${(c.operator&&c.kind!=='NR'&&c.kind!=='NG')?`<div class="lblrow"><span>OP:</span><b class="nm">${esc(c.operator)}</b></div>`:''}
     ${c.qc?`<div class="lblrow"><span>QC:</span><b class="nm">${esc(c.qc)}</b></div>`:''}
     ${c.mold?`<div class="lblrow"><span>MOLD:</span><b>${esc(c.mold)}${c.cavity?'（'+esc(c.cavity)+'）':''}</b></div>`:''}
     ${''/* ★96-1 條碼下不再重複箱號（使用者定案：CID 列已有）；批次序號 N/M 放 QR 同高度右側空白
@@ -3892,16 +4123,34 @@ function fillQRs(root){ (root||document).querySelectorAll('.qrbox[data-cid]').fo
   const payload=c.cid;   /* ★88-7 QR 內容改純箱號（與 Code128 一致：掃碼＝把箱號打進輸入框，資料查系統） */
   if(window.QRCode){ try{ new QRCode(box,{text:payload,width:104,height:104,correctLevel:QRCode.CorrectLevel.M}); }catch(e){ box.innerHTML=`<div class="badge">${esc(c.cid)}</div>`; } } else box.innerHTML=`<div class="badge">${esc(c.cid)}</div>`; }); }
 function showLabel(c){ const a=$('#labelArea'); if(!a) return; a.innerHTML=lblCardHTML(c)+`<div style="margin-top:10px"><button class="btn navy sm" onclick="printLabels(['${esc(c.cid)}'])">🖨 列印標籤</button></div>`; fillQRs(a); }
+/* ★★99-37（缺陷C）標籤序號只在「同類箱」之間編——這是修我自己在 99-35 改出來的 regression。
+   ⚠ 出了什麼事：96-1 的 `N/M` 語意是「**這批良品**分成 M 箱，這是第 N 箱」。
+     99-35 把 NR/NG 一起加進列印清單後，`cids.length` 從「良品箱數」變成「本次列印張數」
+     ⇒ 只產 1 箱良品 ＋1 箱 NR ＋1 箱 NG 時，良品標籤上會印「1/3」。
+     **現場看到 1/3 會去找另外兩箱良品，但根本不存在。** 這比沒有序號還糟。
+   ⇒ 依 kind 分組（OK／NR／NG）各自編號；組內只有一箱就不印序號（單箱不需要 1/1）。
+   ⚠ 收斂成單一函式：showLabels 與 printLabels 兩邊都要用，
+     分頭各寫一份就是「資料 DRY、渲染 WET」，改一邊漏一邊（既有教訓）。 */
+function labelCaps(cids){
+  const caps={}, grp={};
+  (cids||[]).forEach(cid=>{ const c=findC(cid); if(!c) return;
+    const k=isDefect(c)?c.kind:'OK'; (grp[k]=grp[k]||[]).push(cid); });
+  Object.keys(grp).forEach(k=>{ const a=grp[k];
+    a.forEach((cid,i)=>{ caps[cid]=a.length>1?((i+1)+'/'+a.length):''; }); });
+  return caps;
+}
 /* ★85-10 多箱標籤（建箱分箱用）：全部排出＋一鍵連印（每張帶「第 N / M 箱」） */
 function showLabels(cids){ cids=(cids||[]).filter(Boolean); if(!cids.length) return; const a=$('#labelArea'); if(!a) return;
-  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?((i+1)+'/'+cids.length):''}):''; }).join('');
+  const caps=labelCaps(cids);
+  const cards=cids.map(cid=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:caps[cid]||''}):''; }).join('');
   a.innerHTML=cards+`<div style="margin-top:10px"><button class="btn navy sm" onclick="printLabels([${cids.map(c=>`'${esc(c)}'`).join(',')}])">🖨 列印${cids.length>1?('全部 '+cids.length+' 張'):''}標籤</button></div>`; fillQRs(a); }
 /* 列印多張標籤：開列印浮層、補 QR，按「列印」走 window.print（@media print 只留標籤） */
 function printLabels(cids){ cids=(cids||[]).filter(Boolean); if(!cids.length) return toast('無可列印標籤','err');
   let ov=$('#printOverlay'); if(!ov){ ov=document.createElement('div'); ov.id='printOverlay'; document.body.appendChild(ov); }
   /* 84-1 浮層抵銷 body zoom（zoom 是相乘的：1/z × z = 1）→ 螢幕預覽＝實際 80×60，不再超出視窗 */
   try{ const z=parseFloat(document.body.style.zoom)||1; ov.style.zoom=String(1/z); }catch(e){}
-  const cards=cids.map((cid,i)=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:cids.length>1?((i+1)+'/'+cids.length):''}):''; }).join('');
+  const caps=labelCaps(cids);   /* ★99-37（缺陷C）與 showLabels 共用同一支：螢幕看到什麼、印出來就是什麼 */
+  const cards=cids.map(cid=>{ const c=findC(cid); return c?lblCardHTML(c,{cap:caps[cid]||''}):''; }).join('');
   ov.innerHTML=`<div class="po-bar"><b>列印標籤（${cids.length} 張）</b><span><button class="btn navy sm" onclick="window.print()">🖨 列印</button> <button class="btn gray sm" onclick="closePrint()">關閉</button></span></div><div class="po-labels">${cards}</div>`;
   ov.style.display='block'; document.body.classList.add('printing'); fillQRs(ov);
 }
@@ -4526,6 +4775,18 @@ function scanPick(targetId,kind,code){
   let list;
   if(kind==='operator') list=prodOpsList();
   else list=machinesFor(code).map(m=>m.id);
+  /* ★99-25（backlog 0t）「一台都沒有」要指路，不要只給一句空的「可選：」。
+     【病徵】list 為空時 join 出空字串 ⇒ 畫面顯示「可選：」後面一片空白，
+       使用者分不出是系統壞了還是真的沒有。重現＝04 過站打單選毛邊站（DB 沒有機台勾這個製程）→ 按「📷掃碼」。
+     【為什麼是漏的】99-1 才剛做過同一條規則（needMcMsg()：需記設備但主檔沒該製程機台 → 訊息指路），
+       這個 prompt 漏掉了。這裡直接重用 needMcMsg()，規則收斂在同一個出處。
+     ⚠ 不要順手把「prompt 可以填不在選項內的值」那個行為拿掉——那是 §14 R-6「作業員下拉變空」
+       唯一能穩定重現的路徑，拿掉就沒得查了。 */
+  if(!list.length){
+    return toast(kind==='operator'
+      ? '本站目前沒有可選的作業員 —— 請到 ⚙名單管理 匯入／啟用該廠區的工牌，或確認機台廠區是否選對（人跟著機台的廠區走）'
+      : needMcMsg(code), 'err');
+  }
   const pick=prompt('（demo 模擬掃碼）請輸入或貼上掃到的'+(kind==='operator'?'工牌人員':'機台')+'：\n可選：'+list.join(' / '));
   if(pick==null) return; const v=pick.trim(); if(!v) return;
   const sel=$('#'+targetId); if(![...sel.options].some(o=>o.value===v)){ const opt=document.createElement('option'); opt.value=v; opt.textContent=v; sel.appendChild(opt); }
@@ -4983,9 +5244,46 @@ async function doQcInsp(){ if(wGuard('qcinsp','e',undefined,'質控檢驗')) ret
   const per=+((($('#qi_per')||{}).value)||0);
   if(p.mix&&ok>0&&per<=0) return toast('烤漆出爐 OK 轉紙箱需填「每箱裝入」','err');
   const qms=((($('#qi_qms')||{}).value)||'').trim();
+  /* ★99-27（backlog 0d）QMS 檢驗單號重號**軟**提醒。
+     【為什麼這欄有份量】它不是備註：①「已回填 QMS 單號＝視同已驗，不可作廢」的判斷靠它
+       ②07 追溯有「QMS 單號」欄 ③移轉記錄備註帶它
+       ⇒ 重號會讓兩筆追溯指向同一張檢驗報告，跟 QMS 對帳時分不出是哪一批。原本**完全沒有任何檢查**。
+     【★不可硬擋】一張 QMS 報告**合法涵蓋多張待驗單**——委外一次回廠拆成多箱多張單（260814 回歸 §5
+       第 1 批就是 30／20 兩張），現場很可能只開一張報告。硬擋會逼現場亂編號，比重號更糟。
+     ⇒ 軟提醒：**講清楚是哪一張**（比照 98-12 廠商必選的指路寫法），按確定才存。
+     ⚠ 擋在任何寫入之前（下面 addDefect／建箱都會改資料）。
+     ⚠ 排除自己（p.pid）——重驗同一張單時不該跟自己比。
+     ⏳ QMS 串接後這欄會自動帶入、由 QMS 端保證唯一；**過渡期手輸的現在才是最需要防呆的時候**。 */
+  if(qms){
+    const dupList=(db.data.pending||[]).filter(x=>x&&x.pid!==p.pid&&String(x.qmsNo||'').trim()===qms);
+    if(dupList.length){
+      const d=dupList[0];
+      if(!confirm('⚠ 這個 QMS 檢驗單號已經用過了\n\n'
+        +'　單號　　　'+qms+'\n'
+        +'　已用於　　'+d.pid+'（'+stN(d.processCode)+'／'+(d.qtyProd||0)+' pcs'
+        +(d.partNo?'／'+d.partNo:'')+(d.lot?'／批號 '+d.lot:'')+'）\n'
+        +(dupList.length>1?'　（另外還有 '+(dupList.length-1)+' 張也用了同一個單號）\n':'')
+        +'\n一張 QMS 報告涵蓋多張待驗單是正常的\n（委外一次回廠拆成多箱多張單，現場只開一張報告）。\n'
+        +'但如果不是刻意共用，請先確認是不是打錯了。\n\n'
+        +'［確定］＝確認共用同一張報告　［取消］＝回去改單號')) return;
+    }
+  }
   const into=((($('#qi_into')||{}).value)||'');
   const qcName=sessionName()||'';
   const at=nowISO();
+  /* ★★99-36（缺陷 A 根因）補登單產出的箱／NR·NG／報工，時間戳要跟著「生產日」，不能停在質控當下。
+     ⚠ 病徵（260817 使用者截圖實證）：同一批生產，待驗單顯示 08-10、它產出的箱卻顯示 2026-08-17。
+       中間只隔質控按一下。
+     ⚠ 成因：待驗單的 createdAt 早就是補登時間戳（見 3940 stampAt），但「質控產箱」這條路
+       只把 p.pdate 用在**箱號**（genCID）上，createdAt 仍寫 nowISO() ⇒ 箱號記得生產日、時間戳忘了。
+     ⚠ 血緣：全檔 25 處 `prodDayOf(x.createdAt)` 全被污染——00 總覽日期分組／篩選、
+       08 全部箱號日期欄（箱號寫 260810、日期欄印 8/17，自打嘴巴）、03／06 日期篩選、
+       報工良率日期區間、93 防呆、標籤 seqTag。
+       ⇒ **從這一點修，那 25 處一行都不用改就全對**；只補下游會漏掉其餘 23 處。
+     ★安全性：只有 `p.backfill` 為真才改變行為 ⇒ **非補登的正常生產路徑完全不變**（大永現有資料不受影響）。
+     ・`p.doneAt` 維持 `at` ＝真正的質控完成時間（那個欄位問的就是「什麼時候驗的」，不該動）。
+     ・`entryAt`／`backfill` 本來就有保留 ⇒「什麼時候鍵入的」資訊不會遺失。 */
+  const bAt=(p.backfill&&p.createdAt)?p.createdAt:at;
   const code=p.processCode;
   /* ★單號防重：產箱前先問雲端本站當日最大箱號（多裝置）；一次取號、批內遞增 */
   const cidYmd=p.pdate?String(p.pdate).replace(/-/g,'').slice(2):todayYMD();
@@ -5007,15 +5305,24 @@ async function doQcInsp(){ if(wGuard('qcinsp','e',undefined,'質控檢驗')) ret
           operator:p.operator||'',qc:qcName,machine:p.mix?'烤漆線':(p.machine||''),vendor:p.vendor||'',shift:p.shift||'',
           mold:p.mold||'',cavity:p.cavity||'',jigs:p.jigs||[],workType:hasDraws?'normal':undefined,
           sources:hasDraws?(i===0?okD:zero.slice()):[],pid:p.pid,rush:p.rush||undefined,
-          backfill:p.backfill||undefined,entryAt:p.entryAt||undefined,createdAt:at};
+          backfill:p.backfill||undefined,entryAt:p.entryAt||undefined,createdAt:bAt};   /* ★99-36 正常箱：跟著生產日 */
         if(code==='PK'||p.mix){ nc.pack='carton'; if(code==='PK') nc.oqc='待OQC'; }
         db.data.containers.push(nc); createdCids.push(nc.cid); });
       intoCid=createdCids[0]||null;
     }
   }
-  const meta={op:p.operator||'',mc:p.mix?'烤漆線':(p.machine||''),shift:p.shift||'',vendor:p.vendor||'',qc:qcName,createdAt:at};
-  const nrCid=nr>0?addDefect('NR',code,first,nrD,meta,nr):null;
-  const ngCid=ng>0?addDefect('NG',code,first,ngD,meta,ng):null;
+  const meta={op:p.operator||'',mc:p.mix?'烤漆線':(p.machine||''),shift:p.shift||'',vendor:p.vendor||'',qc:qcName,createdAt:bAt,
+    pdate:p.pdate||null};   /* ★99-34（0v）待驗單上就有生產日 ⇒ NR/NG 箱號跟正常箱、批號、待驗單號同一天 */
+  /* ★99-36 NR/NG 箱的 createdAt 也跟著生產日：99-34 只修到「箱號」，時間戳當時還留在質控當下 */
+  /* ★★99-39（缺陷 F）這條路＝「待驗單檢驗」，**每次檢驗各自產一箱**（現場一箱一標、標籤數量不累加）。
+     ⚠ NR 與 NG 是**不同前綴＝不同序列**，必須各問各的雲端最大號，不能共用一個 floor。
+     ⚠ 只在真的要產該類箱時才問雲端（nr>0／ng>0），避免每次檢驗都多打兩次網路。
+     ・離線／逾時時 cloudMaxSeq 會退回 0 ⇒ genDefCID 仍以本機最大值取號（既有降級行為，風險同 nextCID）。 */
+  meta.split=true;
+  const nrFloor=nr>0?await cloudMaxSeq('mhr_containers','cid',defCIDPrefix('NR',code,p.pdate||'')):0;
+  const ngFloor=ng>0?await cloudMaxSeq('mhr_containers','cid',defCIDPrefix('NG',code,p.pdate||'')):0;
+  meta.floor=nrFloor; const nrCid=nr>0?addDefect('NR',code,first,nrD,meta,nr):null;
+  meta.floor=ngFloor; const ngCid=ng>0?addDefect('NG',code,first,ngD,meta,ng):null;
   if(p.mix&&nrCid){ const nb=findC(nrCid); if(nb){ nb.paintRepair=true; if(nb.pid===undefined) nb.pid=p.pid; } }   /* 烤漆 NR＝補噴箱（免點交、下爐同投） */
   if(nrCid){ const nb=findC(nrCid); if(nb&&!nb.pid) nb.pid=p.pid; }
   if(ngCid){ const gb=findC(ngCid); if(gb&&!gb.pid) gb.pid=p.pid; }
@@ -5024,16 +5331,30 @@ async function doQcInsp(){ if(wGuard('qcinsp','e',undefined,'質控檢驗')) ret
   /* 報工記錄＝統計/良率唯一來源——首站也寫（fromStation=''）→ 總覽/站別統計/矩陣自動涵蓋首站不良 */
   db.data.reports.push({id:'R'+Date.now()+Math.floor(Math.random()*1000),partNo:p.partNo,lot:p.lot,orderNo:p.orderNo,
     fromStation:hasDraws?(p.fromStation||''):'',toStation:code,draws,ok,nr,ng,intoCid,nrCid,ngCid,
-    shift:p.shift||'',operator:p.operator||'',qc:qcName,pid:p.pid,mix:!!p.mix,createdAt:at});
+    shift:p.shift||'',operator:p.operator||'',qc:qcName,pid:p.pid,mix:!!p.mix,createdAt:bAt});   /* ★99-36 報工＝良率統計唯一來源，日期區間要歸到生產日 */
   db.save();   /* ★99-1 移除 rememberShiftQc() 呼叫：寫進去沒人讀（唯一讀者 shiftQcDefault 已是死碼） */
   window._qiPick=null; render();
-  const re=$('#qi_result'); if(re){ const multi=createdCids.length>1;
+  /* ★★99-35（backlog 0u）不良箱也要進列印清單（使用者 260814 定調「實體上要貼標」）。
+     【原病徵】列印清單是 `printLabels(createdCids)`，而 `createdCids` **只裝 OK 箱**；
+       nrCid／ngCid 只進 `p.boxCids`（追溯用）**不進列印** ⇒ 質控產箱後畫面只出現「列印標籤（1 張）」。
+     ⇒ 這裡把三種箱合成一份清單，OK 在前、不良箱在後（現場先貼良品、再處理不良品的順序）。 */
+  const allCids=createdCids.concat(nrCid?[nrCid]:[]).concat(ngCid?[ngCid]:[]);
+  const re=$('#qi_result'); if(re){ const multi=allCids.length>1;
     re.innerHTML=`<div class="card"><h3>✅ ${L('檢驗完成 — 已產箱')} <span class="mono small">${esc(p.pid)}</span>${qms?` ｜ QMS <span class="mono small">${esc(qms)}</span>`:''}</h3>
       <div class="note" style="border-color:var(--green);background:#e6f4ec">OK ${ok}${createdCids.length?'（'+createdCids.length+' 箱）':''} ／ NR ${nr}${nrCid?'（'+nrCid+'）':''} ／ NG ${ng}${ngCid?'（'+ngCid+'）':''}　<span class="small muted">箱況＝⏳待物控接收（03 接收入庫後，後站才能點交領走）</span></div>
-      ${createdCids.length?`<div style="overflow-x:auto"><table><thead><tr><th>${L('箱號')}</th><th style="text-align:right">${L('數量')}</th><th>${L('標籤')}</th></tr></thead><tbody>
-      ${createdCids.map(cid=>{ const c=findC(cid); return `<tr><td><span class="badge">${esc(cid)}</span>${c&&c.pack==='carton'?' <span class="pill" style="background:#eef;color:#3355aa;font-size:10px">紙箱</span>':''}</td><td style="text-align:right">${c?c.qty:''}</td><td><button class="btn ghost sm" onclick="printLabels(['${esc(cid)}'])">🖨</button></td></tr>`; }).join('')}
+      ${allCids.length?`<div style="overflow-x:auto"><table><thead><tr><th>${L('箱號')}</th><th>${L('箱別')}</th><th style="text-align:right">${L('數量')}</th><th>${L('標籤')}</th></tr></thead><tbody>
+      ${allCids.map(cid=>{ const c=findC(cid)||{}; const k=c.kind;
+        const kindPill=k==='NR'?'<span class="pill" style="background:#fef3e0;color:#b9760f;font-size:10px">NR 不良品</span>'
+                    :(k==='NG'?'<span class="pill ng" style="font-size:10px">NG 報廢</span>'
+                    :'<span class="pill ok" style="font-size:10px">OK 良品</span>');
+        return `<tr><td><span class="badge"${k?` style="background:${k==='NG'?'var(--red)':'#b9760f'}"`:''}>${esc(cid)}</span>${c.pack==='carton'?' <span class="pill" style="background:#eef;color:#3355aa;font-size:10px">紙箱</span>':''}</td><td>${kindPill}</td><td style="text-align:right">${c.qty!==undefined?c.qty:''}</td><td><button class="btn ghost sm" onclick="printLabels(['${esc(cid)}'])">🖨</button></td></tr>`; }).join('')}
       </tbody></table></div>
-      <div style="margin-top:10px"><button class="btn navy" onclick='printLabels(${JSON.stringify(createdCids)})'>🖨 ${L('列印')}${multi?` 全部 ${createdCids.length} 張`:''}${L('標籤')}</button></div>`:''}</div>`;
+      ${''/* ★★99-39（缺陷 F）待會判提示：同機種＋同製程累計，讓質控當場看到，不用切去 06／07 查。
+             ⚠ 它**不是**上面表格任何一箱的數量——表格那一欄永遠是「這一箱的量」。 */}
+      ${(()=>{ const md=((prodOf(p.partNo)||{}).model)||''; const q=pendingJudgeQty(md,code);
+        return q>0?`<div class="note" style="border-color:#B9760F;background:#FEF8EF;margin-top:6px">⏳ <b>${esc(md)}</b> · ${stN(code)} 目前<b>待會判 ${q} PCS</b>　<span class="small muted">（同機種＋同製程累計，不分批號日期；含本次）→ 06 不良 / 重工</span></div>`:''; })()}
+      ${(nrCid||ngCid)?`<div class="small muted" style="margin-top:6px">⚠ 不良箱的標籤<b>長得不一樣</b>（粗框＋反白別章），是刻意的——貼了跟良品一樣的標，實體區域隔離那道保護就沒了。</div>`:''}
+      <div style="margin-top:10px"><button class="btn navy" onclick='printLabels(${JSON.stringify(allCids)})'>🖨 ${L('列印')}${multi?` 全部 ${allCids.length} 張`:''}${L('標籤')}</button></div>`:''}</div>`;
   }
   toast('檢驗完成：'+p.pid+' → 產箱 '+createdCids.length+' 箱'+(nr?' / NR '+nr:'')+(ng?' / NG '+ng:''),'ok');
 }
@@ -5059,7 +5380,7 @@ function qcViewDone(pid){ const p=findP(pid); if(!p) return; const el=$('#qi_res
       const chip=c=>`<span class="badge" style="cursor:pointer;${c.kind==='NR'?'background:#b9760f':(c.kind==='NG'?'background:var(--red)':'')}" onclick="traceBox('${esc(c.cid)}')">${esc(c.cid)}</span> ${c.qty}`;
       return `<div style="margin-top:8px">🏷 <b>產出箱（正常）</b>${okB.length?`　<button class="btn ghost sm" onclick='printLabels(${JSON.stringify(okB.map(c=>c.cid))})'>🖨 補印這 ${okB.length} 張標籤</button>`:''}
         <div style="margin-top:4px">${okB.length?okB.map(chip).join('　'):'<span class="muted">—</span>'}</div></div>
-      ${badB.length?`<div style="margin-top:8px">⚠ <b>不良箱</b> <span class="small muted">（不印標籤，處置到「06 不良／重工」）</span>
+      ${badB.length?`<div style="margin-top:8px">⚠ <b>不良箱</b>${''/* ★99-35（0u）不良箱改成會印標籤了，補印鈕比照正常箱 */}　<button class="btn ghost sm" onclick='printLabels(${JSON.stringify(badB.map(c=>c.cid))})'>🖨 補印這 ${badB.length} 張標籤</button> <span class="small muted">（處置到「06 不良／重工」；標籤是粗框＋別章版）</span>
         <div style="margin-top:4px">${badB.map(c=>chip(c)+`<span class="small muted">（${c.kind}${c.kind==='NR'?'可重工':'報廢'}）</span>`).join('　')}</div></div>`:''}`; })()}
   </div>`;
   if(window.scrollTo) window.scrollTo(0,document.body.scrollHeight);
@@ -5087,15 +5408,29 @@ function reworkOrderOpts(){ return getOrders().filter(o=>o.status!=='完成').ma
      用 oninput 會每打一個字就重繪、輸入框失焦（97-7／05 已踩過）。 */
 window._rwPn=''; window._rwLot=''; window._rwSt=''; window._rwDate='';
 function rwBase(){ return db.data.containers.filter(c=>c&&(c.kind==='NR'||c.kind==='NG')); }
+/* ★99-30（backlog 0s）06 加關鍵字搜尋。
+   【為什麼 06 比 08 更需要】①**會判是責任判定**（放行／報廢／重工），操作前要能確定「就是這一箱」，
+     繞篩選容易點錯行 ②★**06 有 08 沒有的維度＝「來源箱」**——現場拿著**來源箱號**要反查它產出的 NR 箱，
+     這條路 08 的搜尋幫不上 ③量會長大（7/29 以來已累積十幾箱 NR 卡著沒判）④不一致：同樣是「找一箱」，
+     08 打字就到、06 要點三個下拉。
+   ★搜尋範圍＝不良箱號／**來源箱號**／批號／料號／工單號（★來源箱號是重點，那是 08 沒涵蓋、06 天天要用的）。
+   ⚠ 關鍵字**不參與下拉候選的收斂**（比照 08 的 98-14 定調）：打字是連續動作，
+     打到一半把選好的機種清掉會很煩 ⇒ rwHit 的 skip 機制只用在三個下拉，kw 一律全域套。 */
+function rwKwHit(c){
+  const kw=String(window._rwKw||'').trim().toLowerCase(); if(!kw) return true;
+  const src=(c&&c.sources||[]).map(s=>s&&s.cid||'').join(' ');
+  return [c.cid,src,c.lot,c.partNo,pnoOf(c.partNo),c.orderNo].join(' ').toLowerCase().includes(kw);
+}
 function rwHit(c,skip){
   return (skip==='pn' ||!window._rwPn ||repPnHit(c.partNo,window._rwPn))
       &&(skip==='lot'||!window._rwLot||String(c.lot||'').toLowerCase().includes(String(window._rwLot).trim().toLowerCase()))
       &&(skip==='st' ||!window._rwSt ||c.processCode===window._rwSt)
-      &&(!window._rwDate||prodDayOf(c.createdAt)===window._rwDate);
+      &&(!window._rwDate||prodDayOf(c.createdAt)===window._rwDate)
+      &&rwKwHit(c);
 }
 function rwFilter(list){ return list.filter(c=>rwHit(c)); }
-function rwOn(){ return !!(window._rwPn||window._rwLot||window._rwSt||window._rwDate); }
-function rwClear(){ window._rwPn=''; window._rwLot=''; window._rwSt=''; window._rwDate=''; render(); }
+function rwOn(){ return !!(window._rwPn||window._rwLot||window._rwSt||window._rwDate||String(window._rwKw||'').trim()); }
+function rwClear(){ window._rwPn=''; window._rwLot=''; window._rwSt=''; window._rwDate=''; window._rwKw=''; render(); }
 function renderRework(){
   const _rwAll=rwBase();
   /* 站別失效自動清：選了一個「篩選後已經沒有箱」的站，要清掉（否則畫面空白又不知為何） */
@@ -5128,13 +5463,19 @@ function renderRework(){
     <div class="kpi" title="NG 報廢箱目前的箱上數量，含「NR 會判後轉報廢」轉進來的量；與 00 總覽的「累計 NG 報廢」（質控當下判的量）基準不同，兩個都對"><div class="v" style="color:var(--red)">${ngQty}</div><div class="l">${L('NG 箱現有量')}</div></div>
   </div>
   ${''/* ★99-18 篩選列：四向交集收斂（每欄候選＝符合其餘欄位的集合）＋清除。三張卡片一起吃這組條件。 */}
-  <div class="card" style="margin-bottom:12px"><h3>🔍 ${L('篩選')} <span class="vi">（機種／批號／製程站／日期；三張表一起套）</span></h3>
+  <div class="card" style="margin-bottom:12px"><h3>🔍 ${L('篩選')} <span class="vi">（機種／批號／製程站／日期／關鍵字；三張表一起套）</span></h3>
     <div class="grid g3">
       <div><label>${L('機種 / 料號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('rw_pn',_rwPnItems,Lt('全部機種'),'',"window._rwPn=this.value;render()",window._rwPn||'')}</div>
       <div><label>${L('批號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('rw_lot',_rwLotItems,Lt('全部批號'),'',"window._rwLot=this.value;render()",window._rwLot||'')}</div>
       <div><label>${L('製程站')}</label><select id="rw_st" onchange="window._rwSt=this.value;render()"><option value="">（全部製程站）</option>${_rwStItems.map(s=>`<option value="${esc(s)}"${s===window._rwSt?' selected':''}>${stN(s)} (${esc(s)})</option>`).join('')}</select></div>
       <div><label>${L('日期')} <span class="vi">（生產日）</span></label><input id="rw_date" type="date" value="${esc(window._rwDate||'')}" onchange="window._rwDate=this.value;render()"></div>
-      <div style="align-self:flex-end"><button class="btn ghost sm" onclick="rwClear()" title="清空四個篩選">清除</button></div>
+      ${''/* ★99-30（0s）關鍵字搜尋。★來源箱號是重點——那是 08 的搜尋涵蓋不到、06 天天要用的
+             （現場拿著來源箱號反查它產出的 NR 箱）。
+             ⚠ **必須用 onchange 不能用 oninput**：06 的 handler 會整頁 render，oninput 會每打一個字就失焦
+             （99-18 做組合框時已經踩過同一個坑）。onchange 在 Enter 或離開欄位時觸發，行為可預期。 */}
+      <div style="flex:1;min-width:220px"><label>${L('搜尋')} <span class="vi">（不良箱號／來源箱號／批號／料號／工單號；Enter 或離開欄位套用）</span></label>
+        <input id="rw_kw" placeholder="輸入關鍵字" value="${esc(window._rwKw||'')}" onchange="window._rwKw=this.value;render()"></div>
+      <div style="align-self:flex-end"><button class="btn ghost sm" onclick="rwClear()" title="清空全部篩選與搜尋">清除</button></div>
     </div>
     <div class="small muted" style="margin-top:6px">${rwOn()
       ?`<b style="color:var(--gold)">篩選中</b>：符合 <b>${nrBoxes.length+ngBoxes.length}</b> 箱／全部 <b>${_rwAll.length}</b> 箱（上方 KPI 與下方三張表都是篩選後的數字）`
@@ -5820,7 +6161,16 @@ function doQuery(){
   if(view==='rep'){
     /* ★96 工單過濾：報工記錄比 r.orderNo；舊記錄（烤漆出爐曾漏存 orderNo）靠產出箱 intoCid 回查 */
     const woOf={}, lotOf={}; if(wo||lot) db.data.containers.forEach(c=>{ if(c.cid){ woOf[c.cid]=c.orderNo||''; lotOf[c.cid]=c.lot||''; } });   /* ★96-4b 批號也走產出箱回查保險 */
-    const reps=db.data.reports.filter(r=>(!pn||r.partNo===pn)&&(!st||r.toStation===st)&&(!wo||r.orderNo===wo||(r.intoCid&&woOf[r.intoCid]===wo))&&(!lot||r.lot===lot||(r.intoCid&&lotOf[r.intoCid]===lot))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    /* ★99-26（backlog 0k②）報工檢視只列「報工」，不要把清點移轉的記錄一起算進來。
+       【病徵】`db.data.reports` 這張表其實裝了兩種東西：
+         ・**報工**＝`id` 以 `R` 開頭、**沒有 `type` 欄**（doReport／doQcInsp／混批出爐都是這種）
+         ・**移轉／帳差**＝`id` 以 `H`／`V` 開頭、**`type:'handover'`**（stockin／receive／sendout／vendorReturn）
+       原本只篩 機種／站／工單／批號，**沒篩事件類型** ⇒ 標題「共 45 筆報工」被灌水，
+       而且那些列的特徵是 領料 0、無班別、無作業員、無產出箱（99-21 修掉的 `undefined` 就是它們印出來的）。
+       ✅ 良率不受影響：分母＝OK+NR+NG，那些列全是 0。
+       ⚠ 用 `type!=='handover'` 而不是 `!r.type`：日後若有人給報工加上 type，`!r.type` 會整批消失；
+         用排除法只會漏放行、不會誤殺。 */
+    const reps=db.data.reports.filter(r=>r&&r.type!=='handover'&&(!pn||r.partNo===pn)&&(!st||r.toStation===st)&&(!wo||r.orderNo===wo||(r.intoCid&&woOf[r.intoCid]===wo))&&(!lot||r.lot===lot||(r.intoCid&&lotOf[r.intoCid]===lot))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
     if(!reps.length){ out.innerHTML='<div class="empty">無報工紀錄</div>'; return; }
     const sok=reps.reduce((a,r)=>a+(+r.ok||0),0),snr=reps.reduce((a,r)=>a+(+r.nr||0),0),sng=reps.reduce((a,r)=>a+(+r.ng||0),0);
     const sp=sok+snr+sng; const rate=n=>sp?(n/sp*100).toFixed(1)+'%':'—';
@@ -5856,10 +6206,20 @@ function lotMetaList(){ const m={}; db.data.containers.forEach(c=>{ if(!isNormal
 function diffExportCsv(){
   const rows=window._diffRows||[];
   if(!rows.length) return toast('目前沒有帳差記錄可匯出','err');
-  const hd=['時間','箱號','料號','批號','工單號','製程站','段別','應收','實收','帳差','認列單位','經手人','備註'];
+  /* ★99-29（backlog 0j）CSV 補「委外廠商」與「認列類別」兩個維度。
+     【兩個症狀、同一個根】這份 CSV 是**發給財務／採購做扣款與領用沖銷**的，但：
+       ①**委外轉出那筆的廠商掉了**：畫面「段別」欄印兩行（`委外轉出` ＋ `昇榮`），CSV 只匯出 `委外轉出`。
+       ②**認列單位分不出廠商 vs 內部部門**：同一欄混著 `昇榮`（廠商・扣款對象）與 `生產`／`物控`（內部部門）。
+         畫面上廠商有紫色 pill 一眼分得出，匯出後只剩純文字 ⇒ 要篩「哪些要跟廠商扣款」只能靠人認名字。
+     ⇒ 加兩欄就兩個一起解：**委外廠商**（不論轉出或回廠都帶）＋**認列類別**（廠商／內部）。
+     ★畫面不動（pill 已經夠清楚），只補 CSV —— 差異在「匯出後資訊有沒有掉」，不在畫面。
+     ⚠ 既有 13 欄的**順序與內容一個都不動**，新欄一律加在最後 —— 財務端若有既成的欄位對應，不會被打亂。 */
+  const hd=['時間','箱號','料號','批號','工單號','製程站','段別','應收','實收','帳差','認列單位','經手人','備註','委外廠商','認列類別'];
   const seg=r=>r.kind==='sendout'?'委外轉出':(r.kind==='vendorReturn'?'委外回廠':(r.kind==='stockin'?'成品入庫':'清點移轉'));   /* ★98-11 補委外回廠 */
   const body=rows.map(r=>[localDT(r.createdAt),r.cid||'',r.partNo||'',r.lot||'',r.orderNo||'',   /* ★99-2 CSV 時間也轉當地 */
-    stN(r.fromStation)||'',seg(r),r.expect,r.actual,r.diff,diffResp(r),r.by||'',r.note||'']);   /* ★99-6 CSV 也走共用判斷（這份是實際發給財務／採購做扣款與領用沖銷的，錯的殺傷力最大）；順帶把原本的空白改成「（未指定）」，領用沖銷不該收到空格 */
+    stN(r.fromStation)||'',seg(r),r.expect,r.actual,r.diff,diffResp(r),r.by||'',r.note||'',
+    r.vendor||'',                                              /* 委外廠商：轉出與回廠都帶，畫面段別第二行印的就是它 */
+    (r.kind==='vendorReturn'&&r.vendor)?'廠商':'內部']);        /* 認列類別：與 diffResp() 同一條判斷——只有委外回廠的短交才認列到廠商 */   /* ★99-6 CSV 也走共用判斷（這份是實際發給財務／採購做扣款與領用沖銷的，錯的殺傷力最大）；順帶把原本的空白改成「（未指定）」，領用沖銷不該收到空格 */
   csvExport('MHR_帳差記錄_'+todayYMD()+'.csv',[hd].concat(body));
 }
 function traceFromQuery(cid,focus){ setHLCells([cid],focus||'box'); $('#t_cid').value=cid; doTrace(); applyHL(); }
@@ -5972,13 +6332,43 @@ function doTrace(){
   const cols=order.filter(code=>byStation[code]);
   const colData=cols.map(code=>{ const arr=byStation[code]; return {code,arr,main:arr[0].c,take:arr[0].take,branch:arr.length>1}; });
   const hasBranch=colData.some(d=>d.branch);
-  const th=`<th style="position:sticky;left:0;background:var(--navy);color:#fff;z-index:2">${L('追溯項目')}</th>`+colData.map((d,i)=>{ const os=isOS(c.partNo,d.code); const last=d.code===lastStation(c.partNo);
-    return `<th style="text-align:center"><span style="display:inline-block;width:20px;height:20px;line-height:20px;background:rgba(255,255,255,.2);border-radius:4px;font-size:11px;margin-right:4px">${p.route.indexOf(d.code)+1}</span>${stN(d.code)}${os?'<br><span style="font-size:10px;font-weight:400">委外</span>':''}${last?'<br><span style="font-size:10px;font-weight:400">成品</span>':''}${d.branch?'<br><span style="font-size:10px;font-weight:400;color:#ffd479">分支 '+d.arr.length+' 箱</span>':''}</th>`; }).join('');
-  // 各欄：正常一箱顯示該箱；分支多箱則該欄列出每一個來源箱(各自的值)
-  const cellsFor=(fn,key)=> colData.map(d=>{
-    const hid=(d.main&&d.main.cid)?` data-cid="${d.main.cid}"`+(key?` data-focus="${key}"`:''):'';
-    if(!d.branch) return `<td${hid} style="text-align:center">${fn(d.main,d)}</td>`;
-    return `<td${hid} style="text-align:center">${d.arr.map(x=>fn(x.c,d,x)).join('<br><span style="color:#ccc">──</span><br>')}</td>`;
+  /* ★★99-32（backlog 0u2）分支改「一箱一欄」左右排（使用者 260814 定案，優於色條方案）。
+     【原病徵】重工／混批／分箱會讓某一站出現分支（欄標「壓鑄 Die Casting · 分支 2 箱」），
+       此時**每一格都上下疊兩個值**：①沒有逐格標示誰是誰 ②★**捲下去就斷線**——箱號列捲出畫面後，
+       只剩「YC TEST／裴文重」「重工／DC01」一堆上下配對，完全不知道哪個對哪個
+       ③有些格子上下長得一樣（例：階段料號兩個都是 G6A.BM04A00.D1103），更難分。
+     【為什麼左右對、上下是硬塞】這張表本來就是「**由左到右＝往下游走**」，分支也是時序關係
+       （NR 箱 → 重工箱）⇒ 左右天生對齊語意；而且左邊「追溯項目」欄是 sticky 的，
+       捲到哪都知道這一列是什麼，正好補掉上下疊「捲走就斷線」的致命傷。
+     【形變取捨】上下疊＝表變高一倍（15 個追溯項目 × 2 箱＝30 格）；左右＝表變寬一欄。
+     ⚠ **要設上限**：05 混批換箱可能一站併好幾箱，欄數會膨脹（07 今天已有爆版前例＝0k③）。
+       ⇒ **分支 ≤3 箱走左右；超過退回上下疊**，欄標寫「分支 N 箱（僅列前 3，其餘見 08）」。 */
+  const BRANCH_MAX=3;
+  const colUnits=[];
+  colData.forEach(d=>{
+    if(!d.branch){ colUnits.push({d,x:d.arr[0]}); return; }
+    if(d.arr.length<=BRANCH_MAX) d.arr.forEach((x,i)=>colUnits.push({d,x,idx:i}));
+    else colUnits.push({d,x:d.arr[0],stack:d.arr.slice(0,BRANCH_MAX)});
+  });
+  const th=`<th style="position:sticky;left:0;background:var(--navy);color:#fff;z-index:2">${L('追溯項目')}</th>`+colUnits.map(u=>{ const d=u.d; const os=isOS(c.partNo,d.code); const last=d.code===lastStation(c.partNo);
+    /* ★分支時**每一欄自己一個箱號當表頭**——這就是「認得出誰是誰」的關鍵；
+       站名只在該站的第一欄印，後續分支欄留白，視覺上仍看得出它們同屬一站。 */
+    const first=!d.branch||u.idx===0||!!u.stack;
+    return `<th style="text-align:center${d.branch&&!first?';border-left:1px dashed rgba(255,255,255,.35)':''}">`
+      +(first?`<span style="display:inline-block;width:20px;height:20px;line-height:20px;background:rgba(255,255,255,.2);border-radius:4px;font-size:11px;margin-right:4px">${p.route.indexOf(d.code)+1}</span>${stN(d.code)}`
+             :`<span style="font-size:10px;font-weight:400;opacity:.55">${stN(d.code)}（續）</span>`)
+      +(first&&os?'<br><span style="font-size:10px;font-weight:400">委外</span>':'')
+      +(first&&last?'<br><span style="font-size:10px;font-weight:400">成品</span>':'')
+      +(d.branch?`<br><span style="font-size:10px;font-weight:400;color:#ffd479">${u.stack?('分支 '+d.arr.length+' 箱（僅列前 '+BRANCH_MAX+'，其餘見 08）'):('分支 '+(u.idx+1)+'／'+d.arr.length)}</span>`
+                 +(u.stack?'':`<br><span class="mono" style="font-size:10px;font-weight:400;opacity:.9">${esc(u.x.c.cid)}</span>`):'')
+      +`</th>`; }).join('');
+  // 各欄：正常一箱顯示該箱；分支 ≤3 一箱一欄（左右）；分支 >3 退回上下疊（只列前 3）
+  const cellsFor=(fn,key)=> colUnits.map(u=>{
+    const cc=u.stack?u.d.main:u.x.c;
+    const hid=(cc&&cc.cid)?` data-cid="${cc.cid}"`+(key?` data-focus="${key}"`:''):'';
+    const bl=(u.d.branch&&!u.stack&&u.idx>0)?';border-left:1px dashed var(--line)':'';
+    if(u.stack) return `<td${hid} style="text-align:center">${u.stack.map(x=>fn(x.c,u.d,x)).join('<br><span style="color:#ccc">──</span><br>')}</td>`;
+    return `<td${hid} style="text-align:center${bl}">${fn(u.x.c,u.d,u.x)}</td>`;
   }).join('');
   // 該批、該站的 NR/NG/投入 累計（來自報工記錄，與總覽製程帳一致）
   const stStat=(pn,lot,code)=>{ let input=0,ok=0,nr=0,ng=0;
