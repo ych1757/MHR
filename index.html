@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v99-40</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v99-46</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v99-40</span>
+      <span class="tag">開發測試版 v99-46</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -704,31 +704,124 @@ async function loadSettings(){
     localStorage.setItem('mhr_set_migrated','1');
   }
 }
+/* ★★★99-42 這兩把鑰匙的 value 本身就是「以廠區為第一層」的（{大永:{TH:false}}）⇒
+   在廠區檢視中修改它們是**正確**的，不可以被下面那道全公司鎖擋掉。
+   ⚠ 用明列白名單、不要寫成 /_site$/ 之類的規則 —— 日後新增設定時「不小心符合命名規則就被放行」
+     比「多改一行白名單」危險得多（這道鎖擋的是「改一次所有廠一起變」）。 */
+const SITE_SCOPED_SETTINGS=['proc_needmc_site','proc_needqc_site'];
 async function setSetting(key,value,silent){
   /* silent=true ＝ loadSettings() 的首開搬遷（內部流程，不是使用者動作）⇒ 必須豁免，否則舊設定永遠搬不上去 */
   if(!silent){
     if(wGuard('master','e',undefined,'系統設定 '+key)) return;
-    if(vsOn()) { toast('🏭「'+key+'」是全公司共用設定（mhr_settings 沒有廠區欄，改一次所有廠區一起變）——檢視「'+vsName()+'」時不開放修改','err'); return; }
+    if(vsOn() && SITE_SCOPED_SETTINGS.indexOf(key)<0) { toast('🏭「'+key+'」是全公司共用設定（mhr_settings 沒有廠區欄，改一次所有廠區一起變）——檢視「'+vsName()+'」時不開放修改','err'); return; }
   }
   MHR_SETTINGS[key]=value;
   const r=await sbWrite('POST','mhr_settings?on_conflict=key',[{key,value,updated_at:new Date().toISOString()}],'resolution=merge-duplicates');
   if(!r.ok && !silent) toast('設定同步失敗：'+(r.error||''),'err');
 }
-function procNeedMc(code){ if(!code) return false; if(code.indexOf('+')>=0) return code.split('+').some(procNeedMc);
-  const m=MHR_SETTINGS.proc_needmc; if(m&&Object.prototype.hasOwnProperty.call(m,code)) return !!m[code];
+/* ═══ ★★★99-42 製程開關分廠區（使用者 260818 定案，做法一「只記例外」）═══
+   【原本的問題】`proc_needmc`／`proc_needqc` 是**全公司一份**，大永關掉敬得也跟著關。
+     使用者 260817 原話：「這個沒辦法不同廠區不同設定嗎?」；260818 連同模具那件一起定案要做
+     （[[multi-site-multi-process-framework]] 鐵則②「設定先問全公司或各廠」當初沒做的補票）。
+
+   【資料結構＝兩把鑰匙，舊的那把一個位元都不動】
+     `proc_needqc`      {DC:true, TH:false}          ＝**全公司預設**（沿用，內容不變）
+     `proc_needqc_site` {大永:{TH:false}}             ＝**各廠例外**，只存「跟全公司不一樣」的站
+   ⚠⚠ **絕對不可以**改成 `{DC:{大永:true}}` 那種結構（把廠區塞進舊鑰匙的第二層）——
+     舊版前端的 `!!m[code]` 拿到物件會**恆為真**，`巡牙 TH` 現在是關的會被當成開的，
+     而巡牙沒有任何機台勾選 ⇒ **那一站當場打不了單**（backlog `0c` 就是這個坑）。
+     分成兩把鑰匙，舊分頁讀舊鑰匙、內容原封不動 ⇒ **新舊前端完全相容**。
+
+   【怎麼判斷「現在是全公司還是本廠」】一律走 `procScopeSite()`（＝`oneSite()`）：
+     ・admin 沒切廠區檢視 ⇒ ''  ⇒ 全公司
+     ・admin 切到大永／限定大永的帳號 ⇒ '大永' ⇒ 本廠
+     ・多廠區帳號（同時管兩廠以上）⇒ oneSite() 回 '' ⇒ 走全公司值（跨廠情境沒有「本廠」可言）
+   ★★讀取端與寫入端**共用這一支**，不可以分頭各寫一套判斷 ——
+     分開寫＝「改了 A 卻讀 B」，畫面上勾了沒反應，而且非常難查。 */
+function procScopeSite(){ return oneSite(); }
+/* 本廠有沒有為這一站設過例外？有＝回 true/false，沒有＝回 null（null 才代表「跟隨全公司」，
+   ⚠ 不能用 undefined/false 表示「沒設定」——false 是合法的設定值，混在一起就分不出「關」與「沒設」） */
+function procSiteOv(key,code){ const st=procScopeSite(); if(!st) return null;
+  const t=MHR_SETTINGS[key], o=t&&t[st];
+  return (o&&Object.prototype.hasOwnProperty.call(o,code))?!!o[code]:null; }
+function procHasOv(key,code){ return procSiteOv(key,code)!==null; }
+/* 全公司預設值（不看本廠例外）——↺ 的提示文字與畫面標記都要用到 */
+function procNeedMcGlobal(code){ const m=MHR_SETTINGS.proc_needmc; if(m&&Object.prototype.hasOwnProperty.call(m,code)) return !!m[code];
   return !!PROC_NEEDMC_DEFAULT[code]; }
+function procNeedQcGlobal(code){ const m=MHR_SETTINGS.proc_needqc; if(m&&Object.prototype.hasOwnProperty.call(m,code)) return !!m[code];
+  return true; }
+/* ★全檔 6 個呼叫點（4008／4767／4811／5055／5121…）**一行都不用改**，因為讀取當初就收斂在這兩支
+   （[[multi-site-multi-process-framework]] 鐵則③「讀取收斂單一函式」當初做對了，這次才這麼好改）。 */
+function procNeedMc(code){ if(!code) return false; if(code.indexOf('+')>=0) return code.split('+').some(procNeedMc);
+  const ov=procSiteOv('proc_needmc_site',code); if(ov!==null) return ov;   /* ★99-42 本廠例外優先 */
+  return procNeedMcGlobal(code); }
 function setProcNeedMc(code,on){
-  if(wGuard('master','e',undefined,'站別開關「需記設備」')) return;
-  if(vsOn()) return toast('🏭「需記設備」是全公司共用開關，不分廠區——檢視「'+vsName()+'」時不能改（改了敬得觀音與大永會一起變）','err');
-  const m=Object.assign({},MHR_SETTINGS.proc_needmc||{}); m[code]=!!on; setSetting('proc_needmc',m); toast(stN(code)+(on?'：需記設備':'：不需記設備')+'（已存雲端）','ok'); }
+  const st=procScopeSite();
+  /* ⚠ 擋下時一定要 render() 把 checkbox 彈回原值 —— 瀏覽器已經把勾勾畫成新狀態了，
+     資料卻沒改 ⇒ 畫面與資料不一致（backlog `0r` 就是同一類病）。 */
+  if(wGuard('master','e',st,'站別開關「需記設備」')) return render();
+  /* ★★99-43 開啟前預警（backlog `0c`）：軟性 confirm，不硬擋 */
+  if(on){ const risk=needMcRiskSites(code);
+    if(risk.length && !confirm('⚠ 目前「'+risk.join('、')+'」沒有任何可做「'+stN(code)+'」的機台。\n\n'
+      +'開啟「需記設備」之後，那一廠的這一站會因為設備下拉是空的而打不了單。\n\n'
+      +'正常做法：先到 ⚙設備主檔 建立／勾選可做此製程的機台，再回來開這個開關。\n\n仍要開啟嗎？')) return render(); }
+  if(st){ const t=Object.assign({},MHR_SETTINGS.proc_needmc_site||{}); const o=Object.assign({},t[st]||{}); o[code]=!!on; t[st]=o;
+    setSetting('proc_needmc_site',t); toast('🏭 '+st+'　'+stN(code)+(on?'：需記設備':'：不需記設備')+'（本廠自訂，已存雲端）','ok'); return render(); }
+  const m=Object.assign({},MHR_SETTINGS.proc_needmc||{}); m[code]=!!on; setSetting('proc_needmc',m); toast(stN(code)+(on?'：需記設備':'：不需記設備')+'（全公司預設，已存雲端）','ok'); render(); }
+/* ↺ 清掉本廠例外＝改回跟隨全公司。⚠ 清完若該廠一個例外都不剩，連廠區那一層也刪掉，
+   免得雲端留一堆 {大永:{}} 的空殼，日後盤點分不出「沒設過」與「設過又清光」。 */
+function clearProcNeedMc(code){
+  const st=procScopeSite(); if(!st) return;
+  if(wGuard('master','e',st,'站別開關「需記設備」')) return;
+  const t=Object.assign({},MHR_SETTINGS.proc_needmc_site||{}); const o=Object.assign({},t[st]||{});
+  delete o[code]; if(Object.keys(o).length) t[st]=o; else delete t[st];
+  setSetting('proc_needmc_site',t); toast('🏭 '+st+'　'+stN(code)+'：改回跟隨全公司預設（'+(procNeedMcGlobal(code)?'需記設備':'不需記設備')+'）','ok'); render(); }
 /* 3a-1 各站「需記質控」開關：預設全站開（按檢驗結果裝箱＝點交前提）；不需要的站自己關。合併站任一成員需記＝需記 */
 function procNeedQc(code){ if(!code) return false; if(code.indexOf('+')>=0) return code.split('+').some(procNeedQc);
-  const m=MHR_SETTINGS.proc_needqc; if(m&&Object.prototype.hasOwnProperty.call(m,code)) return !!m[code];
-  return true; }
+  const ov=procSiteOv('proc_needqc_site',code); if(ov!==null) return ov;   /* ★99-42 本廠例外優先 */
+  return procNeedQcGlobal(code); }
 function setProcNeedQc(code,on){
-  if(wGuard('master','e',undefined,'站別開關「需記質控」')) return;
-  if(vsOn()) return toast('🏭「需記質控」是全公司共用開關，不分廠區——檢視「'+vsName()+'」時不能改（誤關等於把所有廠的質控把關一起拆掉）','err');
-  const m=Object.assign({},MHR_SETTINGS.proc_needqc||{}); m[code]=!!on; setSetting('proc_needqc',m); toast(stN(code)+(on?'：需記質控':'：不記質控')+'（已存雲端）','ok'); }
+  const st=procScopeSite();
+  if(wGuard('master','e',st,'站別開關「需記質控」')) return render();   /* ★99-43 同上：擋下要把勾勾彈回 */
+  if(st){ const t=Object.assign({},MHR_SETTINGS.proc_needqc_site||{}); const o=Object.assign({},t[st]||{}); o[code]=!!on; t[st]=o;
+    setSetting('proc_needqc_site',t); toast('🏭 '+st+'　'+stN(code)+(on?'：需記質控':'：不記質控')+'（本廠自訂，已存雲端）','ok'); return render(); }
+  const m=Object.assign({},MHR_SETTINGS.proc_needqc||{}); m[code]=!!on; setSetting('proc_needqc',m); toast(stN(code)+(on?'：需記質控':'：不記質控')+'（全公司預設，已存雲端）','ok'); render(); }
+function clearProcNeedQc(code){
+  const st=procScopeSite(); if(!st) return;
+  if(wGuard('master','e',st,'站別開關「需記質控」')) return;
+  const t=Object.assign({},MHR_SETTINGS.proc_needqc_site||{}); const o=Object.assign({},t[st]||{});
+  delete o[code]; if(Object.keys(o).length) t[st]=o; else delete t[st];
+  setSetting('proc_needqc_site',t); toast('🏭 '+st+'　'+stN(code)+'：改回跟隨全公司預設（'+(procNeedQcGlobal(code)?'需記質控':'不記質控')+'）','ok'); render(); }
+/* ★★製程主檔一格開關的渲染**收斂成這一支**（需記設備／需記質控共用）——
+   兩個開關的三態呈現規則一模一樣，分頭各寫一份就是 [[centralize-shared-rule-not-per-page]] 那隻地鼠。
+   三態：跟隨全公司（無標記）／本廠開／本廠關（後兩者掛「本廠」標記＋↺ 回到跟隨）。 */
+function procSwCell(code,which){
+  const isQc=(which==='qc');
+  const on=isQc?procNeedQc(code):procNeedMc(code);
+  const lbl=isQc?'需記質控':'需記設備';
+  const ov=procHasOv(isQc?'proc_needqc_site':'proc_needmc_site',code);
+  const ovTag=ov?' <span class="pill" style="background:#FBF1DC;color:#D9912A" title="這一站是本廠自訂，沒有跟隨全公司預設">本廠</span>':'';
+  if(!can('master','e')) return (on?(isQc?'<span class="pill" style="background:#eaf3f0;color:#0f6e6e">需記質控</span>':'<span class="pill dc">需記設備</span>'):'')+(on?ovTag:'');
+  return '<label style="font-weight:400;font-size:12px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap">'
+    +'<input type="checkbox" '+(on?'checked':'')+' onchange="'+(isQc?'setProcNeedQc':'setProcNeedMc')+'(\''+code+'\',this.checked)" style="width:auto;margin:0">'+lbl+'</label>'
+    +ovTag+(ov?' <button class="btn ghost sm" style="padding:0 6px;line-height:18px;min-width:0" title="改回跟隨全公司預設" onclick="'+(isQc?'clearProcNeedQc':'clearProcNeedMc')+'(\''+code+'\')">↺</button>':'');
+}
+function procSwCells(code){
+  const a=procSwCell(code,'mc'), b=procSwCell(code,'qc');
+  const gap=can('master','e')?'<span style="display:inline-block;width:12px"></span>':' ';
+  const h=(a+gap+b).trim();
+  return h?h:'<span class="muted small">—</span>'; }
+/* 製程主檔頂部的「你現在在改誰」橫幅。⚠ 一定要有：三態的畫面差異很細，
+   沒有這一條，切了廠區檢視的人會以為自己在改全公司設定（或反過來）。 */
+function procScopeBanner(){
+  const st=procScopeSite();
+  if(st) return '<div class="card" style="border-left:5px solid #D9912A;background:#FBF1DC;padding:10px 14px;margin-bottom:12px">'
+    +'<b>🏭 目前改的是「'+esc(st)+'」這一廠的設定。</b><br><span class="small">沒有 '
+    +'<span class="pill" style="background:#FBF1DC;color:#D9912A">本廠</span> 標記的站＝<b>跟隨全公司預設</b>（全公司改了這裡會跟著變）；'
+    +'一勾就變成本廠自訂，按 <b>↺</b> 可以改回跟隨。</span></div>';
+  return '<div class="card" style="border-left:5px solid #2B4C86;background:#E9EEFA;padding:10px 14px;margin-bottom:12px">'
+    +'<b>🏢 目前改的是「全公司預設」。</b><br><span class="small">所有<b>沒有自訂過</b>的廠區都會跟著變；'
+    +'已自訂的廠區維持它自己的設定。要單獨改某一廠，先用右上角的<b>廠區檢視</b>切過去。</span></div>'; }
 /* ===== 基礎資料主檔（可點選/掃碼帶入）。設備標註所屬製程，報工時按站過濾。 ===== */
 const MASTER={
   /* ★85-1 機台 seed 廢止：機台主檔上雲 mhr_machines（雲端＝正本；大永真實 25 台＋敬得 15 台由
@@ -997,7 +1090,19 @@ function codeGuard(code, what){
 function machSiteOf(id){ const m=id?getMachines().find(x=>x.id===id):null; return (m&&m.site)||''; }
 function prodSiteOf(pn){ const p=pn?prodOf(pn):null; return (p&&p.site)||''; }
 function boxSiteOf(c){ if(!c) return ''; return machSiteOf(c.machine)||prodSiteOf(c.partNo); }
-function ordSiteOf(o){ return o?prodSiteOf(o.partNo):''; }
+/* ★★99-46 有 site 欄就用它，沒填才退回機種推導 ⇒ **舊資料零遷移、上線當下行為不變**
+   （跟 99-41 模具 plant 同一條規則，不要另創第二種寫法）。
+   ⚠ 回傳 '*' 代表「明確不限廠區」，呼叫端要自己認得 —— 見 ordScopeReadable()。 */
+function ordSiteOf(o){ if(o&&o.site) return o.site; return o?prodSiteOf(o.partNo):''; }
+/* ★99-46 工單可見性判斷（**單一出處**，99-47 各頁面套過濾時一律走這支，不要逐頁自己寫）。
+   ・'*'  ⇒ 各廠皆可見（DEMO／示範）
+   ・有值 ⇒ 照既有 siteReadable
+   ・空   ⇒ **fail-closed**：限定廠區時不給看；只有「不限廠區」的帳號看得到（才有人救得回來）
+   ⚠ 這裡**不可以**用 siteReadable('') —— 它對空值恆回 true（fail-open），正是 99-24 模具踩過的坑。 */
+function ordScopeReadable(o){ const st=ordSiteOf(o);
+  if(st==='*') return true;
+  if(st) return siteReadable(st);
+  return !userSiteShorts(); }
 function userSiteShorts(){
   const base=siteScopeBase(); const v=window._viewSite;
   if(v&&(base===null||base.includes(v))) return [v];   /* 覆寫只在權限範圍內生效 */
@@ -1014,17 +1119,53 @@ function needMcMsg(code){ const n=stN(code);
   return machinesFor(code).length
     ? '「'+n+'」需記設備，請選設備／機台'
     : '「'+n+'」需記設備，但設備主檔沒有可做「'+n+'」的機台 —— 請先到 ⚙設備主檔 建立／勾選可做製程，或到 ⚙製程主檔 關閉本站的「需記設備」'; }
+/* ═══ ★★★99-43（backlog `0c`）「需記設備」開著但主檔沒機台 ⇒ 那站永遠打不了單 ═══
+   【99-1 已做掉的那一半】按下送出被擋時，`needMcMsg()` 會指路（02／04／05 三處）。
+   【99-43 補的兩件事】
+     ①**打開表單當下就地講**——原本只看到一個空下拉，要按了送出才知道要去哪解決。
+       比照 `jigChips()` 沒有治夾具時就地紅字的既有寫法，不要另外發明一套。
+     ②★★**在製程主檔勾「需記設備」的當下就預警**——這件事 99-42 之前風險小（全公司一份、
+       設定的人多半知道全公司有沒有機台），99-42 讓各廠可以自己勾之後就不一樣了：
+       勾的人不見得知道「大永沒有巡牙機台」，一勾下去那一站當場打不了單。
+   ⚠ 用**軟性 confirm 不硬擋**（比照 99-3 首站數量防呆的既有取捨）：
+     「先開設定、機台明天才進來」是合法流程，硬擋會把正常作業一起擋掉。
+   ⚠ confirm() **不吃 Markdown**（缺陷 D 踩過）⇒ 訊息裡不要放 ** 星號。 */
+/* 某廠有沒有可做這一站的機台。⚠ 這裡**不看登入者範圍**（純資料查詢），所以不能用 machinesFor()：
+   全公司視角要能逐廠問「這個廠有沒有」，而 machinesFor() 那時候是不過濾的。
+   `!m.site`＝沒填廠區的機台各廠皆可見，沿用 machinesFor() 的既有慣例，兩邊要一致。 */
+function siteHasMachineFor(site,code){ const cs=(code||'').split('+');
+  return getMachines().some(m=>m.active!==false && (m.proc||[]).some(p=>cs.includes(p)) && (!site||!m.site||m.site===site)); }
+/* 開「需記設備」之前的預警：回傳「開了會打不了單」的廠區清單（空陣列＝沒問題）。
+   ・本廠視角（99-42 的 procScopeSite() 有值）⇒ 只問那一廠
+   ・全公司視角 ⇒ 逐一問每個內部廠區（改的是全公司預設，受害的可能是任何一廠） */
+function needMcRiskSites(code){
+  const st=procScopeSite();
+  if(st) return siteHasMachineFor(st,code)?[]:[st];
+  return getSites().filter(x=>x.kind!=='out'&&x.active!==false&&!siteHasMachineFor(x.short,code)).map(x=>x.short); }
+/* 設備下拉是空的時候，就地把 needMcMsg 那句話講出來（不必等按送出）。
+   ★只在「真的會擋人」時才出現：需記設備關著時空下拉是無害的（選填），跳紅字只是噪音。 */
+function macEmptyHint(code){
+  if(!code||!procNeedMc(code)||machinesFor(code).length) return '';
+  return '<div class="small" style="color:var(--red);margin-top:4px">⚠ 設備主檔沒有可做「'+esc(stN(code))+'」的機台'
+    +(oneSite()?('（'+esc(oneSite())+'）'):'')
+    +' —— 請先到 ⚙設備主檔 建立／勾選可做此製程，或到 ⚙製程主檔 關閉本站的「需記設備」</div>'; }
 // 從機台主檔點機台編號 → 全部箱號、自動以該機台關鍵字篩出它做過的箱
 function viewMachine(id){ go('all'); setTimeout(()=>{ const k=$('#a_kw'); if(k){ k.value=id; renderAllTable(); } },60); }
 /* ★88 模具/治夾具上雲（mhr_molds；比照機台模式）：雲端＝正本；首開雲端空→搬遷本機（含 M-01~03 種子）。
    舊 localStorage mhr_molds 不再讀寫。 */
 let MHR_MOLDS=[], MHR_MOLD_STATUS='未載入';
+/* ★★★99-41 模具「廠區」＝ `plant`，**存在 extra jsonb 裡，不動 DB**（mhr_molds 建表時就有 extra，見 3c 建表 SQL 第 106 行）。
+   ⚠⚠ **絕對不能叫 `site`** —— `site` 這一欄存的是**開模廠商**（見 md_site 那一格的說明）。
+     99-24 就是被這個名字坑到：5 個 wGuard 把開模廠商當廠區傳，限定廠區的帳號一填「XX模具廠」就把自己擋死。
+   ⚠ 用 Object.assign 併回 `_extra`（載入時原封帶下來），免得日後有人往 extra 塞別的東西被這裡整個蓋掉。 */
 function moldRow(m){ return { mold_id:m.id, part_no:m.partNo||'', kind:m.kind||'mold', site:m.site||null,
-  cav:(+m.cav||null), stations:Array.isArray(m.stations)?m.stations:[], active:m.active!==false, updated_at:new Date().toISOString() }; }
+  cav:(+m.cav||null), stations:Array.isArray(m.stations)?m.stations:[], active:m.active!==false,
+  extra:Object.assign({},(m&&m._extra)||{},{plant:(m&&m.plant)||''}), updated_at:new Date().toISOString() }; }
 async function loadMolds(){
   MHR_MOLD_STATUS='載入中…';
   const d=await sbGet('mhr_molds?select=*&order=created_at.asc');
-  MHR_MOLDS=(Array.isArray(d)?d:[]).map(r=>({_uuid:r.id,id:r.mold_id,partNo:r.part_no||'',kind:r.kind||'mold',site:r.site||'',cav:+r.cav||0,stations:r.stations||[],active:r.active!==false}));
+  MHR_MOLDS=(Array.isArray(d)?d:[]).map(r=>({_uuid:r.id,id:r.mold_id,partNo:r.part_no||'',kind:r.kind||'mold',site:r.site||'',cav:+r.cav||0,stations:r.stations||[],active:r.active!==false,
+    plant:((r.extra&&r.extra.plant)||''),_extra:(r.extra&&typeof r.extra==='object')?r.extra:{}}));   /* ★99-41 廠區在 extra.plant；_extra 原封帶著，回寫時併回去 */
   MHR_MOLD_STATUS='已載入 '+MHR_MOLDS.length+' 筆';
   if(!MHR_MOLDS.length && !localStorage.getItem('mhr_mold_migrated')){
     let local=[]; try{ local=JSON.parse(localStorage.getItem('mhr_molds')||'null')||[]; }catch(e){}
@@ -1073,7 +1214,21 @@ function getMolds(){ return MHR_MOLDS; }
      ③綁了**主檔查無**的機種（孤兒資料，如現場的 `M-01` 綁 `V5-001`）⇒ 推不出廠區
        ⇒ **fail-closed**（[[multi-site-multi-process-framework]]「範圍 fail-closed」）：限定廠區時不給看，
          只有「不限廠區」才顯示，免得他廠機種編號從這裡漏出去。 */
+/* ★★★99-41（使用者 260818 定案：「模具應該跟設備一樣，是要可以分廠區設定」）：模具新增**廠區欄** `plant`。
+   加了之後「適用機種」與「廠區」是**兩個獨立維度** —— 機種管「做哪個產品」、廠區管「這支放在哪個廠」。
+   ⇒ 這才做得出「**大永專用的通用模具**」（機種留空＋廠區填大永）；99-24 的純推導做不出這一格。
+   四種組合（★舊資料 plant 一律是空的 ⇒ 全部落在第 3、4 列 ⇒ **行為零改變、零遷移**）：
+     機種空　＋廠區空　　⇒ 各廠皆可見（真·全集團通用）
+     機種空　＋廠區大永　⇒ 只有大永看得到　←★新的格子
+     機種BM04＋廠區空　　⇒ 跟 BM04 的可見性走（含跨廠共用）＝99-24 原行為
+     機種BM04＋廠區大永　⇒ 只有大永（這支 BM04 的模具實體放在大永）
+   ★規則一句話：**廠區有填就廠區說了算；沒填才退回 99-24 那三條推導**（下面三行一個字沒改）。
+   ⚠ 必然後果（已對使用者講明）：綁敬得的機種但廠區填大永 ⇒ **敬得反而看不到、改不動**。
+     這正是「模具放在哪個廠」的語意，與「綁機種就跟著機種廠區」相反，是刻意的不是 bug。
+   ⚠ 下拉只列**內部廠區**（siteInternalOpts，kind!=='out'）：若讓委外簡稱進得來，
+     siteReadable() 裡的 isOutSite() 會短路成「各廠皆可見」＝廠區欄形同虛設（99-24 踩過的同一個坑）。 */
 function moldReadable(m){ if(!m) return false;
+  if(m.plant) return siteReadable(m.plant);            /* ★99-41 ⓪廠區欄有填＝說了算，不再看機種 */
   if(!m.partNo) return true;                           /* ①通用模具：各廠皆可見 */
   const p=prodOf(m.partNo);
   if(p) return prodReadable(p);                        /* ②跟著 BOM 的廠區（含跨廠共用） */
@@ -1085,7 +1240,8 @@ function moldReadable(m){ if(!m) return false;
      不限廠區的 admin 回 ''＝放行；限定單一廠區者回自己那個＝放行。不會擋到正常操作。
    ・★**只放寬讀、不放寬寫**：跨廠共用機種（BM04／HS01A）歸屬敬得觀音 ⇒ 大永帳號**看得到但改不動**，
      這與 `prodReadable`／`siteWritable` 那組既有規則一致，不是這裡新增的限制。 */
-function moldScopeSite(m){ const pn=(m&&m.partNo)||''; return (pn&&prodSiteOf(pn))||oneSite(); }
+function moldScopeSite(m){ if(m&&m.plant) return m.plant;   /* ★99-41 廠區欄有填＝寫入範圍就是它（5 個 wGuard 呼叫點自動跟著走，一行都不用改） */
+  const pn=(m&&m.partNo)||''; return (pn&&prodSiteOf(pn))||oneSite(); }
 function moldsFor(pn,kind){ return getMolds().filter(m=>m.active!==false && moldReadable(m) && (!m.partNo||m.partNo===pn) && (!kind||(m.kind||'mold')===kind)); }
 function moldOpts(pn,sel,kind){ return '<option value="">（選模具）</option>'+moldsFor(pn,kind).map(m=>`<option${m.id===sel?' selected':''}>${esc(m.id)}</option>`).join(''); }
 /* ===== A1 機加帶治夾具：設備清單(模具/治夾具主檔)加「類別」＋「使用站別」 =====
@@ -2517,7 +2673,29 @@ function readScope(){
    - 職能：生產／物控／質控（可複選，一人可兼）→ 掃工牌時只跳該職能的人
    - 雙軌：集團內部可從 OMS 名單帶入(source=oms)／大永·委外自建(source=mhr)
    =================================================================== */
+/* ═══ ★★★99-44 工牌職能「正名」（使用者 260818 實測追問後定案，選甲案）═══
+   【查證出來的事實】三項職能裡**只有「生產」真的在驅動系統**：
+     ・`opsByFunc()` 是唯一會拿 `o.functions` 去過濾人的函式，
+       全檔 4 個呼叫點**只問過 '生產' 與 ''**（都是 prodOpsList 的 fallback 遞迴），
+       **從來沒有問過 '物控' 或 '質控'**。
+     ・03 清點移轉：`rvDone()` 的點交人＝`sessionName()`＝**登入者**；能不能做由 `PERM.receive` 的**物控角色**決定。
+     ・Q 質控檢驗：`qcName=sessionName()`＝**登入者**；能不能做由 `PERM.qcinsp` 的**品保角色**決定。
+   ⇒ 工牌上勾「質控」的那 6 位，**沒有品保帳號一樣做不了質控檢驗**。
+   【為什麼不是把選項刪掉】使用者原話：「反而會讓人誤以為工牌上面質控 物控的人就可以操作系統」——
+     誤導的來源是**說明寫錯（「報工掃工牌時只會跳出該職能的人」只對「生產」成立）＋ pill 長得一模一樣**，
+     不是「欄位存在」。而那 6 個質控勾勾是有資訊的：backlog `0x` 記著大永現場實有 6 位質控、
+     但品保登入帳號只有 2 個 ⇒ 那是「**還沒建帳號的質控人員清單**」，刪掉就沒了。
+   ⇒ **把有作用的和純標記的在畫面上分開**：原色 vs 灰色＋「僅標記」。
+   ⚠ 這是 `0x` 的同一個教訓（「留著不講清楚會誤導接手的人」），但對症的解法是**把話講對**，不是砍欄位。
+   ⚠ 日後若 4d（06 會判判定人）真的接了誰，把它加進 OP_FUNC_ACTIVE 就會自動變回原色，不必再改渲染。 */
 const OP_FUNCS=['生產','物控','質控'];
+const OP_FUNC_ACTIVE=['生產'];   /* ★會真的影響系統行為的職能（目前只有生產：02/04/05 作業員下拉） */
+function opFuncActive(f){ return OP_FUNC_ACTIVE.indexOf(f)>=0; }
+/* ★★職能 pill 收斂成這一支（清單／編輯表單共用）——兩處分頭各寫一份就是 [[centralize-shared-rule-not-per-page]] 的地鼠 */
+function opFuncPill(f){ return opFuncActive(f)
+  ? '<span class="pill dc">'+esc(f)+'</span>'
+  : '<span class="pill" style="background:#EEF0F2;color:#8A929A" title="現場職務標記，不影響系統權限——誰能做 03 清點移轉／Q 質控檢驗，由「權限設定」的角色決定（點交人／質控人都記登入者）">'
+    +esc(f)+' <span style="font-size:10px">僅標記</span></span>'; }
 window._opEdit=null;
 
 /* ═══ ★88 CSV 匯出／匯入（名單管理＋工牌名單）═══
@@ -2759,8 +2937,9 @@ function renderOpsSection(){
           <option value="mhr"${e.source!=='oms'?' selected':''}>MHR 自建（外部單位／委外）</option>
           <option value="oms"${e.source==='oms'?' selected':''}>OMS 名單（集團內部）</option></select></div>
       </div>
-      <div style="margin-top:8px"><label>職能 <span style="color:var(--red)">*</span> <span class="vi">（可複選，一人可兼；報工掃工牌時只會跳出該職能的人）</span></label>
-        <div id="op_funcs">${OP_FUNCS.map(f=>`<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" value="${f}"${(e.functions||[]).includes(f)?' checked':''} style="width:auto;margin-right:5px;vertical-align:-1px">${f}</label>`).join('')}</div></div>
+      <div style="margin-top:8px"><label>職能 <span style="color:var(--red)">*</span> <span class="vi">（可複選，一人可兼）</span></label>
+        <div class="small" style="color:var(--muted);margin:2px 0 5px"><b>生產</b>＝會出現在 02／04／05 報工的作業員下拉。<b style="color:#D9912A">物控／質控＝現場職務標記，不影響系統權限</b>——誰能做 <b>03 清點移轉</b>／<b>Q 質控檢驗</b>，由上方「<b>權限設定</b>」的<b>角色</b>決定（兩者的操作人都記登入者，不是工牌）。</div>
+        <div id="op_funcs">${OP_FUNCS.map(f=>`<label class="chip" style="font-weight:400;color:${opFuncActive(f)?'var(--ink)':'#8A929A'}"><input type="checkbox" value="${f}"${(e.functions||[]).includes(f)?' checked':''} style="width:auto;margin-right:5px;vertical-align:-1px">${f}${opFuncActive(f)?'':'<span style="font-size:10px"> 僅標記</span>'}</label>`).join('')}</div></div>
       <div style="margin-top:8px"><label>製程歸屬 <span class="vi">（可複選；建箱/報工的作業員下拉只跳該站的人。<b>全不勾＝不限站</b>）</span></label>
         <div id="op_procs">${STATIONS.filter(s=>!s.legacy).map(s=>`<label class="chip" style="font-weight:400;color:var(--ink)"><input type="checkbox" value="${s.code}"${(e.procs||[]).includes(s.code)?' checked':''} style="width:auto;margin-right:5px;vertical-align:-1px">${stN(s.code)}</label>`).join('')}</div></div>
       <div style="margin-top:14px"><button class="btn green" onclick="opSave()">${e.isNew?'新增':'儲存'}</button>
@@ -2803,7 +2982,7 @@ function renderOpsSection(){
         <td class="small">${esc(o.dept||'—')}</td>
         <td class="small">${o.shift_code?`<span class="pill" style="background:#fef0dd;color:#b9760f">${esc(o.shift_code)}班</span>`:'<span class="muted">—</span>'}</td>
         <td class="small">${esc(o.team||'—')}</td>
-        <td>${(o.functions||[]).length?(o.functions||[]).map(f=>`<span class="pill dc">${esc(f)}</span>`).join(' '):'<span style="color:var(--red)">未設職能</span>'}</td>
+        <td>${(o.functions||[]).length?(o.functions||[]).map(f=>opFuncPill(f)).join(' '):'<span style="color:var(--red)">未設職能</span>'}</td>${''/* ★99-44 有作用的原色、純標記的灰色，見 opFuncPill() */}
         <td>${(o.procs||[]).length?(o.procs||[]).map(c=>`<span class="pill" style="background:#eef3f8;color:var(--navy)">${esc(stN(c))}</span>`).join(' '):'<span class="muted small">不限</span>'}</td>
         <td>${o.source==='oms'?'<span class="pill dc">OMS</span>':'<span class="pill pk">自建</span>'}</td>
         <td>${o.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}</td>
@@ -2825,7 +3004,7 @@ function renderOpsSection(){
     <label style="font-weight:400">匯入廠區 <select id="op_imp_site" style="font-size:12px;padding:2px 6px;width:auto;display:inline-block">${impSiteOpts()}</select></label>
     　<label class="lk" style="cursor:pointer">📥 匯入 Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,text/csv" onchange="opImportCsv(event)" style="display:none"></label></span></h3>
     <p class="small muted" style="margin:-6px 0 10px">★ 匯入時廠區判定：<b>檔案的「廠區」欄有填 → 以檔案為準</b>（對不到主檔名稱的那一列會被擋下並列出來，不會亂猜）；<b>欄位空白 → 套用上面選的「匯入廠區」</b>。兩者都沒有的列不匯入。</p>
-    <div class="note">工牌<b>不是登入帳號、沒有密碼</b>。報工時掃工牌，用來記錄「<b>這筆是誰做的</b>」——追溯到人靠這個。</div>
+    <div class="note">工牌<b>不是登入帳號、沒有密碼</b>。報工時掃工牌，用來記錄「<b>這筆是誰做的</b>」——追溯到人靠這個。<br>★<b>工牌不決定誰能操作系統</b>：職能欄只有「<b>生產</b>」會影響報工的作業員下拉；標<span class="pill" style="background:#EEF0F2;color:#8A929A">僅標記</span>的（物控／質控）純粹是現場職務記錄——<b>誰能做 03 清點移轉／Q 質控檢驗，看的是「權限設定」那一頁的角色</b>。</div>
     ${_base.length?`
     <div class="row" style="margin:0 0 8px">
       <div style="min-width:220px"><input id="op_q" placeholder="🔍 搜尋：工牌號 / 姓名 / 部門 / 製程" value="${esc(window._opQ||'')}" oninput="window._opQ=this.value;render();setTimeout(()=>{const e=document.getElementById('op_q');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)"></div>
@@ -3388,6 +3567,12 @@ function renderMoldMaster(){
   const pnOpts=prodOptions('（通用 / 不限機種）', editing&&editing.partNo, prodsVisible());   /* ★99-20-3 依廠區收斂 */
   const kindOpts=MOLD_CATS.map(c=>`<option value="${c.k}"${(editing?editing.kind===c.k:c.k==='mold')?' selected':''}>${esc(c.zh)}</option>`).join('');
   const edStations=(editing&&Array.isArray(editing.stations))?editing.stations:[];
+  /* ★99-41 廠區下拉。新增時預設＝oneSite()（限定單一廠區的帳號自動帶自己那廠；不限廠區的 admin 帶空＝全集團）。
+     ★0y 止血：既有值若已從廠區主檔停用/刪除，siteInternalOpts 不會列它 ⇒ 瀏覽器靜默選中第一個（＝空＝全集團）
+       ＝**範圍被悄悄放寬**。所以查不到就自己補一個 selected 的 option 把原值釘住。 */
+  const plantSel=editing?(editing.plant||''):oneSite();
+  const plantInList=getSites().some(x=>x.kind!=='out'&&x.active!==false&&x.short===plantSel);
+  const plantOpts=siteInternalOpts(plantSel,'（不限／全集團通用）')+((plantSel&&!plantInList)?`<option selected>${esc(plantSel)}（已停用）</option>`:'');
   /* ★99-24 原本的 siteSel（廠商主檔下拉）已移除——開模廠商改自由文字輸入，見下方 md_site。
      移除理由（使用者 260817）：siteList() 回的是「內部廠區＋**製程委外廠商**」，
      但開模廠商可能是敬得／大永自己開，也可能是**其他模具廠商**，而模具廠根本不在那份主檔裡
@@ -3396,37 +3581,41 @@ function renderMoldMaster(){
   const catPill=(k)=>{ const map={mold:['模具','#e3f0f2','#1c7a86'],jig:['治具','#e7eef7','#34618c'],clamp:['夾具','#e9eefa','#2b4c86'],gauge:['檢具','#ede6f5','#6a4c93'],aux:['輔具','#e6f4ec','#2e8b57']}; const c=map[k]||['治具','#e7eef7','#34618c']; return `<span class="pill" style="background:${c[1]};color:${c[2]}">${c[0]}</span>`; };
   const stCell=(m)=>{ const a=Array.isArray(m.stations)?m.stations:[]; return a.length?a.map(c=>esc(stN(c))).join('、'):(m.kind==='mold'?'<span class="muted small">壓鑄建箱</span>':'<span class="muted">—</span>'); };
   const mlist=getMolds().filter(m=>moldReadable(m));   /* ★99-21（0p）改走 moldReadable：綁了機種就看機種的廠區，沒綁才算通用（原本只判 m.site ⇒ 他廠機種編號從這頁外洩） */
-  const rows=mlist.map(m=>`<tr><td class="mono">${esc(m.id)}</td><td>${catPill(m.kind)}</td><td>${m.partNo?esc(m.partNo)+(prodOf(m.partNo)?' <span class="muted small">— '+esc(prodOf(m.partNo).name||'')+'</span>':''):'<span class="muted">通用</span>'}</td><td class="small">${stCell(m)}</td><td>${m.site?esc(m.site):'<span class="muted">—</span>'}</td><td>${+m.cav>0?esc(String(m.cav))+' 穴':'<span class="muted">—</span>'}</td><td>${m.active!==false?'<span class="pill ok">啟用</span>':'<span class="pill ng">停用</span>'}</td><td style="white-space:nowrap">${ed?`<button class="btn ghost sm" onclick="editMold('${m._uuid}')">編輯</button> <button class="btn ghost sm" onclick="toggleMold('${m._uuid}')">${m.active!==false?'停用':'啟用'}</button> <button class="btn gray sm" onclick="delMold('${m._uuid}')">刪除</button>`:'<span class="muted small">唯讀</span>'}</td></tr>`).join('');
-  v.innerHTML=`<div class="page-h"><h2>模具 / 治夾具 · 設備清單 Molds &amp; Jigs</h2><p>模具、治具、夾具、檢具、輔具都在這裡管理，每筆標「類別」與「使用站別」（可多站）。壓鑄建箱的模具下拉只取「模具」類；治具／夾具等則在所指定的使用站別報工／建箱時自動跳出複選。可綁機種（只在該機種出現）或設通用，並標所屬廠商。</p></div>
+  const rows=mlist.map(m=>`<tr><td class="mono">${esc(m.id)}</td><td>${catPill(m.kind)}</td><td>${m.partNo?esc(m.partNo)+(prodOf(m.partNo)?' <span class="muted small">— '+esc(prodOf(m.partNo).name||'')+'</span>':''):'<span class="muted">通用</span>'}</td><td>${m.plant?esc(m.plant):'<span class="muted">全集團</span>'}</td><td class="small">${stCell(m)}</td><td>${m.site?esc(m.site):'<span class="muted">—</span>'}</td><td>${+m.cav>0?esc(String(m.cav))+' 穴':'<span class="muted">—</span>'}</td><td>${m.active!==false?'<span class="pill ok">啟用</span>':'<span class="pill ng">停用</span>'}</td><td style="white-space:nowrap">${ed?`<button class="btn ghost sm" onclick="editMold('${m._uuid}')">編輯</button> <button class="btn ghost sm" onclick="toggleMold('${m._uuid}')">${m.active!==false?'停用':'啟用'}</button> <button class="btn gray sm" onclick="delMold('${m._uuid}')">刪除</button>`:'<span class="muted small">唯讀</span>'}</td></tr>`).join('');
+  v.innerHTML=`<div class="page-h"><h2>模具 / 治夾具 · 設備清單 Molds &amp; Jigs</h2><p>模具、治具、夾具、檢具、輔具都在這裡管理，每筆標「類別」與「使用站別」（可多站）。壓鑄建箱的模具下拉只取「模具」類；治具／夾具等則在所指定的使用站別報工／建箱時自動跳出複選。可綁機種（只在該機種出現）或設通用；<b>廠區</b>另外管「這支放在哪個廠」（留空＝全集團通用）—— 機種與廠區是兩個獨立維度。</p></div>
   ${ed?`<div class="card"><h3 style="cursor:pointer;user-select:none" onclick="window._moldAdd=!window._moldAdd;render()">${(editing||window._moldAdd)?'▾':'▸'} ${editing?'編輯項目':'新增項目'}${(editing||window._moldAdd)?'':' <span class="vi">（點擊展開）</span>'}</h3><div style="display:${(editing||window._moldAdd)?'':'none'};margin-top:10px"><div class="row">
     <div><label>模號 / 編號</label><input id="md_id" placeholder="如 M-12 / JIG-03" value="${editing?esc(editing.id):''}"></div>
     <div><label>類別</label><select id="md_kind">${kindOpts}</select></div>
     <div style="flex:1;min-width:220px"><label>適用機種</label><select id="md_pn">${pnOpts}</select></div>
+    <div><label>廠區 <span class="vi">（放在哪個廠；留空＝全集團通用）</span></label><select id="md_plant">${plantOpts}</select></div>${''/* ★★★99-41 這一格才是**廠區**；下面那一格 md_site 是**開模廠商**——兩個不要再搞混。四種組合見 moldReadable() 上方的表。 */}
     <div><label>開模廠商 <span class="vi">（選填，僅記錄）</span></label><input id="md_site" placeholder="如 自家模房／OO模具廠" value="${editing?esc(editing.site||''):''}"></div>${''/* ★99-24 正名（使用者 260817 釐清）：這欄是「開模廠商」，**不是廠區**。原本只寫「廠商」，害得 moldReadable 一度拿它當廠區比對 ⇒ 填委外廠商就各廠可見、填自家模房就被當成該廠區。廠區一律從 BOM 推，見 moldReadable() 的說明。 */}
     <div style="width:110px"><label>穴數</label><input id="md_cav" type="number" min="1" placeholder="如 4" value="${editing?(editing.cav||''):''}"></div>
     <div>${editing?`<button class="btn navy" onclick="saveMold()">儲存更新</button> <button class="btn gray" onclick="cancelMold()">取消</button>`:`<button class="btn" onclick="addMold()">＋新增</button>`}</div>
   </div>
     <div style="margin-top:8px"><label>使用站別 <span class="vi">（可多選；報工/建箱要選此治夾具的站。模具類可免，壓鑄建箱自動取用）</span></label><div id="md_stations">${stationChips(edStations)}</div></div>
   </div></div>`:''}
-  <div class="card"><h3>清單（${mlist.length}）</h3><div class="tblfit"><table><thead><tr><th>模號 / 編號</th><th>類別</th><th>適用機種</th><th>使用站別</th><th>開模廠商</th><th>穴數</th><th>狀態</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+  <div class="card"><h3>清單（${mlist.length}）</h3><div class="tblfit"><table><thead><tr><th>模號 / 編號</th><th>類別</th><th>適用機種</th><th>廠區</th><th>使用站別</th><th>開模廠商</th><th>穴數</th><th>狀態</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
 }
 /* ★88 模具寫入全直寫雲端（mhr_molds） */
 async function addMold(){
-  if(wGuard('moldmaster','c',moldScopeSite({partNo:($('#md_pn')||{}).value||''}),'新增模具/治夾具')) return;   /* ★99-24 範圍看所綁機種，不是開模廠商 */
-  const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err');
+  /* ★99-41 守門要**先**吃廠區欄，否則限定大永的帳號可以新增一支廠區填「敬得觀音」的模具
+     （moldScopeSite 沒收到 plant 就會退回 oneSite()＝大永＝放行）。 */
+  if(wGuard('moldmaster','c',moldScopeSite({partNo:($('#md_pn')||{}).value||'',plant:($('#md_plant')||{}).value||''}),'新增模具/治夾具')) return;   /* ★99-24 範圍看所綁機種不是開模廠商；★99-41 廠區欄優先 */
+  const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', plant=(($('#md_plant')||{}).value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err');
   if(getMolds().some(x=>x.id===id&&(x.partNo||'')===pn)) return toast('已存在相同模號+機種','err');
-  const r=await sbWrite('POST','mhr_molds',moldRow({id,partNo:pn,kind,site,cav,stations,active:true}));
+  const r=await sbWrite('POST','mhr_molds',moldRow({id,partNo:pn,kind,site,plant,cav,stations,active:true}));   /* ★99-41 plant→extra.plant */
   if(!r.ok) return toast(r.error||'新增失敗','err');
   toast('已新增（已存雲端）','ok'); await loadMolds(); render(); }
 function editMold(u){ window._editMold=u; render(); if(window.scrollTo)window.scrollTo(0,0); }
 function cancelMold(){ window._editMold=''; render(); }
-async function saveMold(){ const em=(typeof window._editMold==='string')?window._editMold:''; if(!em) return; const m=getMolds(); const cur=m.find(x=>x._uuid===em); if(!cur||!cur._uuid) return; const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err'); if(m.some(x=>x._uuid!==em&&x.id===id&&(x.partNo||'')===pn)) return toast('已存在相同模號+機種','err');
+async function saveMold(){ const em=(typeof window._editMold==='string')?window._editMold:''; if(!em) return; const m=getMolds(); const cur=m.find(x=>x._uuid===em); if(!cur||!cur._uuid) return; const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', plant=(($('#md_plant')||{}).value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err'); if(m.some(x=>x._uuid!==em&&x.id===id&&(x.partNo||'')===pn)) return toast('已存在相同模號+機種','err');
   /* ★99-24 兩道守門的「歸屬」改看**所綁機種**（BOM 的廠區），不再看 `site`（那是開模廠商）。
      ②防搬廠的語意也跟著變：搬廠＝**把適用機種改成別廠的機種**，不是改開模廠商。 */
   if(wGuard('moldmaster','e',moldScopeSite(cur),'模具/治夾具 '+cur.id)) return;                    /* ①原歸屬（依原機種） */
-  { const newScope=moldScopeSite({partNo:pn});
-    if(newScope!==moldScopeSite(cur) && wGuard('moldmaster','e',newScope,'把 '+cur.id+' 改綁到機種「'+(pn||'通用')+'」（屬 '+(newScope||'未指定')+'）')) return; }   /* ②新歸屬＝防搬廠 */
-  const nv={...cur,id,partNo:pn,kind,site,cav,stations};
+  /* ★99-41 防搬廠一併涵蓋「改廠區」：把模具的廠區從大永改成敬得觀音也是搬廠，要有新廠區的權限才准。 */
+  { const newScope=moldScopeSite({partNo:pn,plant});
+    if(newScope!==moldScopeSite(cur) && wGuard('moldmaster','e',newScope,'把 '+cur.id+' 改成'+(plant?('廠區「'+plant+'」'):('機種「'+(pn||'通用')+'」'))+'（屬 '+(newScope||'未指定')+'）')) return; }   /* ②新歸屬＝防搬廠 */
+  const nv={...cur,id,partNo:pn,kind,site,plant,cav,stations};   /* ★99-41 plant 一起存 */
   const r=await sbWrite('PATCH','mhr_molds?id=eq.'+encodeURIComponent(cur._uuid),moldRow(nv));
   if(!r.ok) return toast(r.error||'更新失敗','err');
   Object.assign(cur,nv); window._editMold=''; toast('已更新（已存雲端）','ok'); render(); }
@@ -3452,20 +3641,20 @@ function renderMaster(){
   ];
   const blocks=cats.map(([k,lbl,color,bg])=>{
     const items=STATIONS.filter(s=>!s.legacy&&s.cat===k); if(!items.length) return '';
-    const rows=items.map(s=>`<tr><td style="width:34%"><span class="st done">${stN(s.code)}</span>${s.local?' <span class="pill" style="background:#ede6f5;color:#6a4c93">局部</span>':''}</td><td class="mono small" style="width:10%">${s.code}</td><td class="small muted">${(s.alias||[]).filter(a=>a!==s.zh).join('、')||'—'}</td><td style="width:250px;text-align:center;white-space:nowrap">${can('master','e')?`<label style="font-weight:400;font-size:12px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><input type="checkbox" ${procNeedMc(s.code)?'checked':''} onchange="setProcNeedMc('${s.code}',this.checked)" style="width:auto;margin:0">需記設備</label><label style="font-weight:400;font-size:12px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;margin-left:10px"><input type="checkbox" ${procNeedQc(s.code)?'checked':''} onchange="setProcNeedQc('${s.code}',this.checked)" style="width:auto;margin:0">需記質控</label>`:(((procNeedMc(s.code)?'<span class="pill dc">需記設備</span> ':'')+(procNeedQc(s.code)?'<span class="pill" style="background:#eaf3f0;color:#0f6e6e">需記質控</span>':''))||'<span class="muted small">—</span>')}</td></tr>`).join('');
+    const rows=items.map(s=>`<tr><td style="width:34%"><span class="st done">${stN(s.code)}</span>${s.local?' <span class="pill" style="background:#ede6f5;color:#6a4c93">局部</span>':''}</td><td class="mono small" style="width:10%">${s.code}</td><td class="small muted">${(s.alias||[]).filter(a=>a!==s.zh).join('、')||'—'}</td><td style="width:330px;text-align:center;white-space:nowrap">${procSwCells(s.code)}</td></tr>`).join('');
     return `<div class="card" style="padding:0;overflow:hidden;border-left:5px solid ${color};margin-bottom:16px">
       <div style="background:${bg};color:${color};font-weight:700;font-size:15px;padding:11px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(0,0,0,.05)">${lbl}<span style="font-weight:400;font-size:12px;color:var(--muted)">（${items.length} 站）</span></div>
       <table style="margin:0"><tbody>${rows}</tbody></table></div>`;
   }).join('');
   v.innerHTML=`<style>.pm td{padding:5px 11px!important}.pm .card{margin-bottom:10px!important}</style><div class="pm">
-  <div class="page-h"><h2>製程主檔 Process Master</h2><p>系統內建的標準製程清單（${STATIONS.filter(s=>!s.legacy).length} 站），依類別分區。產品路線只能從這裡挑。委外不是製程屬性、改在產品路線各站勾選。可勾選各製程「需記設備」（建箱／報工時該站設備就變必填；委外站改記廠商）與「需記質控」（該站裝箱＝存檔時質控必填，沒人驗不能裝箱；預設全站開）。</p></div>
+  <div class="page-h"><h2>製程主檔 Process Master</h2><p>系統內建的標準製程清單（${STATIONS.filter(s=>!s.legacy).length} 站），依類別分區。產品路線只能從這裡挑。委外不是製程屬性、改在產品路線各站勾選。可勾選各製程「需記設備」（建箱／報工時該站設備就變必填；委外站改記廠商）與「需記質控」（該站裝箱＝存檔時質控必填，沒人驗不能裝箱；預設全站開）。<b>★99-42 起這兩個開關可以各廠不同</b>：不切廠區檢視時改的是「全公司預設」，切到某一廠時改的是那一廠的自訂（只記例外，其餘跟隨全公司）。</p></div>
   <div class="card"><h3>🏷 標籤條碼格式 <span class="vi">（全公司一致，存雲端）</span></h3>
     <div class="row" style="align-items:center">
       <label class="chip" style="font-weight:600;cursor:pointer"><input type="radio" name="lblcode" value="c128"${labelCodeType()==='c128'?' checked':''} onchange="setLabelCodeType(this.value)" style="width:auto;margin-right:6px;vertical-align:-2px">Code 128 <span class="small muted">（一維條碼，現場掃描槍已驗證可讀）</span></label>
       <label class="chip" style="font-weight:600;cursor:pointer"><input type="radio" name="lblcode" value="qr"${labelCodeType()==='qr'?' checked':''} onchange="setLabelCodeType(this.value)" style="width:auto;margin-right:6px;vertical-align:-2px">QR Code <span class="small muted">（二維，較耐油污；需確認掃描槍支援）</span></label>
     </div>
     <div class="small muted" style="margin-top:6px">條碼內容都是<b>箱號</b>；改了之後<b>新印的標籤</b>才會變，已印出的標籤照舊可用。</div></div>
-  <div class="small muted" style="margin-bottom:10px">欄位：標準名 ｜ 代碼 ｜ 別名/各廠說法（<span class="pill" style="background:#ede6f5;color:#6a4c93">局部</span> ＝只處理工件部分區域）</div>${blocks}</div>`;
+  <div class="small muted" style="margin-bottom:10px">欄位：標準名 ｜ 代碼 ｜ 別名/各廠說法（<span class="pill" style="background:#ede6f5;color:#6a4c93">局部</span> ＝只處理工件部分區域）</div>${procScopeBanner()}${blocks}</div>`;
 }
 
 /* ---------- 02 建箱（首站） ---------- */
@@ -3509,6 +3698,8 @@ function machineOpts(code,sel){ const list=machinesFor(code);
    → 選定機台後，作業員/質控清單只列機台所在廠區的工牌；該廠沒工牌就顯示「此廠區尚無工牌」，不放寬到別廠
    （跨廠放寬＝矛盾來源；現場帳號機台清單本就依範圍過濾，會遇到的是 admin 全域帳號） */
 function siteCodeOfShort(short){ const s=short?getSites().find(x=>x.short===short):null; return (s&&s.code)||''; }
+/* ★99-46 反查（既有只有 short→code）：ERP 工單帶的是組織碼（850 等），要換成廠區簡稱才存得進 orders.site */
+function siteShortOfCode(code){ const s=code?getSites().find(x=>x.code===code&&x.kind!=='out'):null; return (s&&s.short)||''; }
 function machineSiteCode(id){ const m=id?getMachines().find(x=>x.id===id):null; return m?siteCodeOfShort(m.site||''):''; }
 function opsByFunc(fn,code,shift,team,site){ const cs=code?(code||'').split('+'):null;
   return (MHR_OPS||[]).filter(o=>o.active!==false
@@ -3581,15 +3772,30 @@ let MHR_ORDERS=[], MHR_ORD_STATUS='未載入';
 /* ★98-16 issued_by＝發行人 email。內控上不對稱：作廢有記 void_by，發行反而沒記人，
    而發行是主管職權（誰開的單要查得到）。舊的 4 筆回填不了（從來沒記過）→ 顯示「—」。
    前置 SQL＝MHR_98-16_工單發行人_260805_CODE.sql（alter table add column if not exists）。 */
+/* ★★★99-46 工單加廠區欄 site（backlog `9e`；使用者 260818 定案「應該是看工單是哪個廠區開立」）。
+   【為什麼是工單不是箱】機種會跨廠共用（BM04／HS01A 標 share_sites=["*"]，歸敬得觀音但大永整條動線在跑），
+     依機種推會把大永做的箱判成敬得的＝大永看不到自己做的箱，比現在更糟。
+     工單是一個廠開的、不會跨廠 ⇒ 語意正確，欄位只加一個地方（工單 5 筆）不是每個箱（126 筆）。
+   【鏈路】箱 ──(order_no + part_no)──> 工單 ──(site)──> 廠區
+     ⚠⚠ join 一定要**同時帶 part_no** —— 工單主鍵是 (no, part_no)，同工單多機種＝多筆明細，
+       只 join no 會把箱複製成多列（260818 盤點時踩過，箱數從 126 虛胖成 258）。
+     ⚠ 不要繞批號：genLot 不含工單，且「批號跨工單共用」是設計本意（backlog 0m）⇒ 回推不唯一。
+   【site 三態】
+     '大永'/'敬得觀音' ＝ 這張單哪個廠開的 → 只有那個廠看得到
+     '*'               ＝ 明確不限（DEMO／示範）→ 所有廠看得到
+     NULL              ＝ 還沒填 → **fail-closed**（框架鐵則④；99-24 模具踩過 fail-open 的坑）
+       ⚠ NULL 不是常態、是**警報器**：舊分頁的 ordRow 沒有 site 欄，它開的單就會是 NULL
+         ⇒ 那張單沒人看得到 ⇒ 現場馬上喊 ⇒ 你才知道有人沒重整。fail-open 的話沒人會發現。 */
 function ordRow(o){ return { no:o.no, date:o.date||null, customer:o.customer||null, part_no:o.partNo, qty:+o.qty||0,
   unit:o.unit||'PCS', due_date:o.dueDate||null, note:o.note||null, status:o.status||'進行中',
-  source:o.source||'mhr', erp:o.erp||null, issued_by:o.issuedBy||null, updated_at:new Date().toISOString() }; }
+  source:o.source||'mhr', erp:o.erp||null, site:o.site||null, issued_by:o.issuedBy||null, updated_at:new Date().toISOString() }; }   /* ★99-46 site */
 async function loadOrders(){
   MHR_ORD_STATUS='載入中…';
   const d=await sbGet('mhr_orders?select=*&order=created_at.desc');
   MHR_ORDERS=(Array.isArray(d)?d:[]).map(r=>({ _uuid:r.id, no:r.no, date:r.date||'', customer:r.customer||'',
     partNo:r.part_no, qty:+r.qty||0, unit:r.unit||'PCS', dueDate:r.due_date||'', note:r.note||'',
     status:r.status||'進行中', source:r.source||'mhr', erp:r.erp||null, createdAt:r.created_at,
+    site:r.site||'',   /* ★99-46 廠區（''＝還沒填⇒fail-closed；'*'＝不限） */
     issuedBy:r.issued_by||'',   /* ★98-16 發行人（舊單為空＝那時還沒記） */
     voidAt:r.void_at||null, voidBy:r.void_by||'', voidNote:r.void_note||'' }));   /* ★92 作廢 */
   MHR_ORD_STATUS='已載入 '+MHR_ORDERS.length+' 筆';
@@ -3643,7 +3849,7 @@ function renderOrders(){
       <div><button class="btn ghost" onclick="ordFClear()" title="清空客戶／機種／狀態">清除</button></div></div>`;
   const _arr=allOrd.map((o,i)=>({o,i})).filter(x=>ordHit(x.o,F)); const _sk=window._ordSort;
   if(_sk&&_sk.key) _arr.sort((a,b)=>{ const x=ordVal(a.o,_sk.key),y=ordVal(b.o,_sk.key); const c=(typeof x==='number'&&typeof y==='number')?x-y:String(x).localeCompare(String(y),'zh-Hant'); return c*_sk.dir; });
-  const rows=_arr.map(({o,i})=>{ const pr=prodOf(o.partNo)||{}; const md=pr.model||o.partNo; const pno=pnoOf(o.partNo); return `<tr data-hl="order:${o.no}|${o.partNo||''}"><td class="mono"><b>${esc(o.no)}</b>${o.source==='erp'?' <span class="pill os" style="font-size:10px">ERP</span>':''}</td><td>${esc(o.customer||pr.customer||'')}</td><td>${esc(md)}</td><td class="mono">${pno?'<b>'+esc(pno)+'</b>':'<span class="muted">—</span>'}</td><td class="small muted">${esc(pr.name||(o.erp&&o.erp.itemDesc)||'')}</td><td>${o.qty||''} ${esc(o.unit||'PCS')}</td><td class="small">${esc(o.dueDate||'')}</td><td class="small muted">${esc(o.note||'')}</td><td>${o.voidAt?`<span class="pill ng" title="${esc(o.voidNote||'')} ${esc(o.voidBy||'')}">已作廢</span>`:(o.status==='完成'?'<span class="pill ok">完成</span>':'<span class="pill dc">進行中</span>')}</td><td class="small muted" title="${esc(o.issuedBy||'')}">${o.issuedBy?esc(String(o.issuedBy).split('@')[0]):'—'}</td><td style="white-space:nowrap"><button class="btn ghost sm" onclick="showOrderProg('${o._uuid}')">📊 進度</button> ${ed?`${o.voidAt?'':`<button class="btn ghost sm" onclick="toggleOrder('${o._uuid}')">${o.status==='完成'?'重開':'結單'}</button> `}<button class="btn ghost sm" onclick="voidOrder('${o._uuid}')">${o.voidAt?'↩ 恢復':'⊘ 作廢'}</button>${can('order','d')?` <button class="btn gray sm" onclick="delOrder('${o._uuid}')">刪除</button>`:''}`:''}</td></tr>`; }).join('');
+  const rows=_arr.map(({o,i})=>{ const pr=prodOf(o.partNo)||{}; const md=pr.model||o.partNo; const pno=pnoOf(o.partNo); return `<tr data-hl="order:${o.no}|${o.partNo||''}"><td class="mono"><b>${esc(o.no)}</b>${o.source==='erp'?' <span class="pill os" style="font-size:10px">ERP</span>':''}</td><td>${esc(o.customer||pr.customer||'')}</td><td>${esc(md)}</td><td class="mono">${pno?'<b>'+esc(pno)+'</b>':'<span class="muted">—</span>'}</td><td class="small muted">${esc(pr.name||(o.erp&&o.erp.itemDesc)||'')}</td><td>${o.qty||''} ${esc(o.unit||'PCS')}</td><td class="small">${esc(o.dueDate||'')}</td><td class="small muted">${esc(o.note||'')}</td><td>${o.voidAt?`<span class="pill ng" title="${esc(o.voidNote||'')} ${esc(o.voidBy||'')}">已作廢</span>`:(o.status==='完成'?'<span class="pill ok">完成</span>':'<span class="pill dc">進行中</span>')}</td><td class="small muted" title="${esc(o.issuedBy||'')}">${o.issuedBy?esc(String(o.issuedBy).split('@')[0]):'—'}</td><td class="small">${o.site==='*'?'<span class="pill" style="background:#EDE6F5;color:#6A4C93" title="明確不限廠區：所有廠都看得到（DEMO／示範用）">＊不限</span>':(o.site?esc(o.site):'<span class="pill ng" title="還沒填廠區——限定廠區的帳號看不到這張單（fail-closed）。請補填。">未設</span>')}</td>${''/* ★99-46 廠區欄刻意放在最後一欄之前：前面的 #ord_tbl nth-child(1)(5)(6)(8) CSS 是既有的，插在中間會整排錯位 */}<td style="white-space:nowrap"><button class="btn ghost sm" onclick="showOrderProg('${o._uuid}')">📊 進度</button> ${ed?`${o.voidAt?'':`<button class="btn ghost sm" onclick="toggleOrder('${o._uuid}')">${o.status==='完成'?'重開':'結單'}</button> `}<button class="btn ghost sm" onclick="voidOrder('${o._uuid}')">${o.voidAt?'↩ 恢復':'⊘ 作廢'}</button>${can('order','d')?` <button class="btn gray sm" onclick="delOrder('${o._uuid}')">刪除</button>`:''}`:''}</td></tr>`; }).join('');
   v.innerHTML=`<div class="page-h"><h2>生產指令單 Jobs</h2><p>一張工單號可有多筆明細（多機種）——同工單號重複填、換機種就是多一筆。製程路線來自該機種 BOM，工單不必再填。</p></div>
   ${ed?`<div class="card"><h3>開立 / 加明細</h3>
     <div class="grid g3">
@@ -3652,6 +3858,7 @@ function renderOrders(){
       <div><label>客戶</label><input id="od_cust" placeholder="如 ISUN"></div>
       <div><label>機種 / 料號 <span style="color:var(--red)">*</span></label><select id="od_pn" onchange="orderPnPick()">${pnSel}</select></div>
       <div><label>數量（PCS）<span style="color:var(--red)">*</span></label><input id="od_qty" type="number" placeholder="如 1000"></div>
+      ${ordSiteFieldHTML()}
       <div><label>完成日期</label><input id="od_due" type="date"></div>
       <div style="grid-column:1 / -1"><label>備註（特別註記）</label><input id="od_note" placeholder="特別註記，如 急件 / 客戶特別要求（製程路線不用填，自動來自 BOM）"></div>
     </div>
@@ -3664,7 +3871,7 @@ function renderOrders(){
     #ord_tbl th:nth-child(6),#ord_tbl td:nth-child(6){text-align:right}
     #ord_tbl td{padding:4px 7px}
     #ord_tbl .btn.sm{padding:2px 6px;font-size:11px;white-space:nowrap}
-  </style><div class="tblfit"><table id="ord_tbl"><thead><tr><th onclick="sortOrders('no')" style="cursor:pointer">工單號${sarr('no')}</th><th onclick="sortOrders('customer')" style="cursor:pointer">客戶${sarr('customer')}</th><th onclick="sortOrders('model')" style="cursor:pointer">機種${sarr('model')}</th><th onclick="sortOrders('partNo')" style="cursor:pointer">料號${sarr('partNo')}</th><th onclick="sortOrders('name')" style="cursor:pointer">品名${sarr('name')}</th><th onclick="sortOrders('qty')" style="cursor:pointer">數量${sarr('qty')}</th><th onclick="sortOrders('dueDate')" style="cursor:pointer">完成日${sarr('dueDate')}</th><th>備註</th><th onclick="sortOrders('status')" style="cursor:pointer">狀態${sarr('status')}</th><th title="發行這筆明細的帳號（早期的單沒有記錄，顯示 —）">發行人</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="11" class="empty">無符合條件的明細——按「清除」看全部</td></tr>'}</tbody></table></div>`:'<div class="empty">尚無生產指令單</div>'}</div>
+  </style><div class="tblfit"><table id="ord_tbl"><thead><tr><th onclick="sortOrders('no')" style="cursor:pointer">工單號${sarr('no')}</th><th onclick="sortOrders('customer')" style="cursor:pointer">客戶${sarr('customer')}</th><th onclick="sortOrders('model')" style="cursor:pointer">機種${sarr('model')}</th><th onclick="sortOrders('partNo')" style="cursor:pointer">料號${sarr('partNo')}</th><th onclick="sortOrders('name')" style="cursor:pointer">品名${sarr('name')}</th><th onclick="sortOrders('qty')" style="cursor:pointer">數量${sarr('qty')}</th><th onclick="sortOrders('dueDate')" style="cursor:pointer">完成日${sarr('dueDate')}</th><th>備註</th><th onclick="sortOrders('status')" style="cursor:pointer">狀態${sarr('status')}</th><th title="發行這筆明細的帳號（早期的單沒有記錄，顯示 —）">發行人</th><th title="這張單是哪個廠開的。＊不限＝所有廠都看得到（DEMO）；未設＝限定廠區的帳號看不到，要補填">廠區</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="12" class="empty">無符合條件的明細——按「清除」看全部</td></tr>'}</tbody></table></div>`:'<div class="empty">尚無生產指令單</div>'}</div>
   <div id="order_prog" style="margin-top:14px"></div>`;
   applyHL();
 }
@@ -3737,12 +3944,19 @@ function erpResolvePartNo(itemNo){ if(!itemNo) return null; const ps=db.data.pro
   for(const p of ps){ if(p.model&&up.indexOf(p.model.toUpperCase())>=0) return p.partNo; }
   return null;
 }
-function erpMakeRec(j){ const rp=erpResolvePartNo(j.itemNo); return { no:j.jobNo, date:j.creationDate||'', customer:'', partNo:rp||j.itemNo, qty:+j.startQty||0, unit:'PCS', dueDate:j.dueDate||'',
+/* ★99-46 ERP 工單的廠區：先用 ERP 組織碼（orgId，850＝敬得觀音）對應，對不到才退回操作者廠區。
+   ⚠ 現在 DB 裡 0 筆 ERP 工單，但這條路是活的 —— 只擋手動那條、不擋這條，就會從這裡漏出 NULL。 */
+function erpSiteOf(j){ return siteShortOfCode((j&&j.orgId)||'')||ordSiteAuto()||''; }
+function erpMakeRec(j){ const rp=erpResolvePartNo(j.itemNo); return { no:j.jobNo, date:j.creationDate||'', customer:'', partNo:rp||j.itemNo, qty:+j.startQty||0, unit:'PCS', dueDate:j.dueDate||'', site:erpSiteOf(j),
     note:'ERP'+(erpClsName(j.classCode)?'·'+erpClsName(j.classCode):'')+'：未完成 '+j.remainQty+' / '+j.startQty+(rp?'':'（機種待對應）'), status:'進行中', source:'erp',
     erp:{orgId:j.orgId,classCode:j.classCode,classDesc:j.classDesc,classType:erpClsName(j.classCode),itemNo:j.itemNo,itemDesc:j.itemDesc,startQty:j.startQty,remainQty:j.remainQty,completedQty:j.completedQty,status:j.status}, createdAt:new Date().toISOString() }; }
 /* ★86 ERP 取用改寫雲端：有同號單=PATCH（ERP 最新資料覆蓋）、無=POST（source='erp'；RLS 允許所有登入者寫 erp 來源）*/
 async function erpUpsertDb(rec){
   if(wGuard('order','c',prodSiteOf(rec&&rec.partNo),'ERP 取用工單 '+((rec&&rec.no)||''))) return {mode:'blocked',ok:false,error:'已擋下'};
+  /* ★99-46 廠區推不出來就擋下（比照手動開單）：ERP 組織碼對不到內部廠區、操作者又不限廠區時會發生。
+     ⚠ 訊息要指路，否則現場只會看到「取用失敗」不知道要幹嘛。 */
+  if(!rec||!rec.site){ const m='ERP 工單 '+((rec&&rec.no)||'')+' 推不出廠區（組織碼 '+(((rec&&rec.erp&&rec.erp.orgId))||'—')+' 對不到內部廠區）——請先用右上角「廠區檢視」切到該廠再取用，或到 ⚙廠商/廠區主檔 補上組織碼';
+    toast(m,'err'); return {mode:'blocked',ok:false,error:m}; }
   const ex=getOrders().find(x=>x.no===rec.no);
   if(ex&&ex._uuid){ const r=await sbWrite('PATCH','mhr_orders?id=eq.'+encodeURIComponent(ex._uuid),ordRow(rec)); return {mode:'upd',ok:r.ok,error:r.error}; }
   const r=await sbWrite('POST','mhr_orders',ordRow(rec)); return {mode:'add',ok:r.ok,error:r.error}; }
@@ -3772,10 +3986,35 @@ async function addOrder(){
   if(wGuard('order','c',prodSiteOf(($('#od_pn')||{}).value),'發行工單')) return;
   const no=$('#od_no').value.trim(); if(!no) return toast('請輸入工單號','err'); const pn=$('#od_pn').value; if(!pn) return toast('請選機種','err'); if((+$('#od_qty').value||0)<=0) return toast('請輸入數量','err');
   if(getOrders().some(x=>x.no===no&&x.partNo===pn)) return toast('此工單號＋機種的明細已存在（同單多明細請換機種）','err');
+  /* ★★99-46 廠區必填。現場帳號推得出來、根本看不到這個欄位；會走到這一行的只有「不限廠區／多廠區」的帳號。
+     ⚠ 不擋的話那張單的 site 是 NULL ⇒ fail-closed ⇒ **現場誰都看不到**（TEST-99-35 就是這樣來的）。 */
+  const osite=ordSiteVal();
+  if(!osite) return toast('請選擇廠區——你的帳號不限單一廠區，系統無法自動判斷這張單要開給哪個廠。（提示：先用右上角「廠區檢視」切到該廠，之後就會自動帶）','err');
+  if(osite==='*' && !canSetOrdStar()) return toast('只有不限廠區的帳號才能把工單設成「不限廠區」','err');
+  /* ★★同一個工單號的多筆明細，廠區必須一致（工單主鍵是 (no,part_no)，同單多機種＝多筆） */
+  { const sib=getOrders().find(x=>x.no===no&&x.site&&x.site!==osite);
+    if(sib) return toast('工單 '+no+' 的既有明細廠區是「'+sib.site+'」，同一張單的所有明細廠區必須一致','err'); }
   const me=((getSession()||{}).profile||{}).email||'';   /* ★98-16 發行人＝登入者（比照 92 的 void_by 寫法） */
-  const r=await sbWrite('POST','mhr_orders',ordRow({no,date:$('#od_date').value,customer:$('#od_cust').value.trim()||((prodOf(pn)||{}).customer||''),partNo:pn,qty:+$('#od_qty').value||0,unit:'PCS',dueDate:$('#od_due').value.trim(),note:$('#od_note').value.trim(),status:'進行中',source:'mhr',issuedBy:me}));
+  const r=await sbWrite('POST','mhr_orders',ordRow({no,date:$('#od_date').value,customer:$('#od_cust').value.trim()||((prodOf(pn)||{}).customer||''),partNo:pn,qty:+$('#od_qty').value||0,unit:'PCS',dueDate:$('#od_due').value.trim(),note:$('#od_note').value.trim(),status:'進行中',source:'mhr',site:osite,issuedBy:me}));   /* ★99-46 site */
   if(!r.ok) return toast(r.error||'發行失敗','err');
   toast('已加明細到 '+no+'（已存雲端）','ok'); await loadOrders(); render(); }
+/* ★★★99-46 開單廠區。使用者 260818 原話：「不是應該從帳號就知道是那個廠區了嗎?」——對，**推得出來就不該問**。
+   ・限定單一廠區的帳號（現場的人都是這種）／admin 切了廠區檢視 ⇒ oneSite() 有值 ⇒ **唯讀自動帶**
+   ・不限廠區的 admin 沒切檢視、或多廠區帳號 ⇒ oneSite() 回空 ⇒ **才出下拉**（那兩種帳號本來就不屬於任何單一廠區）
+   ★這跟 99-45 判定人是同一個模式：能從登入身分推出來的就不要問。
+   ⚠ 實證：現有 5 筆工單有 2 筆（TEST-99-35／35B）是 admin 沒切檢視時開的 ⇒ 這條路是活的，不是假設。 */
+function ordSiteAuto(){ return oneSite(); }
+/* 只有「不限廠區」的帳號能把單設成 '*'（否則某廠的人可以自己把資料公開給所有廠） */
+function canSetOrdStar(){ return !userSiteShorts(); }
+function ordSiteFieldHTML(){
+  const auto=ordSiteAuto();
+  if(auto) return '<div><label>廠區 <span class="vi">（依登入帳號自動帶）</span></label>'
+    +'<input id="od_site" value="'+esc(auto)+'" readonly style="background:#F2F4F6;color:var(--muted);cursor:not-allowed"></div>';
+  return '<div><label>廠區 <span style="color:var(--red)">*</span> <span class="vi">（你的帳號不限單一廠區，要自己指定）</span></label>'
+    +'<select id="od_site">'+siteInternalOpts('','（請選廠區）')
+    +(canSetOrdStar()?'<option value="*">＊ 不限廠區（DEMO／示範用）</option>':'')+'</select></div>'; }
+/* 讀值：唯讀那條走 input.value、下拉那條走 select.value；兩條都拿不到就回空（＝擋下） */
+function ordSiteVal(){ const e=$('#od_site'); return e?String(e.value||'').trim():(ordSiteAuto()||''); }
 function orderPnPick(){ const pn=$('#od_pn').value; const cu=(prodOf(pn)||{}).customer||''; const el=$('#od_cust'); if(el&&cu&&!el.value.trim()) el.value=cu; }
 async function toggleOrder(u){ const o=getOrders().find(x=>x._uuid===u); if(!o||!o._uuid) return;
   if(wGuard('order','e',ordSiteOf(o),'工單 '+o.no)) return;
@@ -3858,7 +4097,7 @@ function renderCreate(){
         <div><label>生產日期 <span class="vi">（可回填最近 15 天；預設今天）</span></label><input id="c_pdate" type="date" value="${todayProdDay()}" min="${prodDayAdd(todayProdDay(),-15)}" max="${todayProdDay()}"></div>${''/* ★99-2 預設值與上限改吃「生產日」：原本取 UTC 今天，越南當地 00:00–07:59 會帶成前一天、且 max 把當地今天鎖住改不掉 */}${''/* ★96-5d 回填範圍限最近15天（使用者定案：不應無期間限制） */}
         <div><label>班別 <span class="vi">（選了會縮小作業員清單）</span></label><select id="c_shift" onchange="onCreFilter()">${shiftOpts('')}</select></div>
         <div><label>組別(線別) <span class="vi">（選填）</span></label><select id="c_team" onchange="onCreFilter()"><option value="">（全部組別）</option></select></div>
-        <div><label>設備 / 機台 <span style="color:var(--red)">*</span></label><select id="c_mc" onchange="onCreFilter()"></select></div>${''/* ★96-6③ 選機台→人員清單鎖機台廠區 */}
+        <div><label>設備 / 機台 <span style="color:var(--red)">*</span></label><select id="c_mc" onchange="onCreFilter()"></select><div id="c_mc_hint"></div></div>${''/* ★96-6③ 選機台→人員清單鎖機台廠區 */}
         <div><label>作業員</label><select id="c_op" onchange="opBig('c_op','c_opbig')"><option value="">（請先選機種）</option></select><div id="c_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>${''/* ★96-5c 未選機種不列人（與設備欄一致）：選了機種才依首站製程過濾（updFirst 會重建清單） */}
       </div>${''/* ★97 質控欄移「質控檢驗」頁（質控斷點：打單只記生產資訊） */}
       <div id="c_extra" class="grid g2" style="margin-top:6px"></div>
@@ -3878,10 +4117,11 @@ function renderCreate(){
   updFirst();
 }
 function updFirst(){ const pn=$('#c_pn')?$('#c_pn').value:''; const p=pn?prodOf(pn):null;
-  if(!p){ const f=$('#c_first'); if(f) f.innerHTML='<span class="muted small">請先選機種，下面會帶出該機種的製程路線與首站欄位</span>'; const mc=$('#c_mc'); if(mc) mc.innerHTML='<option value="">（請先選機種）</option>'; window._creFirstCode=''; const op0=$('#c_op'); if(op0) op0.innerHTML='<option value="">（請先選機種）</option>'; const ex=$('#c_extra'); if(ex) ex.innerHTML=''; const pl0=$('#c_pend_list'); if(pl0) pl0.innerHTML=pendZoneHTML('',1); opBig('c_op','c_opbig'); return; }   /* ★96-5c 清機種→作業員清單同步收起 */
+  if(!p){ const f=$('#c_first'); if(f) f.innerHTML='<span class="muted small">請先選機種，下面會帶出該機種的製程路線與首站欄位</span>'; const mc=$('#c_mc'); if(mc) mc.innerHTML='<option value="">（請先選機種）</option>'; const mh0=$('#c_mc_hint'); if(mh0) mh0.innerHTML='';   /* ★99-43 */ window._creFirstCode=''; const op0=$('#c_op'); if(op0) op0.innerHTML='<option value="">（請先選機種）</option>'; const ex=$('#c_extra'); if(ex) ex.innerHTML=''; const pl0=$('#c_pend_list'); if(pl0) pl0.innerHTML=pendZoneHTML('',1); opBig('c_op','c_opbig'); return; }   /* ★96-5c 清機種→作業員清單同步收起 */
   const fc=p.route[0];
   $('#c_first').innerHTML=`機種 <b>${esc(p.model||p.partNo)}</b>${p.customer?' ｜ 客戶 '+esc(p.customer):''}　｜　首站：<b style="color:var(--teal)">${stN(fc)} (${fc})</b>`+(stageNo(p.partNo,fc)?` ｜ 階段料號 <span class="mono">${esc(stageNo(p.partNo,fc))}</span>`:'')+`<div class="flow" style="margin-top:6px">`+p.route.map(c=>`<span class="st ${c===fc?'now':''}">${stN(c)}</span>`).join('<span class="ar"> → </span>')+`</div>`;
   const mc=$('#c_mc'); if(mc) mc.innerHTML=machineOpts(fc,'');
+  { const mh=$('#c_mc_hint'); if(mh) mh.innerHTML=macEmptyHint(fc); }   /* ★99-43 下拉空的時候就地指路 */
   window._creFirstCode=fc;   /* ★89 記住首站碼，供班別/組別連動用 */
   const ct=$('#c_team'); if(ct){ ct.innerHTML=teamOpts(fc,($('#c_shift')||{}).value||'',''); ct.setAttribute('data-shift',($('#c_shift')||{}).value||''); }
   const co=$('#c_op'); if(co) co.innerHTML=operatorOpts(lastOp(),fc,($('#c_shift')||{}).value||'',($('#c_team')||{}).value||'');   /* ★85-9/89 作業員按首站＋班別＋組別過濾 */
@@ -4761,7 +5001,7 @@ function renderDraws(){
         <div id="o_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>
       ${os?`<div><label>${L('委外廠商')} <span style="color:var(--red)">*</span></label><select id="o_vendor">${vdOpts}</select></div>`
           :`<div><label>設備（僅顯示${stN(nx)}站機台）${procNeedMc(nx)?' <span style="color:var(--red)">*</span>':' <span class="small muted">選填</span>'}<span class="small muted">點選或掃機台QR</span></label>
-        <div class="row" style="gap:6px"><select id="o_mc" style="flex:1" onchange="onRepFilter()">${macOpts}</select><button class="btn ghost sm" onclick="scanPick('o_mc','machine','${nx}')">${L('📷掃碼')}</button></div></div>`}
+        <div class="row" style="gap:6px"><select id="o_mc" style="flex:1" onchange="onRepFilter()">${macOpts}</select><button class="btn ghost sm" onclick="scanPick('o_mc','machine','${nx}')">${L('📷掃碼')}</button></div>${macEmptyHint(nx)}</div>`}
       ${stationHasJig(first.partNo,nx)?`<div style="grid-column:1/-1"><label>治夾具 <span class="vi">（選填，可複選）</span></label><div id="o_jigs">${jigChips(first.partNo,nx)}</div></div>`:''}
     </div>
     <div class="small muted" style="margin-top:8px">★97 質控斷點：打單只填<b>產出總數（必須＝領料 ${total}）</b>；OK/NR/NG 分類、每箱裝入、產箱印標 → 到「<b>質控檢驗</b>」頁完成${procNeedQc(nx)?'':'（<b>此站未啟用質控斷點</b>＝打單直接產箱）'}。設備清單已依「${stN(nx)}」站過濾。</div>
@@ -4982,7 +5222,7 @@ function repFormHTML(st,pn,total){
         <div id="o_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>
       ${os?`<div><label>${L('委外廠商')} <span style="color:var(--red)">*</span></label><select id="o_vendor">${vdOpts}</select></div>`
         :`<div><label>設備（僅顯示${stN(st)}站機台）${procNeedMc(st)?' <span style="color:var(--red)">*</span>':' <span class="small muted">選填</span>'}</label>
-        <div class="row" style="gap:6px"><select id="o_mc" style="flex:1" onchange="onRepFilter()">${macOpts}</select><button class="btn ghost sm" onclick="scanPick('o_mc','machine','${st}')">${L('📷掃碼')}</button></div></div>`}
+        <div class="row" style="gap:6px"><select id="o_mc" style="flex:1" onchange="onRepFilter()">${macOpts}</select><button class="btn ghost sm" onclick="scanPick('o_mc','machine','${st}')">${L('📷掃碼')}</button></div>${macEmptyHint(st)}</div>`}
       ${stationHasJig(pn,st)?`<div style="grid-column:1/-1"><label>治夾具 <span class="vi">（選填，可複選）</span></label><div id="o_jigs">${jigChips(pn,st)}</div></div>`:''}
     </div>
     <div style="margin-top:14px"><button class="btn lg green" onclick="doReport()">🖨 ${L('打單（完工 → 待驗單）')}</button></div>
@@ -5533,7 +5773,20 @@ function dispForm(cid){ const c=findC(cid); if(!c) return ''; const rem=remainin
       <div><label>${L('重工去向製程')} <span class="small muted">依不良狀況</span></label><select id="dp_st_${cid}">${stHtml}</select></div>
       <div><label>${L('重工工單號 (R 類)')}</label><input id="dp_wo_${cid}" list="rwo_${cid}" placeholder="如 R-...（重工回流時填）"><datalist id="rwo_${cid}">${reworkOrderOpts()}</datalist></div>
       <div><label>${L('判定來源')}</label><select id="dp_src_${cid}"><option>現場會判</option><option>品保會判</option><option>工程會判</option><option>QMS 檢驗</option></select></div>
-      <div><label>${L('判定人')}</label><input id="dp_by_${cid}" placeholder="工程/品保"></div>
+      ${''/* ★★★99-45（backlog `4d`①）判定人從「手打文字框」改成**唯讀顯示登入者**。
+         【為什麼】會判是責任判定（重工／報廢／放行），比「誰生產的」更需要不可抵賴，
+           而原本是純文字框、打什麼都收（打 'x' 也過）——**全系統只有這一格是這樣**：
+           02/04 作業員走工牌、Q 質控＝登入者、03 點交＝登入者、01 發行人＝登入者、箱作廢 void_by＝登入者。
+         【為什麼可以直接取登入者，不用選也不用打】`renderRework` 的 `const canDo=can('rework','c')`
+           已經把門守住了：沒有這個權限的人那一欄印「唯讀」、**連按鈕都按不到**；
+           `PERM.rework` 有寫入權的只有 系統管理／工程／主管／品保。
+           ⇒ **能打開這張表單的人本來就已經是工程或品保**，再手打一次＝讓已驗證的身分去「宣稱」自己是誰。
+           與 260811 質控「一人一帳」定案同一條邏輯（`qcName=sessionName()`）。
+         ⚠ **刻意不給 id** —— 留著 id 會讓下一個人以為還要從 DOM 讀，
+           而 `doDisposition` 已改成直接取 `sessionName()`：**一個來源，不要兩個**。
+         ⚠ 主管(sup) 在 PERM.rework 上也可以會判 ⇒ 判定人可能記到主管。
+           要不要把 rework 收窄成只有 eng＋qc 是**權限表的事**，不在這一版動。 */}
+      <div><label>${L('判定人')} <span class="vi">（＝登入者，不需填寫）</span></label><input value="${esc(sessionName()||'—')}" readonly style="background:#F2F4F6;color:var(--muted);cursor:not-allowed"></div>
     </div>
     <div class="small muted" style="margin-top:8px">重工回流＝在「重工去向製程」產生 OK 回流箱(標重工工單、批號不變)，同站(如烤漆補噴)或送其他製程重工，再依路線往下流；報廢＝轉 NG 報廢箱；放行＝改判良品、回原站續流。</div>
     <div style="margin-top:12px"><button class="btn green" onclick="doDisposition('${cid}')">送出會判</button>
@@ -5543,12 +5796,13 @@ function toggleDisp(cid){ const el=$('#disp_'+cid); if(!el) return; el.style.dis
 function doDisposition(cid){ if(wGuard('rework','c',undefined,'不良品會判')) return;
   const v=id=>{ const e=$('#'+id+'_'+cid); return e?e.value:''; };
   const rw=+v('dp_rw')||0, ng=+v('dp_ng')||0, rl=+v('dp_rl')||0;
-  const wo=(v('dp_wo')||'').trim(), src=v('dp_src')||'', by=(v('dp_by')||'').trim(), st=v('dp_st')||'';
+  const wo=(v('dp_wo')||'').trim(), src=v('dp_src')||'', st=v('dp_st')||'';
+  const by=sessionName()||'';   /* ★99-45 判定人＝登入者（同 Q 質控 qcName），不再從 DOM 讀手打值 */
   const rem=remaining(cid);
   if(rw+ng+rl<=0) return toast('請至少填一項處置數量','err');
   if(rw+ng+rl>rem) return toast(`三項合計 ${rw+ng+rl} 超過待處置 ${rem}`,'err');
   if(rw>0&&!wo) return toast('重工回流請填重工工單號(R 類)','err');
-  if(!by) return toast('請填判定人','err');
+  if(!by) return toast('抓不到登入者，請重新登入後再會判','err');   /* ★99-45 正常情況不會發生（沒登入根本進不了這一頁），保留當最後一道保險 */
   if(!reworkDispose(cid,rw,ng,rl,wo,src,by,null,st)) return toast('處置失敗，請檢查數量','err');
   const stMsg=(rw>0&&st&&st!==findC(cid).processCode)?'（去向 '+stN(st)+'）':'';
   db.save(); toast('已會判：重工 '+rw+stMsg+' / 報廢 '+ng+' / 放行 '+rl,'ok'); renderRework();
