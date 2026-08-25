@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 開發測試版 v99-47-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 開發測試版 v99-54</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">開發測試版 v99-47-1</span>
+      <span class="tag">開發測試版 v99-54</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1902,9 +1902,19 @@ function scopeText(p){
 }
 
 /* ---------- 登入畫面行為 ---------- */
-/* 管理員捷徑：比照 QMS 的 ADMIN_EMAIL 寫死做法，一鍵帶入 email、免手打。
-   ★ 只是自動填入，密碼照樣要驗 —— 不是後門，也不會略過任何檢查。 */
-const ADMIN_EMAIL='yc.huang@syncmold.com.tw';
+/* 管理員捷徑：一鍵帶入 email、免手打。
+   ★ 只是自動填入，密碼照樣要驗 —— 不是後門，也不會略過任何檢查。
+   ═══ ★★★99-54（260825 熱修，backlog `0S`）═════════════════════
+   個人 email → **專用虛擬帳號**（使用者 8/19 定調，四系統一致；OMS／GHG／QMS V154 已同此做法）。
+   【Why】使用者原話：「GHG 那個 MAIL 是虛擬的，這樣我自己的 MAIL 可以另外設定不同權限去測試；
+     如果登入就有 yc.huang 當 admin，我就要用其他同仁的 mail 來做測試。」
+     ⇒ admin 是**機能帳號不是人**；個人帳號要保持自由、可指派任意角色做測試。
+   【⚠ 兩個系統共用的只有一半】Auth 帳號（auth.users）QMS／MHR **共用** ⇒ 密碼驗得過；
+     但 `mhr_profiles` 是 **MHR 自己的表**（QMS 用 `profiles`）⇒ 還要在這裡有一列、角色 admin，
+     否則 mhrAuthLogin 第二道會擋下來：「此帳號無 MHR 使用權限，請聯絡管理員」。
+     ⇒ **上線前必須先用這個帳號實際登入過一次**（測試頁就是拿來驗這件事的）。
+   ⚠ 本版**只改這一行＋版號**，不夾帶 99-48～53 那六版（那六版還在測）。 */
+const ADMIN_EMAIL='admin@id.syncmold.com.tw';   /* 管理員專用虛擬帳號（非個人） */
 function fillAdmin(){ const e=$('#lg_email'); if(e) e.value=ADMIN_EMAIL; lgErr(''); const p=$('#lg_pwd'); if(p) p.focus(); }
 function lgErr(msg,id){ const e=$('#'+(id||'lg_err')); if(!e) return; if(!msg){ e.style.display='none'; return; } e.textContent=msg; e.style.display='block'; }
 /* ★88-3 OMS 名單預載快取（登入頁載入時抓一次）→ 工號/Email 即時驗證秒回、doLogin 免等（解決慢半拍） */
