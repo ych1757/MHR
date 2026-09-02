@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v100</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
+<title>MHR 製造履歷系統 — 正式版 v101-2</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v100</span>
+      <span class="tag">正式版 v101-2</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1797,6 +1797,15 @@ async function mhrAuthLogin(email,password){
     if(!profile) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
     if(profile.active===false) return {ok:false,msg:'此帳號已停用，請聯絡管理員'};
     if(profile.can_access_mhr===false) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
+    /* ★101 第四道：OMS 授權門禁。前三道看的都是 MHR 自己的表，OMS 撤銷不會反映進來
+       ⇒ 這道回頭問 OMS「這個人現在還有沒有 MHR 授權」。只對 OMS 來源的內部帳號做，
+         查不到 OMS 就放行（不讓 OMS 故障變成停線）。 */
+    if(profile.source==='oms' && (profile.email||'').toLowerCase()!==ADMIN_EMAIL){
+      const g=await omsGrantCheck(profile.email,'MHR');
+      if(g.checked && !g.granted)
+        return {ok:false,msg:'此帳號的 MHR 使用授權已被取消（'+g.why+'），請洽管理員'};
+    }
+
     return {ok:true,token,refresh,uid,profile,mustChange:meta.must_change===true};
   }catch(e){ return {ok:false,msg:'網路錯誤，請稍後再試'}; }
 }
@@ -2118,6 +2127,46 @@ function fetchOmsUsers(){
     .then(r=>r.ok?r.json():Promise.reject('HTTP '+r.status))
     .then(d=>{ OMS_USERS=Array.isArray(d)?d:[]; OMS_STATUS='已載入 '+OMS_USERS.length+' 人'; renderRoleBar(); render(); })
     .catch(e=>{ OMS_STATUS='連線失敗('+e+')'; renderRoleBar(); render(); });
+}
+/* ★★ 101（260902）跨系統授權門禁 —— OMS 是唯一授權主檔，撤銷必須即時生效。
+   規則（四系統統一，見 SYNCMOLD_DESIGN.md「授權雙鍵」）：
+   ・只查 source='oms' 的內部帳號；委外／自建（source='mhr'）與 ADMIN_EMAIL 虛擬帳號一律不查
+   ・OMS 查得到、但此人不在名單／已停用／systems 不含本系統 ⇒ 擋下
+   ・OMS 連不上或回非預期格式 ⇒ **放行**（fail-open）並在 console 記錄
+     ——現場天天打單，不能因為 OMS 故障就全廠停線
+     （GHG 是 fail-closed，因為它使用者少、且全是內部人，情境不同）
+   ⚠ 這裡查的是 email；OMS 主檔的 email 才是跨系統對得起來的鍵（見記憶：姓名以 OMS 主檔為準） */
+async function omsGrantCheck(email,sysCode){
+  const sys=sysCode||'MHR';
+  const em=String(email||'').trim().toLowerCase();
+  if(!em) return {checked:false};
+  try{
+    /* ⚠ 不用 email=eq.<addr> 逐筆查 —— 那是**大小寫敏感**的：
+         OMS 存的是 Gray.Yan@synx-tech.com／Risk.Yeh@…／Clara.Liu@…（帶大寫），
+         只要哪天有一邊被正規化成小寫就查無此人 ⇒ 誤擋。
+       ⚠ 也不能改用 ilike —— email 裡的底線在 LIKE 是萬用字元，會誤匹配到別人。
+       ⇒ 改成「撈本系統的授權清單、在前端用小寫比對」，與 fetchOmsUsers 同一個查詢條件。 */
+    const url=OMS_SB_URL+'/rest/v1/identity_access?select=email&active=eq.true&systems=cs.'
+             +encodeURIComponent(JSON.stringify([sys]))+'&limit=2000';
+    const r=await fetch(url,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
+    if(!r.ok){ console.warn('[OMS門禁] 查詢失敗 HTTP '+r.status+' → 放行'); return {checked:false}; }
+    const d=await r.json().catch(()=>null);
+    if(!Array.isArray(d)){ console.warn('[OMS門禁] 回應非陣列 → 放行'); return {checked:false}; }
+    /* 空清單＝OMS 端異常（view 壞了／RLS 改了），不可據此把全部人擋掉 */
+    if(!d.length){ console.warn('[OMS門禁] 授權清單為空 → 放行'); return {checked:false}; }
+    if(d.length>=1000) console.warn('[OMS門禁] 授權清單達 '+d.length+' 筆，接近 PostgREST 單次上限，需改分頁');
+    const hit=d.some(u=>String(u.email||'').trim().toLowerCase()===em);
+    return {checked:true,granted:hit,why:'OMS 未授權 '+sys+'（已取消勾選、或此人不在 OMS 名單）'};
+  }catch(e){ console.warn('[OMS門禁] 例外 → 放行：'+e); return {checked:false}; }
+}
+/* 名單頁用：這筆 profile 是否「OMS 來源、但已不在 OMS 授權名單」。
+   ⚠ 必須先確認 OMS_USERS 真的載到人（length>0），否則載入失敗會把全部人誤標成撤銷 */
+function omsRevoked(p){
+  if(!p||p.source!=='oms') return false;
+  if(!OMS_USERS.length) return false;
+  const em=(p.email||'').toLowerCase();
+  if(!em||em===ADMIN_EMAIL) return false;
+  return !OMS_USERS.some(u=>(u.email||'').toLowerCase()===em);
 }
 function userRoles(){ try{return JSON.parse(localStorage.getItem('mhr_user_role')||'{}');}catch(e){return {};} }
 function setUserRole(emp,role){ const m=userRoles(); if(role)m[emp]=role; else delete m[emp]; try{localStorage.setItem('mhr_user_role',JSON.stringify(m));}catch(e){} }
@@ -3120,14 +3169,21 @@ function renderPermPage(){
      ★85-1 欄位照 OMS 資料（使用者定案 260722）：第一欄＝廠區（OMS factory_code；自建＝勾選的廠區；
      管理員/委外用識別標）、姓名優先顯示 OMS 名字。原「類型」欄從列表移除（功能照舊，編輯表單仍可改）。 */
   const omsOf=em=>OMS_USERS.find(u=>(u.email||'').toLowerCase()===(em||'').toLowerCase());
+  /* ★101-2（260902）廠區欄改「以 OMS 主檔為準」，並與 uVal(p,'site') 對齊同一個優先序。
+     原本 admin 排第一 ⇒ 管理員永遠顯示「管理員」，看不到自己的廠區；
+     但篩選／排序用的 uVal 是 om.factory_code 優先
+     ⇒ 用廠區篩「SY」選得出這個人、畫面卻寫「管理員」，兩套對不起來。
+     廠區欄講的是「這個人屬於哪個廠」（人的屬性，OMS 員工主檔是唯一來源），
+     權限範圍另有「可看範圍」欄在講，不該混在同一欄。
+     ⇒ admin 降為 fallback：OMS 查得到就顯示廠區，查不到（如 admin@id 虛擬帳號）才標「管理員」。 */
   const siteTag=p=>{
-    if(p.account_type==='admin'||p.mhr_role==='admin') return '<span class="pill os">管理員</span>';
     if(p.account_type==='vendor'||p.vendor_code) return '<span class="pill" style="background:#fef3e0;color:#b9760f">'+esc(siteName(p.vendor_code||'')||'委外')+'</span>';
     const om=omsOf(p.email);
     if(om&&om.factory_code) return '<span class="pill dc">'+esc(om.factory_code)+'</span>';
     const sc=p.site_codes||[];
     if(sc.length===1) return '<span class="pill dc">'+esc(sc[0])+'</span>';
     if(sc.length)     return '<span class="pill dc">'+esc(sc.join('＋'))+'</span>';
+    if(p.account_type==='admin'||p.mhr_role==='admin') return '<span class="pill os">管理員</span>';
     return '<span class="muted">—</span>';
   };
   /* ★88-4 名單排序＋篩選 */
@@ -3163,7 +3219,8 @@ function renderPermPage(){
   if(_usrt.key) _ulist=_ulist.slice().sort((a,b)=>String(uVal(a,_usrt.key)).localeCompare(String(uVal(b,_usrt.key)),'zh-Hant',{numeric:true})*_usrt.dir);
   const rows=_ulist.map(p=>{
     const isMe=(getSession()||{}).profile&&getSession().profile.email===p.email;
-    const src=p.source==='oms'?'<span class="pill dc">OMS 名單</span>':'<span class="pill pk">MHR 自建</span>';
+    const _rv=omsRevoked(p);   /* ★101 OMS 已取消授權 */
+    const src=p.source==='oms'?(_rv?'<span class="pill ng" title="OMS「系統資料授權」頁已取消此人的 MHR 勾選 —— 登入會被擋下。要正式停用請按「編輯」改狀態，或按「移除」收回 MHR 權限。">OMS 已取消授權</span>':'<span class="pill dc">OMS 名單</span>'):'<span class="pill pk">MHR 自建</span>';
     const om=omsOf(p.email);
     const dispName= om&&om.name? (esc(om.name)+(om.eng_name?' <span class="muted small">'+esc(om.eng_name)+'</span>':'')) : esc(p.name||'');
     return `<tr>
@@ -3173,7 +3230,7 @@ function renderPermPage(){
       <td>${esc(((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋'))}</td>
       <td class="small">${scopeShort(p)}</td>
       <td>${src}</td>
-      <td>${p.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}</td>
+      <td>${p.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}${(_rv&&p.active!==false)?'<br><span class="small" style="color:var(--red)">登入已擋</span>':''}</td>
       <td style="white-space:nowrap">
         <button class="btn ghost sm" onclick="editUser('${esc(p.email)}')">編輯</button>
         <button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>
