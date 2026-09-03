@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v101-2</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
+<title>MHR 製造履歷系統 — 正式版 v102</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v101-2</span>
+      <span class="tag">正式版 v102</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -413,7 +413,7 @@
                ★98-20 修正：這裡是**寫死在 body 的靜態 HTML**，不是 JS 模板字串 ——
                98-15 寫成 ${isSysAdmin()?`…`:''} 不會被求值，整串當成純文字印在側欄上（260806 實測）。
                改成標記 id、預設 display:none（預設隱藏＝最安全），登入後由 applyDevTools() 依角色開啟。 -->
-          <span id="dev_admin1" style="display:none"><a onclick="seedDemo()">載入測試資料</a> · </span><a onclick="exportJSON()">匯出備份</a><br>
+          <span id="dev_admin1" style="display:none"><a onclick="seedDemo()">載入測試資料</a> · <a onclick="exportJSON()">匯出備份</a><br></span>
           <span id="dev_admin2" style="display:none"><label style="cursor:pointer;color:#9FB4CC;text-decoration:underline">匯入備份<input type="file" accept=".json,application/json" onchange="importJSON(event)" style="display:none"></label> · <a onclick="resetAll()">清空</a><br></span>
           <div id="syncstat" style="margin-top:3px"></div>
         </div>
@@ -6768,7 +6768,20 @@ function traceStationBoxes(pn,code,cids){
 }
 
 /* ---------- 示範資料（含部分領用 / 接力併箱 / OK·NR·NG / 到成品） ---------- */
-function exportJSON(){ const name='MHR備份_'+localYMD().replace(/-/g,'')+'.json';   /* ★99-2 同上 */
+/* ★102（260903）「匯出備份」收斂到系統管理員。
+   它倒的是 db.data ＝**全公司單一資料集、沒有廠區維度**（confirmDestructive 的註解已寫明），
+   而原本這顆掛在 dev_admin1 的 span **外面** ⇒ 所有登入者都看得到也按得下去
+   ⇒ 限定廠區的帳號按一下就整包帶走全公司的箱／工單／報工
+      （同 backlog 71-7「清單看不到、按一下匯出就整包帶走」的同一類外流面，只是當初沒掃到這一支）。
+   ⚠ UI 藏起來不夠 —— 舊分頁／控制台直接呼叫都繞得過去（backlog 71-6 的教訓）⇒ 函式層也要擋。
+   ⚠ 這只擋掉「按一下就有」；懂 F12 的登入者仍能直接打 API 撈全公司，
+      因為 RLS policy 對 authenticated 是全開（260903 實測：anon 讀 8 張表全部回空＝RLS 有擋未登入者）。
+      真正的把關＝policy 加廠區條件，前置是 backlog 9e
+      （mhr_containers 目前**連 site 欄都沒有**，260903 實測 column does not exist；mhr_orders 有，99-46 加的）。
+   ★ 99-49 其實做過正確版本 exportFullBackup（原始 DB row、只給 sysadmin），但那六版從沒上線。 */
+function exportJSON(){
+  if(!isSysAdmin()){ toast('只有系統管理員可以匯出備份（內容是全公司資料，不分廠區）','err'); return; }
+  const name='MHR備份_'+localYMD().replace(/-/g,'')+'.json';   /* ★99-2 同上 */
   const blob=new Blob([JSON.stringify(db.data,null,2)],{type:'application/json'}); const a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href); toast('已匯出 '+name,'ok'); }
 /* ★98-15 破壞性操作＝打字確認。原本三顆都只用 confirm()，一個 Enter 就過去了；
