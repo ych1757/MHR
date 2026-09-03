@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v102</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
+<title>MHR 製造履歷系統 — 正式版 v103-1</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v102</span>
+      <span class="tag">正式版 v103-1</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -584,9 +584,12 @@ function dbFromRow(kind,r){ const m=DB_MAPS[kind]; const o={};
   for(const fk in m.cols){ const v=r[m.cols[fk]]; if(v!==null&&v!==undefined) o[fk]=v; }
   if(r.extra&&typeof r.extra==='object') Object.assign(o,r.extra);
   return o; }
+/* ★103（0R）失敗要 throw —— 它只被 dbCloudLoad 一處呼叫，可以安心丟；
+   舊版失敗回空集，翻頁途中斷線就變成「只載到前面幾頁」而且無聲無息。 */
 async function dbFetchAll(table){ const out=[]; let from=0;
-  for(;;){ const d=await sbGet(table+'?select=*&order=created_at.asc&offset='+from+'&limit=1000');
-    if(!Array.isArray(d)||!d.length) break; out.push(...d); if(d.length<1000) break; from+=1000; }
+  for(;;){ const r=await sbGetR(table+'?select=*&order=created_at.asc&offset='+from+'&limit=1000');
+    if(!r.ok) throw new Error(table+'：'+r.error);
+    if(!r.rows.length) break; out.push(...r.rows); if(r.rows.length<1000) break; from+=1000; }
   return out; }
 const db={ data:{products:[],containers:[],reports:[],pending:[]},
   _snap:{products:{},containers:{},reports:{},pending:{}},
@@ -598,7 +601,19 @@ const db={ data:{products:[],containers:[],reports:[],pending:[]},
 function dbSnapOf(list,keyF){ const s={}; (list||[]).forEach(o=>{ const k=o[keyF]; if(k) s[k]=JSON.stringify(o); }); return s; }
 async function dbCloudLoad(){
   dbSyncStatus('load');
-  const [cs,rs,ps,pd]=[await dbFetchAll('mhr_containers'),await dbFetchAll('mhr_reports'),await dbFetchAll('mhr_products'),await dbFetchAll('mhr_pending_insp')];
+  /* ★★★103（0R）四張交易表**全部拿到才能覆寫** —— 任一張失敗就整個中斷、`db.data` 一行都不動
+     （寧可用舊資料，也不要拿空集把畫面掃掉），並跳紅字告訴現場「這時候不要打單」。
+     ⚠ 呼叫端是 `dbCloudLoad().then(...)` 沒有 .catch ⇒ 例外一定要在這裡接住，不能往外丟。 */
+  let cs,rs,ps,pd;
+  try{
+    cs=await dbFetchAll('mhr_containers'); rs=await dbFetchAll('mhr_reports');
+    ps=await dbFetchAll('mhr_products');   pd=await dbFetchAll('mhr_pending_insp');
+  }catch(e){
+    /* ★103-1 這裡不再自己跳 toast —— noteLoadError 已經統一講一句了；
+       原本那句用 \n\n 換行，但 toast 是 textContent，\n 不會換行 ⇒ 擠成一長串又被切成六行。 */
+    noteLoadError('載入交易資料',(e&&e.message)||e);
+    return;
+  }
   db.data.containers=cs.map(r=>dbFromRow('containers',r));
   db.data.reports  =rs.map(r=>dbFromRow('reports',r));
   db.data.products =ps.map(r=>dbFromRow('products',r));
@@ -629,9 +644,14 @@ async function dbSyncUp(){
     clearTimeout(db._retry); db._retry=setTimeout(()=>dbSyncUp(),10000); }
   finally{ db._busy=false; if(db._dirty){ clearTimeout(db._timer); db._timer=setTimeout(()=>dbSyncUp(),800); } }
 }
-function dbSyncStatus(st,msg){ const el=$('#syncstat'); const prev=window._syncSt; window._syncSt=st;
+/* ★103-1（260903）加 silent 參數。原本只要 st==='err' 就跳「資料暫存本機自動重試中，
+   請勿關閉或重整頁面！」——那是**上傳**同步失敗的文案。但 noteLoadError（**載入**失敗）
+   也走這裡 ⇒ 會跳出「請勿重整」，跟載入失敗該說的「請重新整理」**互相矛盾**，
+   而且兩個 toast 搶同一個 #toast 元素、誰後跳誰蓋掉誰。
+   ⇒ 載入失敗改由 noteLoadError 自己講一句就好，這裡只負責把狀態列染紅。 */
+function dbSyncStatus(st,msg,silent){ const el=$('#syncstat'); const prev=window._syncSt; window._syncSt=st;
   /* ★97 同步失敗大聲講（pdate 空字串事故：側欄紅點沒人看→重整掉單）：轉入失敗那一刻跳警告 */
-  if(st==='err'&&prev!=='err') toast('☁️ 雲端同步失敗：'+(msg||'')+'——資料暫存本機自動重試中，請勿關閉或重整頁面！','err');
+  if(st==='err'&&prev!=='err'&&!silent) toast('☁️ 雲端同步失敗：'+(msg||'')+'——資料暫存本機自動重試中，請勿關閉或重整頁面！','err');
   if(!el) return;
   el.innerHTML= st==='ok'  ? '<span style="color:#7fd4a0">☁️ 已同步</span>'
              : st==='sync'||st==='pend' ? '<span style="color:#f0c674">⏳ 同步中…</span>'
@@ -693,8 +713,17 @@ const PROC_NEEDMC_DEFAULT={DC:1,CN:1,GR:1,BL:1,VB:1,TH:1};
    舊 localStorage mhr_proc_needmc/needqc 首開自動搬遷（旗標 mhr_set_migrated）。班別質控快取/上次作業員=裝置偏好，留本機 */
 let MHR_SETTINGS={}, MHR_SET_STATUS='未載入';
 async function loadSettings(){
-  const d=await sbGet('mhr_settings?select=*');
-  MHR_SETTINGS={}; (Array.isArray(d)?d:[]).forEach(r=>{ MHR_SETTINGS[r.key]=r.value; });
+  /* ★★★103（0R）舊版：失敗回 [] ⇒ `MHR_SETTINGS={}` ⇒ **所有設定回預設**，狀態照樣寫「已載入」。
+     具體後果：99-42 建的 `proc_needmc_site` 例外消失 ⇒ 巡牙 TH 的「不需記設備」失效
+     ⇒ 該廠沒巡牙機台 ⇒ **當場打不了單**（就是 backlog `0c` 那個症狀）。
+     ⇒ **抓不到就不要動**：保留原有值、狀態寫清楚、跳紅字。寧可用舊設定，不要靜默回預設。 */
+  const _r=await sbGetR('mhr_settings?select=*');
+  if(!_r.ok){
+    MHR_SET_STATUS='★載入失敗（沒有套用雲端設定，請重新整理）：'+_r.error;
+    noteLoadError('mhr_settings',_r.error);
+    return;
+  }
+  MHR_SETTINGS={}; _r.rows.forEach(r=>{ MHR_SETTINGS[r.key]=r.value; });
   MHR_SET_STATUS='已載入';
   if(!localStorage.getItem('mhr_set_migrated')){
     for(const k of ['proc_needmc','proc_needqc']){
@@ -1421,7 +1450,10 @@ function stN(code){ if(code&&code.indexOf('+')>=0) return code.split('+').map(c=
 function stNo(o){ return o.zh+stSec(o); }
 function setLang(l){ LANG=l; try{localStorage.setItem('mhr_lang',l);}catch(e){} renderLangBar(); renderNav(); render(); }
 function renderLangBar(){ const b=$('#langbar'); if(!b)return; b.innerHTML="<button class=\""+(LANG==='EN'?'on':'')+"\" onclick=\"setLang('EN')\">中 ｜ EN</button><button class=\""+(LANG==='VN'?'on':'')+"\" onclick=\"setLang('VN')\">中 ｜ VN</button>"; }
-function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||''); t.textContent=msg; setTimeout(()=>t.className='toast',2600); }
+/* ★103-1（260903）錯誤類的 toast 顯示久一點：原本一律 2.6 秒，
+   但「載入失敗／不要打單」這種警告 2.6 秒現場根本來不及看完。其餘類型不動。 */
+function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||''); t.textContent=msg;
+  setTimeout(()=>t.className='toast', type==='err'?6000:2600); }
 /* ═══ ★99-2 廠區時區 ＋ 生產日 ═══════════════════════════════════════════════
    【問題】資料存 UTC（對），但取用時到處直接切字串當日期／時間用，等於拿 UTC 當本地。
      ・時間欄顯示 `08-10 18:30`，越南現場手錶其實是 `08-11 01:30`（差 7 小時）
@@ -1849,14 +1881,31 @@ async function mhrAdmin(action,payload){
   }catch(e){ return {ok:false,error:'網路錯誤：'+e.message}; }
 }
 /* 用自己的 JWT 直讀 mhr_* 表 */
-async function sbGet(path){
-  const s=getSession();
+/* ★★★103（260903）載入失敗顯性化 —— 移植自 99-51 的 backlog `0R`（那版做好了但從沒上線）。
+   舊版 sbGet 不論 HTTP 失敗或例外一律 `return []` ⇒ **「撈失敗」和「真的沒資料」完全分不出來**，
+   呼叫端拿到空集就當成「雲端就是空的」，於是把畫面／設定清成空的，還顯示「已載入」。
+   ⇒ 新增 sbGetR 回 {ok,rows,error}；**sbGet 保留成薄包裝、舊行為一個位元不變**
+     （它有 10 個呼叫點，改回傳形狀風險太大 ⇒ 只加不改）。 */
+let DATA_LOAD_ERRORS=[];
+function noteLoadError(what,err){
+  DATA_LOAD_ERRORS.push({what:String(what||''),err:String(err||''),at:new Date().toISOString()});
+  console.warn('[MHR 載入失敗]',what,err);   /* ★103-1 技術細節留 console，畫面只講「怎麼辦」 */
+  /* ★103-1 silent=true：只把狀態列染紅，不要跳「請勿重整」（那是上傳失敗的文案，跟這裡相反） */
+  try{ dbSyncStatus('err',what+'：'+err,true); }catch(e){}
+  /* 現場要看懂的是「別打單」，不是 Failed to fetch ⇒ 訊息壓在一行內、重點在前 */
+  try{ toast('❌ 雲端載入失敗，畫面資料不完整——請重新整理，先不要打單','err'); }catch(e){}
+}
+async function sbGetR(path){
   try{
     const r=await fetch(SB_URL+'/rest/v1/'+path,{headers:{apikey:SB_KEY,Authorization:sbBearer()}});
-    if(!r.ok) return [];
-    return await r.json().catch(()=>[]);
-  }catch(e){ return []; }
+    if(!r.ok) return {ok:false,rows:[],error:'HTTP '+r.status+' '+String(await r.text().catch(()=>'')).slice(0,120)};
+    const d=await r.json().catch(()=>null);
+    if(!Array.isArray(d)) return {ok:false,rows:[],error:'回傳的不是陣列'};
+    return {ok:true,rows:d,error:''};
+  }catch(e){ return {ok:false,rows:[],error:'網路錯誤：'+((e&&e.message)||e)}; }
 }
+/* 舊行為包裝：失敗回 []。**現有 10 個呼叫點一行都不用改**。 */
+async function sbGet(path){ const r=await sbGetR(path); return r.rows; }
 /* 寫入 mhr_* 表：用自己的 JWT（RLS 會判斷是不是 admin）。
    ★ 工牌名單不需要 Edge Function —— 它不是 Auth 帳號、沒有密碼，RLS 已允許 admin 直接寫。 */
 async function sbWrite(method,path,body,prefer){
