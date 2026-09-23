@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v104-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 正式版 v105-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v104-1</span>
+      <span class="tag">正式版 v105-1</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -2210,7 +2210,7 @@ function renderRoleBar(){
       /* ★99-20-3 收短：原本一句塞三件事，右上角要折兩三行、蓋住頁面標題。
          現在只留最關鍵的一句（會不會寫入），細節掛 title 滑過看。 */
       const vsNote = simOn()
-        ? `<span class="vsnote" title="${vsOn()?'主檔（機種／設備／模具／工牌）與時區已切到「'+esc(vsName())+'」；00·03·06·08 報表已依廠區過濾（99-50）。⚠ 07 追溯只過濾了一半：用工單查有過濾，**用箱號直接查還沒有**（backlog 0N）——輸入別廠箱號仍查得到完整履歷（含作業員姓名、設備）。':''}">${vsOn()?('🏭 '+esc(vsName())+'　'):''}${rsOn()?('👤 '+esc(roleLabel(window._viewRole))+' 的權限　'):''}⚠ <b>操作會真的寫入</b>${vsOn()?'　（07 箱號直查仍跨廠）':''}</span>`
+        ? `<span class="vsnote" title="${vsOn()?'主檔（機種／設備／模具／工牌）與時區已切到「'+esc(vsName())+'」；00·03·06·07·08 報表與查詢都已依廠區過濾（99-50 ＋ 105 補上 07 箱號直查）。輸入別廠箱號會擋下並說明原因，不會假裝查無此箱。':''}">${vsOn()?('🏭 '+esc(vsName())+'　'):''}${rsOn()?('👤 '+esc(roleLabel(window._viewRole))+' 的權限　'):''}⚠ <b>操作會真的寫入</b>${vsOn()?'　（報表與查詢都已依廠區過濾）':''}</span>`
         : '';
       ub.innerHTML=`<span class="u-name">👤 ${esc(p.name||p.email||'')}</span>
         <span class="u-meta">${rsOn()?`<s style="opacity:.55">${esc((ROLES&&ROLES.length?ROLES:[ROLE]).map(roleLabel).join('＋'))}</s> → <b>${esc(rolesLabel())}</b>`:esc(rolesLabel())} ｜ ${vsOn()?`<s style="opacity:.55">${scope}</s> → <b>${esc(vsName())}</b>`:scope}</span>
@@ -6179,7 +6179,7 @@ function renderTrace(){
   const stOpts='<option value="">全部製程</option>'+STATIONS.map(s=>`<option value="${s.code}">${stNo(s)}</option>`).join('');
   $('#view').innerHTML=`
   <div class="page-h"><h2>${L('追溯查詢')}</h2><p>箱號直查來源鏈、或依機種／工單／批號查流轉與報工良率（批號列箱子請到「全部箱號」用批號篩）。</p></div>
-  <div class="card"><h3>${L('① 箱號直查')}</h3><div class="row"><div style="flex:1;min-width:260px"><label>${L('箱號 CID')}</label><input id="t_cid" class="mono" placeholder="輸入任一箱號"></div><button class="btn navy" onclick="doTrace()">${L('追溯')}</button></div></div>
+  <div class="card"><h3>${L('① 箱號直查')}</h3><div class="row"><div style="flex:1;min-width:260px"><label>${L('箱號 CID')}</label><input id="t_cid" class="mono" placeholder="輸入任一箱號"></div><button class="btn navy" onclick="doTrace()">${L('追溯')}</button><button class="btn ghost" onclick="traceBoxClear()" title="清空箱號與下方的追溯結果">清除</button></div></div>
   <div class="card"><h3>${L('② 依機種 / 工單 / 批號查詢')}</h3>
     <div class="row"><div style="flex:1.6;min-width:200px"><label>${L('機種 / 料號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_pn',window._trPn,Lt('全部機種'),"traceSync('pn')")}</div>
       <div style="flex:1.1;min-width:160px"><label>${L('工單號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_wo',window._trWo,Lt('全部工單'),"traceSync('wo')")}</div>
@@ -6676,9 +6676,32 @@ function flowDefect(code,pn,wo,lot,kind){
     </tbody></table>`;
 }
 function collectSources(cid,acc,depth,take){ const c=findC(cid); if(!c) return; acc.push({c,depth,take}); (c.sources||[]).forEach(s=>collectSources(s.cid,acc,depth+1,s.take)); }
+/* ★105-1（260923，使用者要求）① 箱號直查補「清除」鈕 —— ② 依機種/工單/批號查詢本來就有，
+   ① 沒有，查完要手動反白刪字才能查下一箱。
+   ⚠ 只清自己這一區（t_cid ＋ t_out），**不用 clearTraceOuts** ——
+     那支會連 ②③ 的結果一起清掉；traceQueryClear 也是只清 q_out，保持同樣分寸。 */
+function traceBoxClear(){
+  const e=$('#t_cid'); if(e) e.value='';
+  const out=$('#t_out'); if(out) out.innerHTML='';
+  if(e) e.focus();
+}
 function doTrace(){
   const cid=$('#t_cid').value.trim().toUpperCase(); const c=findC(cid); const out=$('#t_out'); clearTraceOuts('t_out');
   if(!c){ out.innerHTML=`<div class="card"><div class="note" style="border-color:var(--red);background:var(--redbg)">找不到箱號 ${esc(cid)}</div></div>`; return; }
+  /* ★★★105（260923，backlog `0N`）箱號直查補廠區守門。
+     【問題】260923 實測：限定「敬得觀音」檢視時，把大永的 DC26080300001 貼進來
+       **查得到完整履歷**——機種、工單、班別、良率，連**作業員姓名與設備編號**都出來。
+       07 的另一半（traceWo 用工單查）99-50 已經過濾了，就這條箱號直查漏著。
+     【為什麼改這一處就夠】traceBox／traceCell／traceFromQuery 三個入口都是
+       「把箱號塞進 #t_cid 再呼叫 doTrace()」⇒ 單一收斂點，不必四處各補一次
+       （同 [[centralize-shared-rule-not-per-page]]：渲染 WET 會打地鼠）。
+     【訊息為什麼不寫「找不到箱號」】那會讓現場以為資料掉了、跑來問「我的箱不見了」；
+       箱好好的，只是不該他看。**正常的擋下不可以看起來像故障**
+       （同 [[failure-must-not-look-like-success]] 的反面）。 */
+  if(!boxScopeReadable(c)){
+    out.innerHTML=`<div class="card"><div class="note" style="border-color:var(--red);background:var(--redbg)">箱號 ${esc(cid)} <b>不在你目前的廠區範圍內</b>，無法追溯。<br><span class="small">要查別廠的箱，請切換右上角的廠區檢視，或聯絡系統管理員。</span></div></div>`;
+    return;
+  }
   const chain=[]; collectSources(cid,chain,0,null);
   const roots=chain.filter(x=>!(findC(x.c.cid).sources||[]).length).map(x=>x.c.cid);
   // 依機種製程順序排站。chain 已是沿 sources 的真實路徑：
