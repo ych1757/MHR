@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v103-1</title><!-- 每版另存時記得同步改版號三處：title、側欄 tag、開發工具 devbody 首句 -->
+<title>MHR 製造履歷系統 — 正式版 v104-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v103-1</span>
+      <span class="tag">正式版 v104-1</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -413,7 +413,7 @@
                ★98-20 修正：這裡是**寫死在 body 的靜態 HTML**，不是 JS 模板字串 ——
                98-15 寫成 ${isSysAdmin()?`…`:''} 不會被求值，整串當成純文字印在側欄上（260806 實測）。
                改成標記 id、預設 display:none（預設隱藏＝最安全），登入後由 applyDevTools() 依角色開啟。 -->
-          <span id="dev_admin1" style="display:none"><a onclick="seedDemo()">載入測試資料</a> · <a onclick="exportJSON()">匯出備份</a><br></span>
+          <span id="dev_admin1" style="display:none"><a onclick="seedDemo()">載入測試資料</a> · <a onclick="exportJSON()">匯出備份</a></span><span id="dev_admin3" style="display:none"> · <a onclick="exportFullBackup()" title="全表快照：工單／箱／報工／產品／待驗單／廠區／設備／模具／設定／工牌，原始 DB row、每張表分頁抓完。含全公司主檔與工牌名單，只給系統管理員。">完整備份</a></span><br>
           <span id="dev_admin2" style="display:none"><label style="cursor:pointer;color:#9FB4CC;text-decoration:underline">匯入備份<input type="file" accept=".json,application/json" onchange="importJSON(event)" style="display:none"></label> · <a onclick="resetAll()">清空</a><br></span>
           <div id="syncstat" style="margin-top:3px"></div>
         </div>
@@ -584,8 +584,9 @@ function dbFromRow(kind,r){ const m=DB_MAPS[kind]; const o={};
   for(const fk in m.cols){ const v=r[m.cols[fk]]; if(v!==null&&v!==undefined) o[fk]=v; }
   if(r.extra&&typeof r.extra==='object') Object.assign(o,r.extra);
   return o; }
-/* ★103（0R）失敗要 throw —— 它只被 dbCloudLoad 一處呼叫，可以安心丟；
-   舊版失敗回空集，翻頁途中斷線就變成「只載到前面幾頁」而且無聲無息。 */
+/* ★★★99-51（0R）**只被 dbCloudLoad 一處呼叫** ⇒ 可以安心 throw。
+   舊版失敗回 [] 就 break ⇒ 拿到零筆或半成品，而 dbCloudLoad 照樣 dbSyncStatus('ok')
+   ⇒ **畫面寫「已同步」但資料是空的**，而且會拿空集去覆寫記憶體裡原本正常的資料。 */
 async function dbFetchAll(table){ const out=[]; let from=0;
   for(;;){ const r=await sbGetR(table+'?select=*&order=created_at.asc&offset='+from+'&limit=1000');
     if(!r.ok) throw new Error(table+'：'+r.error);
@@ -601,16 +602,16 @@ const db={ data:{products:[],containers:[],reports:[],pending:[]},
 function dbSnapOf(list,keyF){ const s={}; (list||[]).forEach(o=>{ const k=o[keyF]; if(k) s[k]=JSON.stringify(o); }); return s; }
 async function dbCloudLoad(){
   dbSyncStatus('load');
-  /* ★★★103（0R）四張交易表**全部拿到才能覆寫** —— 任一張失敗就整個中斷、`db.data` 一行都不動
-     （寧可用舊資料，也不要拿空集把畫面掃掉），並跳紅字告訴現場「這時候不要打單」。
-     ⚠ 呼叫端是 `dbCloudLoad().then(...)` 沒有 .catch ⇒ 例外一定要在這裡接住，不能往外丟。 */
+  /* ★★★99-51（0R）四張交易表**全部拿到才能覆寫** —— 任一張失敗就整個中斷，
+     `db.data` 一行都不動（寧可用舊資料，也不要拿空集把畫面掃掉），並跳紅字。
+     ⚠ 2046 行是 `dbCloudLoad().then(...)` 沒有 .catch ⇒ 一定要在這裡接住，不能讓它往外丟。 */
   let cs,rs,ps,pd;
   try{
     cs=await dbFetchAll('mhr_containers'); rs=await dbFetchAll('mhr_reports');
     ps=await dbFetchAll('mhr_products');   pd=await dbFetchAll('mhr_pending_insp');
   }catch(e){
-    /* ★103-1 這裡不再自己跳 toast —— noteLoadError 已經統一講一句了；
-       原本那句用 \n\n 換行，但 toast 是 textContent，\n 不會換行 ⇒ 擠成一長串又被切成六行。 */
+    /* ★104 這裡不再自己跳 toast —— noteLoadError 已統一講一句；
+       原本那句用 \n\n 換行，但 toast 是 textContent、\n 不會換行 ⇒ 擠成一長串又被切成六行。 */
     noteLoadError('載入交易資料',(e&&e.message)||e);
     return;
   }
@@ -644,11 +645,11 @@ async function dbSyncUp(){
     clearTimeout(db._retry); db._retry=setTimeout(()=>dbSyncUp(),10000); }
   finally{ db._busy=false; if(db._dirty){ clearTimeout(db._timer); db._timer=setTimeout(()=>dbSyncUp(),800); } }
 }
-/* ★103-1（260903）加 silent 參數。原本只要 st==='err' 就跳「資料暫存本機自動重試中，
-   請勿關閉或重整頁面！」——那是**上傳**同步失敗的文案。但 noteLoadError（**載入**失敗）
-   也走這裡 ⇒ 會跳出「請勿重整」，跟載入失敗該說的「請重新整理」**互相矛盾**，
+/* ★104（原 103-1）加 silent 參數。原本只要 st==='err' 就跳「資料暫存本機自動重試中，請勿關閉或
+   重整頁面！」——那是上傳同步失敗的文案。但 noteLoadError（載入失敗）也走這裡
+   ⇒ 會跳出「請勿重整」，跟載入失敗該說的「請重新整理」互相矛盾，
    而且兩個 toast 搶同一個 #toast 元素、誰後跳誰蓋掉誰。
-   ⇒ 載入失敗改由 noteLoadError 自己講一句就好，這裡只負責把狀態列染紅。 */
+   ⇒ 載入失敗改由 noteLoadError 自己講一句，這裡只負責把狀態列染紅。 */
 function dbSyncStatus(st,msg,silent){ const el=$('#syncstat'); const prev=window._syncSt; window._syncSt=st;
   /* ★97 同步失敗大聲講（pdate 空字串事故：側欄紅點沒人看→重整掉單）：轉入失敗那一刻跳警告 */
   if(st==='err'&&prev!=='err'&&!silent) toast('☁️ 雲端同步失敗：'+(msg||'')+'——資料暫存本機自動重試中，請勿關閉或重整頁面！','err');
@@ -713,10 +714,10 @@ const PROC_NEEDMC_DEFAULT={DC:1,CN:1,GR:1,BL:1,VB:1,TH:1};
    舊 localStorage mhr_proc_needmc/needqc 首開自動搬遷（旗標 mhr_set_migrated）。班別質控快取/上次作業員=裝置偏好，留本機 */
 let MHR_SETTINGS={}, MHR_SET_STATUS='未載入';
 async function loadSettings(){
-  /* ★★★103（0R）舊版：失敗回 [] ⇒ `MHR_SETTINGS={}` ⇒ **所有設定回預設**，狀態照樣寫「已載入」。
-     具體後果：99-42 建的 `proc_needmc_site` 例外消失 ⇒ 巡牙 TH 的「不需記設備」失效
-     ⇒ 該廠沒巡牙機台 ⇒ **當場打不了單**（就是 backlog `0c` 那個症狀）。
-     ⇒ **抓不到就不要動**：保留原有值、狀態寫清楚、跳紅字。寧可用舊設定，不要靜默回預設。 */
+  /* ★★★99-51（0R）舊版：失敗回 [] ⇒ `MHR_SETTINGS={}` ⇒ **所有設定回預設**，
+     而狀態照樣寫「已載入」。具體後果：99-42 建的 `proc_needmc_site` 例外消失
+     ⇒ 巡牙 TH 的「不需記設備」失效 ⇒ 該廠沒巡牙機台 ⇒ **當場打不了單**（就是 backlog `0c` 那個症狀）。
+     ⇒ **抓不到就不要動**：保留原有值、狀態寫清楚、跳紅字。寧可用舊設定，不要静默回預設。 */
   const _r=await sbGetR('mhr_settings?select=*');
   if(!_r.ok){
     MHR_SET_STATUS='★載入失敗（沒有套用雲端設定，請重新整理）：'+_r.error;
@@ -737,7 +738,7 @@ async function loadSettings(){
    在廠區檢視中修改它們是**正確**的，不可以被下面那道全公司鎖擋掉。
    ⚠ 用明列白名單、不要寫成 /_site$/ 之類的規則 —— 日後新增設定時「不小心符合命名規則就被放行」
      比「多改一行白名單」危險得多（這道鎖擋的是「改一次所有廠一起變」）。 */
-const SITE_SCOPED_SETTINGS=['proc_needmc_site','proc_needqc_site'];
+const SITE_SCOPED_SETTINGS=['proc_needmc_site','proc_needqc_site','label_code_site'];   /* ★99-48（0L）標籤條碼格式：取決於**各廠掃描槍硬體**不是集團政策，比製程開關更該分廠區 */
 async function setSetting(key,value,silent){
   /* silent=true ＝ loadSettings() 的首開搬遷（內部流程，不是使用者動作）⇒ 必須豁免，否則舊設定永遠搬不上去 */
   if(!silent){
@@ -774,6 +775,26 @@ function procSiteOv(key,code){ const st=procScopeSite(); if(!st) return null;
   const t=MHR_SETTINGS[key], o=t&&t[st];
   return (o&&Object.prototype.hasOwnProperty.call(o,code))?!!o[code]:null; }
 function procHasOv(key,code){ return procSiteOv(key,code)!==null; }
+/* ═══ ★★99-48（0L）分廠區設定的**通用機制** ══════════════════
+   99-42 做的是 `{站碼:布林}` 的 **map 型**設定（procSiteOv）；這一支是**純量型**（一廠一個值）。
+   兩者規則一致：本廠有設就用本廠、沒設才跟隨全公司；`null` 才代表「沒設過」
+   ⚠ 不能用 undefined/'' 表示沒設 —— '' 可能是合法值，混在一起就分不出「設成空」與「沒設」。
+   【日後要再加一個分廠區設定怎麼做】
+     ① 新 key 取名 `xxx_site` ② 加進 SITE_SCOPED_SETTINGS 白名單
+     ③ 讀取走 siteSettingOv() ④ UI 用 siteOvTag()／siteOvResetBtn()
+     ⇒ **呼叫點與渲染都不用重寫**（這就是這一版要的彈性）。
+   ⚠ 白名單**保持明列**，不要改成 /_site$/ 之類的規則（理由見上面第 709 行）。
+   ⚠ 99-42 的 procSwCell() 還沒收旛進來——它 260818 才上線才實測，
+     **不為了架構漂亮去重構剛驗過的東西**（[[live-system-change-safety]]）。
+     等本機制在 label_code 上跑穩，**下一版**再把那兩支收進來（那時有對照組可打）。 */
+function siteSettingOv(key){ const st=procScopeSite(); if(!st) return null;
+  const t=MHR_SETTINGS[key];
+  return (t&&Object.prototype.hasOwnProperty.call(t,st))?t[st]:null; }
+function siteSettingHasOv(key){ return siteSettingOv(key)!==null; }
+/* 「本廠」標記 pill ＋ ↺ 回到跟隨 —— 兩種設定型別共用的渲染片段
+   （[[centralize-shared-rule-not-per-page]]：99-42 已經是兩份，0L 再抄就是第三份）。 */
+function siteOvTag(){ return ' <span class="pill" style="background:#FBF1DC;color:#D9912A" title="這一項是本廠自訂，沒有跟隨全公司預設">本廠</span>'; }
+function siteOvResetBtn(onclick){ return ' <button class="btn ghost sm" style="padding:0 6px;line-height:18px;min-width:0" title="改回跟隨全公司預設" onclick="'+onclick+'">↺</button>'; }
 /* 全公司預設值（不看本廠例外）——↺ 的提示文字與畫面標記都要用到 */
 function procNeedMcGlobal(code){ const m=MHR_SETTINGS.proc_needmc; if(m&&Object.prototype.hasOwnProperty.call(m,code)) return !!m[code];
   return !!PROC_NEEDMC_DEFAULT[code]; }
@@ -865,7 +886,7 @@ const MASTER={
 let MHR_MACHINES=[], MHR_MACH_STATUS='未載入';
 async function loadMachines(){
   MHR_MACH_STATUS='載入中…';
-  const d=await sbGet('mhr_machines?select=*&order=site,mach_id');
+  const d=await sbGetAll('mhr_machines?select=*&order=site,mach_id');   /* ★99-49 分頁，免得破千靜默截斷 */
   MHR_MACHINES=(Array.isArray(d)?d:[]).map(r=>({ id:r.mach_id, _uuid:r.id, proc:r.proc||[], site:r.site||'',
     line:r.line||'', ton:r.ton||'', brand:r.brand||'', model:r.model||'', item_ref:r.item_ref||'', active:r.active!==false }));
   MHR_MACH_STATUS='已載入 '+MHR_MACHINES.length+' 台';
@@ -891,7 +912,7 @@ function vendRow(s){ return { short:s.short, code:s.code||null, full_name:s.full
   updated_at:new Date().toISOString() }; }
 async function loadVendors(){
   MHR_VEND_STATUS='載入中…';
-  const d=await sbGet('mhr_vendors?select=*&order=created_at.asc');
+  const d=await sbGetAll('mhr_vendors?select=*&order=created_at.asc');   /* ★99-49 分頁，免得破千靜默截斷 */
   MHR_VENDORS=(Array.isArray(d)?d:[]).map(r=>normSite({_uuid:r.id,code:r.code||'',full:r.full_name||'',short:r.short,kind:r.kind||'in',proc:r.procs||[],
     recv:(r.extra&&r.extra.receivers)||[],_extra:r.extra||{},   /* ★97-8 委外接收人 */
     active:r.active!==false}));
@@ -1206,7 +1227,7 @@ function moldRow(m){ return { mold_id:m.id, part_no:m.partNo||'', kind:m.kind||'
   extra:Object.assign({},(m&&m._extra)||{},{plant:(m&&m.plant)||''}), updated_at:new Date().toISOString() }; }
 async function loadMolds(){
   MHR_MOLD_STATUS='載入中…';
-  const d=await sbGet('mhr_molds?select=*&order=created_at.asc');
+  const d=await sbGetAll('mhr_molds?select=*&order=created_at.asc');   /* ★99-49 分頁，免得破千靜默截斷 */
   MHR_MOLDS=(Array.isArray(d)?d:[]).map(r=>({_uuid:r.id,id:r.mold_id,partNo:r.part_no||'',kind:r.kind||'mold',site:r.site||'',cav:+r.cav||0,stations:r.stations||[],active:r.active!==false,
     plant:((r.extra&&r.extra.plant)||''),_extra:(r.extra&&typeof r.extra==='object')?r.extra:{}}));   /* ★99-41 廠區在 extra.plant；_extra 原封帶著，回寫時併回去 */
   MHR_MOLD_STATUS='已載入 '+MHR_MOLDS.length+' 筆';
@@ -1450,8 +1471,8 @@ function stN(code){ if(code&&code.indexOf('+')>=0) return code.split('+').map(c=
 function stNo(o){ return o.zh+stSec(o); }
 function setLang(l){ LANG=l; try{localStorage.setItem('mhr_lang',l);}catch(e){} renderLangBar(); renderNav(); render(); }
 function renderLangBar(){ const b=$('#langbar'); if(!b)return; b.innerHTML="<button class=\""+(LANG==='EN'?'on':'')+"\" onclick=\"setLang('EN')\">中 ｜ EN</button><button class=\""+(LANG==='VN'?'on':'')+"\" onclick=\"setLang('VN')\">中 ｜ VN</button>"; }
-/* ★103-1（260903）錯誤類的 toast 顯示久一點：原本一律 2.6 秒，
-   但「載入失敗／不要打單」這種警告 2.6 秒現場根本來不及看完。其餘類型不動。 */
+/* ★104（原 103-1）錯誤類 toast 顯示久一點：原本一律 2.6 秒，
+   「載入失敗／不要打單」這種警告現場來不及看完。其餘類型不動。 */
 function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||''); t.textContent=msg;
   setTimeout(()=>t.className='toast', type==='err'?6000:2600); }
 /* ═══ ★99-2 廠區時區 ＋ 生產日 ═══════════════════════════════════════════════
@@ -1769,6 +1790,28 @@ function isSysAdmin(){ return isRealSysAdmin() && hasRole('admin'); }
 function canManageUsers(){ const p=(getSession()||{}).profile||{};
   const real=(p.account_type==='admin'||p.mhr_role==='admin'||(p.mhr_roles||[]).includes('admin')||isSiteAdmin());
   return real && (hasRole('admin')||hasRole('sadmin')); }   /* 3a-2 新增物控：點交/委外轉出的具名角色（一人一帳） */
+/* ═══ ★★★99-53（backlog `0T`）「誰能進 MHR」＝**只有系統管理員**決定 ═══════
+   使用者 260820 定調：「廠區管理員是不能設定誰能進入 MHR。所以權限名單只給他看」
+   「啟用後面三個欄位（編輯／重設密碼／移除），都不要讓廠區管理員看到」。
+   【★★ 為什麼不直接把 `PERM.perm` 的 sadmin 改成 'v'】
+     它是**一把鑰匙管兩張分頁** —— 改了會連「🏷 工牌名單」一起關掉，
+     而「管自己廠區的工牌」正是 V90-91 建立這個角色的目的（歸檔第 508 行）。
+     ⇒ 另開一支只管「👤 權限設定」分頁的判斷，sadmin 的工牌權一行不動。
+   【★★★ 順帶堵住一個真的破口】`saveUser` 原本那五道硬檢查（不准建全域 admin、
+     範圍必須是子集…）**全部包在 `simOn()` 裡** ⇒ 真實身分登入時**一道都不跑**，
+     廠區管理員實際上建得出全域 admin 帳號（同 backlog `0v2` 的根因）。
+     **把入口整個關掉，就不用再依賴那五道護欄** —— 這比原設計更安全。
+   ⚠ UI 藏起來不夠，**四支寫入函式一律再擋一次**（同 `0v2` 的教訓：畫面是單點防護）。 */
+function canEditUsers(){
+  /* ★★★260820 使用者實測抓到的修正：要吃**有效角色**（roleNow／hasRole），不是 profile。
+     【病徵】舊寫法 `canManageUsers() && !isSiteAdmin()` 裡的 `isSiteAdmin()` 讀的是
+       `getSession().profile`，而**「模擬角色」只改 `window._viewRole`、不會改 profile**
+       ⇒ admin 模擬成廠區管理員時三顆按鈕照樣出現，**這個改動根本驗不出來**。
+     【通則】「能做什麼」走 roleNow()（模擬會變）；「看得到誰」走 profile（模擬不變）。
+       這裡判的是「能不能改」⇒ 屬前者，與 99-17 檢視模式把全站變唯讀同一套做法。 */
+  if(hasRole('sadmin') && !hasRole('admin')) return false;
+  return canManageUsers();
+}
 const PERM={
   dash:  {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
   order: {sadmin:'v',admin:'vced',eng:'v',sup:'vce',op:'v',qc:'v',mc:'v',view:'v'},
@@ -1829,15 +1872,13 @@ async function mhrAuthLogin(email,password){
     if(!profile) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
     if(profile.active===false) return {ok:false,msg:'此帳號已停用，請聯絡管理員'};
     if(profile.can_access_mhr===false) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
-    /* ★101 第四道：OMS 授權門禁。前三道看的都是 MHR 自己的表，OMS 撤銷不會反映進來
-       ⇒ 這道回頭問 OMS「這個人現在還有沒有 MHR 授權」。只對 OMS 來源的內部帳號做，
-         查不到 OMS 就放行（不讓 OMS 故障變成停線）。 */
+    /* ★104 第四道：OMS 授權門禁。前三道看的都是 MHR 自己的表，OMS 撤銷不會反映進來
+       ⇒ 這道回頭問 OMS。只對 OMS 來源的內部帳號做，查不到 OMS 就放行（不讓 OMS 故障變停線）。 */
     if(profile.source==='oms' && (profile.email||'').toLowerCase()!==ADMIN_EMAIL){
       const g=await omsGrantCheck(profile.email,'MHR');
       if(g.checked && !g.granted)
         return {ok:false,msg:'此帳號的 MHR 使用授權已被取消（'+g.why+'），請洽管理員'};
     }
-
     return {ok:true,token,refresh,uid,profile,mustChange:meta.must_change===true};
   }catch(e){ return {ok:false,msg:'網路錯誤，請稍後再試'}; }
 }
@@ -1881,16 +1922,45 @@ async function mhrAdmin(action,payload){
   }catch(e){ return {ok:false,error:'網路錯誤：'+e.message}; }
 }
 /* 用自己的 JWT 直讀 mhr_* 表 */
-/* ★★★103（260903）載入失敗顯性化 —— 移植自 99-51 的 backlog `0R`（那版做好了但從沒上線）。
-   舊版 sbGet 不論 HTTP 失敗或例外一律 `return []` ⇒ **「撈失敗」和「真的沒資料」完全分不出來**，
-   呼叫端拿到空集就當成「雲端就是空的」，於是把畫面／設定清成空的，還顯示「已載入」。
-   ⇒ 新增 sbGetR 回 {ok,rows,error}；**sbGet 保留成薄包裝、舊行為一個位元不變**
-     （它有 10 個呼叫點，改回傳形狀風險太大 ⇒ 只加不改）。 */
+/* ═══ ★★★99-49（backlog `0M`）分頁抓取 ══════════════════════
+   【問題】Supabase 單次最多回 **1000 筆且靜默截斷**（不報錯、沒有任何跡象）。
+     交易表早就走 dbFetchAll() 有分頁；**主檔這條路一直是裸 sbGet** ⇒ 破千就少資料而且沒人知道。
+   【為什麼 `mhr_orders` 最危險】它是 99-46／99-47-1 建的**廠區判斷鏈路起點**：
+     箱 ─(order_no + part_no)→ 工單 ─(site)→ 廠區。
+     工單一被截斷 ⇒ ordOfKey() 回 null ⇒ ordScopeReadable() **fail-closed**
+     ⇒ **限定廠區的帳號突然看不到自己的箱**，而且是靜默的。
+     現在只有 5 筆明細看不出來 ⇒ **現在改行為完全不變，正是最好的施工時機**。
+   ⚠ 一定要有**穩定排序**，否則翻頁會重複／漏抓 —— 呼叫端的 path 都自帶 order=。
+   ⚠ `mhr_settings` **刻意不改**：它是 key-value 設定表，鍵的數量有上限、永遠不會接近 1000；
+     而且它原本沒有 order=，硬加一個萬一欄名不對就 400 ⇒ sbGet 回 [] ⇒ **全站設定掃地**。不值得。 */
+async function sbGetAll(path){
+  const out=[]; let from=0;
+  for(;;){
+    /* ★★99-51（0R）改走 sbGetR —— 99-49 只修掉「1000 筆上限的靜默截斷」，
+       **「網路失敗的靜默截斷」還在**：翻頁途中某一頁回 [] 就 break，拿到半成品卻以為拿完了。 */
+    const r=await sbGetR(path+'&offset='+from+'&limit=1000');
+    if(!r.ok){ noteLoadError(String(path).split('?')[0],r.error); break; }   /* 跡象留下來＋跳紅字，不再是靜默的 */
+    if(!r.rows.length) break;
+    out.push(...r.rows);
+    if(r.rows.length<1000) break;
+    from+=1000;
+  }
+  return out;
+}
+/* ═══ ★★★99-51（backlog `0R`）讀取失敗要分得出來 ════════════════
+   【問題】`sbGet` 失敗回 `[]`，跟「這張表本來就是空的」**完全分不出來** ⇒ 靜默缺料。
+     實際掃出三處中招：loadSettings／dbFetchAll／sbGetAll。
+   【不改 sbGet 的回傳形狀】它有 10 個呼叫點，改形狀風險太大。
+     → 另開 `sbGetR()` 回 `{ok, rows, error}`，**`sbGet()` 變成它的薄包裝，舊行為一個位元不變**。
+   【失敗要讓人看得到】`noteLoadError()` 把同步狀態打成紅字（dbSyncStatus('err') 本來就會跳 toast）。
+   ⚠ 為什麼不讓 `sbGetAll` 直接 throw：七個主檔載入器都沒 try/catch，throw 會把開機流程弄斷
+     （[[live-system-change-safety]]：不得為了修問題犧牲既有功能）⇒ 改成**回部分＋跳紅字**。
+     交易表那條（dbFetchAll）**只被 dbCloudLoad 一處呼叫**，所以可以 throw，還能順便防止空集覆寫。 */
 let DATA_LOAD_ERRORS=[];
 function noteLoadError(what,err){
   DATA_LOAD_ERRORS.push({what:String(what||''),err:String(err||''),at:new Date().toISOString()});
-  console.warn('[MHR 載入失敗]',what,err);   /* ★103-1 技術細節留 console，畫面只講「怎麼辦」 */
-  /* ★103-1 silent=true：只把狀態列染紅，不要跳「請勿重整」（那是上傳失敗的文案，跟這裡相反） */
+  console.warn('[MHR 載入失敗]',what,err);   /* ★104 技術細節留 console，畫面只講「怎麼辦」 */
+  /* ★104 silent=true：只把狀態列染紅，不要跳「請勿重整」（那是上傳失敗的文案，跟這裡相反） */
   try{ dbSyncStatus('err',what+'：'+err,true); }catch(e){}
   /* 現場要看懂的是「別打單」，不是 Failed to fetch ⇒ 訊息壓在一行內、重點在前 */
   try{ toast('❌ 雲端載入失敗，畫面資料不完整——請重新整理，先不要打單','err'); }catch(e){}
@@ -1922,13 +1992,13 @@ let MHR_BUS=[], MHR_SITES=[], MHR_USERS=[], MHR_USERS_STATUS='未載入';
 let MHR_OPS=[], MHR_OPS_STATUS='未載入';
 async function loadOperators(){
   MHR_OPS_STATUS='載入中…';
-  const d=await sbGet('mhr_operators?select=*&order=site_code,badge');
+  const d=await sbGetAll('mhr_operators?select=*&order=site_code,badge');   /* ★99-49 分頁，免得破千靜默截斷 */
   MHR_OPS=Array.isArray(d)?d:[];
   MHR_OPS_STATUS='已載入 '+MHR_OPS.length+' 筆';
 }
 async function loadMhrOrg(){
-  MHR_BUS   = await sbGet('mhr_business_units?select=*&active=eq.true&order=sort_order');
-  MHR_SITES = await sbGet('mhr_sites?select=*&active=eq.true&order=kind,code');
+  MHR_BUS   = await sbGetAll('mhr_business_units?select=*&active=eq.true&order=sort_order');   /* ★99-49 分頁 */
+  MHR_SITES = await sbGetAll('mhr_sites?select=*&active=eq.true&order=kind,code');   /* ★99-49 分頁 */
 }
 async function loadMhrUsers(){
   MHR_USERS_STATUS='載入中…';
@@ -1960,19 +2030,9 @@ function scopeText(p){
 }
 
 /* ---------- 登入畫面行為 ---------- */
-/* 管理員捷徑：一鍵帶入 email、免手打。
-   ★ 只是自動填入，密碼照樣要驗 —— 不是後門，也不會略過任何檢查。
-   ═══ ★★★99-54（260825 熱修，backlog `0S`）═════════════════════
-   個人 email → **專用虛擬帳號**（使用者 8/19 定調，四系統一致；OMS／GHG／QMS V154 已同此做法）。
-   【Why】使用者原話：「GHG 那個 MAIL 是虛擬的，這樣我自己的 MAIL 可以另外設定不同權限去測試；
-     如果登入就有 yc.huang 當 admin，我就要用其他同仁的 mail 來做測試。」
-     ⇒ admin 是**機能帳號不是人**；個人帳號要保持自由、可指派任意角色做測試。
-   【⚠ 兩個系統共用的只有一半】Auth 帳號（auth.users）QMS／MHR **共用** ⇒ 密碼驗得過；
-     但 `mhr_profiles` 是 **MHR 自己的表**（QMS 用 `profiles`）⇒ 還要在這裡有一列、角色 admin，
-     否則 mhrAuthLogin 第二道會擋下來：「此帳號無 MHR 使用權限，請聯絡管理員」。
-     ⇒ **上線前必須先用這個帳號實際登入過一次**（測試頁就是拿來驗這件事的）。
-   ⚠ 本版**只改這一行＋版號**，不夾帶 99-48～53 那六版（那六版還在測）。 */
-const ADMIN_EMAIL='admin@id.syncmold.com.tw';   /* 管理員專用虛擬帳號（非個人） */
+/* 管理員捷徑：比照 QMS 的 ADMIN_EMAIL 寫死做法，一鍵帶入 email、免手打。
+   ★ 只是自動填入，密碼照樣要驗 —— 不是後門，也不會略過任何檢查。 */
+const ADMIN_EMAIL='admin@id.syncmold.com.tw';
 function fillAdmin(){ const e=$('#lg_email'); if(e) e.value=ADMIN_EMAIL; lgErr(''); const p=$('#lg_pwd'); if(p) p.focus(); }
 function lgErr(msg,id){ const e=$('#'+(id||'lg_err')); if(!e) return; if(!msg){ e.style.display='none'; return; } e.textContent=msg; e.style.display='block'; }
 /* ★88-3 OMS 名單預載快取（登入頁載入時抓一次）→ 工號/Email 即時驗證秒回、doLogin 免等（解決慢半拍） */
@@ -2150,7 +2210,7 @@ function renderRoleBar(){
       /* ★99-20-3 收短：原本一句塞三件事，右上角要折兩三行、蓋住頁面標題。
          現在只留最關鍵的一句（會不會寫入），細節掛 title 滑過看。 */
       const vsNote = simOn()
-        ? `<span class="vsnote" title="${vsOn()?'主檔（機種／設備／模具／工牌）與時區已切到「'+esc(vsName())+'」；00·07·08 報表仍是全部廠區，因為箱與工單還沒有廠區欄。':''}">${vsOn()?('🏭 '+esc(vsName())+'　'):''}${rsOn()?('👤 '+esc(roleLabel(window._viewRole))+' 的權限　'):''}⚠ <b>操作會真的寫入</b>${vsOn()?'　（00·07·08 報表仍是全部廠區）':''}</span>`
+        ? `<span class="vsnote" title="${vsOn()?'主檔（機種／設備／模具／工牌）與時區已切到「'+esc(vsName())+'」；00·03·06·08 報表已依廠區過濾（99-50）。⚠ 07 追溯只過濾了一半：用工單查有過濾，**用箱號直接查還沒有**（backlog 0N）——輸入別廠箱號仍查得到完整履歷（含作業員姓名、設備）。':''}">${vsOn()?('🏭 '+esc(vsName())+'　'):''}${rsOn()?('👤 '+esc(roleLabel(window._viewRole))+' 的權限　'):''}⚠ <b>操作會真的寫入</b>${vsOn()?'　（07 箱號直查仍跨廠）':''}</span>`
         : '';
       ub.innerHTML=`<span class="u-name">👤 ${esc(p.name||p.email||'')}</span>
         <span class="u-meta">${rsOn()?`<s style="opacity:.55">${esc((ROLES&&ROLES.length?ROLES:[ROLE]).map(roleLabel).join('＋'))}</s> → <b>${esc(rolesLabel())}</b>`:esc(rolesLabel())} ｜ ${vsOn()?`<s style="opacity:.55">${scope}</s> → <b>${esc(vsName())}</b>`:scope}</span>
@@ -2177,35 +2237,28 @@ function fetchOmsUsers(){
     .then(d=>{ OMS_USERS=Array.isArray(d)?d:[]; OMS_STATUS='已載入 '+OMS_USERS.length+' 人'; renderRoleBar(); render(); })
     .catch(e=>{ OMS_STATUS='連線失敗('+e+')'; renderRoleBar(); render(); });
 }
-/* ★★ 101（260902）跨系統授權門禁 —— OMS 是唯一授權主檔，撤銷必須即時生效。
-   規則（四系統統一，見 SYNCMOLD_DESIGN.md「授權雙鍵」）：
-   ・只查 source='oms' 的內部帳號；委外／自建（source='mhr'）與 ADMIN_EMAIL 虛擬帳號一律不查
+/* ★★ 104（260903）跨系統授權門禁 —— OMS 是唯一授權主檔，撤銷必須即時生效。
+   ・只查 source='oms' 的內部帳號；委外／自建與 ADMIN_EMAIL 虛擬帳號一律不查
    ・OMS 查得到、但此人不在名單／已停用／systems 不含本系統 ⇒ 擋下
-   ・OMS 連不上或回非預期格式 ⇒ **放行**（fail-open）並在 console 記錄
-     ——現場天天打單，不能因為 OMS 故障就全廠停線
-     （GHG 是 fail-closed，因為它使用者少、且全是內部人，情境不同）
-   ⚠ 這裡查的是 email；OMS 主檔的 email 才是跨系統對得起來的鍵（見記憶：姓名以 OMS 主檔為準） */
+   ・OMS 連不上或回非預期格式 ⇒ 放行（fail-open）並記錄——現場天天打單，不能因 OMS 故障停線
+   ⚠ 不可用 email=eq. 逐筆查（大小寫敏感，OMS 真的存著 Gray.Yan@／Risk.Yeh@ 帶大寫的）
+   ⚠ 也不可改用 ilike（email 的底線在 LIKE 是萬用字元，會誤中別人）
+   ⇒ 撈本系統授權清單、前端 toLowerCase 精確比對。詳見 SyncHub_跨系統授權門禁鐵則_260902_CODE.md */
 async function omsGrantCheck(email,sysCode){
   const sys=sysCode||'MHR';
   const em=String(email||'').trim().toLowerCase();
   if(!em) return {checked:false};
   try{
-    /* ⚠ 不用 email=eq.<addr> 逐筆查 —— 那是**大小寫敏感**的：
-         OMS 存的是 Gray.Yan@synx-tech.com／Risk.Yeh@…／Clara.Liu@…（帶大寫），
-         只要哪天有一邊被正規化成小寫就查無此人 ⇒ 誤擋。
-       ⚠ 也不能改用 ilike —— email 裡的底線在 LIKE 是萬用字元，會誤匹配到別人。
-       ⇒ 改成「撈本系統的授權清單、在前端用小寫比對」，與 fetchOmsUsers 同一個查詢條件。 */
     const url=OMS_SB_URL+'/rest/v1/identity_access?select=email&active=eq.true&systems=cs.'
              +encodeURIComponent(JSON.stringify([sys]))+'&limit=2000';
     const r=await fetch(url,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
     if(!r.ok){ console.warn('[OMS門禁] 查詢失敗 HTTP '+r.status+' → 放行'); return {checked:false}; }
     const d=await r.json().catch(()=>null);
     if(!Array.isArray(d)){ console.warn('[OMS門禁] 回應非陣列 → 放行'); return {checked:false}; }
-    /* 空清單＝OMS 端異常（view 壞了／RLS 改了），不可據此把全部人擋掉 */
     if(!d.length){ console.warn('[OMS門禁] 授權清單為空 → 放行'); return {checked:false}; }
-    if(d.length>=1000) console.warn('[OMS門禁] 授權清單達 '+d.length+' 筆，接近 PostgREST 單次上限，需改分頁');
+    if(d.length>=1000) console.warn('[OMS門禁] 清單 '+d.length+' 筆，接近單次上限，需改分頁');
     const hit=d.some(u=>String(u.email||'').trim().toLowerCase()===em);
-    return {checked:true,granted:hit,why:'OMS 未授權 '+sys+'（已取消勾選、或此人不在 OMS 名單）'};
+    return {checked:true,granted:hit,why:'OMS 未授權 '+sys+'（已取消勾選、或不在 OMS 名單）'};
   }catch(e){ console.warn('[OMS門禁] 例外 → 放行：'+e); return {checked:false}; }
 }
 /* 名單頁用：這筆 profile 是否「OMS 來源、但已不在 OMS 授權名單」。
@@ -2240,7 +2293,7 @@ function renderNav(){
    預設 display:none 是刻意的——就算這個函式沒被呼叫到，非管理員也不會意外看到。
    （防呆不只靠隱藏：confirmDestructive() 還會再擋一次身分＋要求打字「覆蓋」。） */
 function applyDevTools(){ const on=isSysAdmin();
-  ['dev_admin1','dev_admin2'].forEach(id=>{ const e=$('#'+id); if(e) e.style.display=on?'':'none'; }); }
+  ['dev_admin1','dev_admin2','dev_admin3'].forEach(id=>{ const e=$('#'+id); if(e) e.style.display=on?'':'none'; }); }
 /* ★99-16 擋下訊息要講清楚「缺什麼、找誰」（原本只有「無此頁權限」四個字，看了也不知道下一步）。
    ⚠ 這裡是**唯一**的守門點——側欄改成灰化後仍然點得下去，靠這一行擋住。 */
 function go(id){ if(!canSee(id)){ const p=PAGES.find(x=>x.id===id)||{};
@@ -2417,13 +2470,14 @@ function updateWip(){
   if(!list.length){ el.innerHTML='<div class="empty">無資料</div>'; const d=$('#wip_detail'); if(d)d.innerHTML=''; return; }
   /* ★98-1 帳差欄（同 07）：生產數＝該站已結案待驗單打單量；帳差＝(OK+NR+NG)−生產數。舊箱無待驗單→「—」 */
   /* ★98-4 帳差＝物控清點實際記錄的差異合計（同 07；不再用「已驗−生產數」推算） */
-  const wipDiff=code=>{ const bs=db.data.containers.filter(b=>b.processCode===code&&b.stockin
+  /* ★★99-50：**列**來自已過濾的 stationLedger，但這些**欄位數字**是頁面自己算的 ⇒ 99-47 漏掉。 */
+  const wipDiff=code=>{ const bs=db.data.containers.filter(b=>boxScopeReadable(b)&&b.processCode===code&&b.stockin
       &&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot));
     return {n:bs.length,d:bs.reduce((a,b)=>a+(+b.stockin.diff||0),0)}; };
   /* ★98-26 委外帳差（同 07 的資料源＝vendorReturn 事件，負＝短少、正＝超收）。
      為什麼 00 也要有：使用者定案「選了機種就要能跨站對應」，但委外站不補這一欄的話
      那一列一定對不起來（實例 振研已轉下站 473 vs 皮膜 465+3+2＝470，差的 3 就是短交）。 */
-  const wipOs=code=>{ const rs=(db.data.reports||[]).filter(r=>r.type==='handover'&&r.kind==='vendorReturn'&&r.fromStation===code
+  const wipOs=code=>{ const rs=(db.data.reports||[]).filter(r=>repScopeReadable(r)&&r.type==='handover'&&r.kind==='vendorReturn'&&r.fromStation===code   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
       &&(!pn||r.partNo===pn)&&(!wo||(r.orderNo||'')===wo)&&(!lot||(r.lot||'')===lot));
     return {n:rs.length,d:rs.reduce((a,r)=>a+(+r.diff||0),0)}; };
   el.innerHTML=`<div style="overflow-x:auto"><table class="hnw numtbl"><thead><tr><th>${L('製程站')}</th><th>${L('期初在手量')}</th><th>${L('委外帳差')}</th><th>${L('OK產出')}</th><th>${L('清點帳差')}</th>${''/* ★98-26 委外帳差擺在投入側（期初在手量旁），比照 07 放在接收後面 */}<th>${L('已轉下站')}</th>${''/* ★98-24 與 07 同步改名 */}<th>${L('期末在手量')}</th><th>${L('在庫箱')}</th><th>${L('NR可重工')}</th><th>${L('NG報廢')}</th><th>${L('良率')}</th><th>NR%</th><th>NG%</th></tr></thead><tbody>
@@ -2434,12 +2488,12 @@ function updateWip(){
       const proc=okQc+x.nr+x.ng; const pct=n=>proc?(n/proc*100).toFixed(1)+'%':'—';
       return `<tr>
       <td><span class="pill ${isOS(pn,x.s.code)?'os':(x.s.code===lastStation(pn)?'pk':'dc')}">${stNo(x.s)}</span>${isOS(pn,x.s.code)?' <span class="small muted">委外</span>':''}</td>
-      <td>${(q=>q?'<b style="color:#b9760f">'+q+'</b>':'<span class="muted">—</span>')(db.data.containers.filter(b=>isNormalBox(b)&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot)&&b.received&&b.received.station===x.s.code&&remaining(b.cid)>0).reduce((a,b)=>a+remaining(b.cid),0))}</td>${''/* ★期初在手量＝已點交到本站待投產 */}
+      <td>${(q=>q?'<b style="color:#b9760f">'+q+'</b>':'<span class="muted">—</span>')(db.data.containers.filter(b=>boxScopeReadable(b)&&isNormalBox(b)&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot)&&b.received&&b.received.station===x.s.code&&remaining(b.cid)>0).reduce((a,b)=>a+remaining(b.cid),0))}</td>${''/* ★期初在手量＝已點交到本站待投產 */}
       <td>${oInfo.n?`<b style="color:${oInfo.d<0?'var(--red)':'#3355aa'}" title="委外回廠點收的短交／超收合計（${oInfo.n} 筆送貨單；負＝短少、正＝超收）">${oInfo.d>0?'+':''}${oInfo.d}</b>`:'<span class="muted" title="非委外站，或本站尚無委外回廠點收記錄">—</span>'}</td>${''/* ★98-26 委外帳差 */}
       <td><a class="lk" onclick="wipDetail('${x.s.code}','${pn}','out','${esc(wo)}','${esc(lot)}')">${okQc}</a></td>
       <td>${dInfo.n?(dInfo.d?`<b style="color:${dInfo.d<0?'var(--red)':'#3355aa'}" title="物控清點差異合計（${dInfo.n} 箱清點過）">${dInfo.d>0?'+':''}${dInfo.d}</b>`:'<span class="muted">0</span>'):'<span class="muted" title="本站尚無箱做過物控清點">—</span>'}</td>
       <td>${x.moved?`<a class="lk muted" title="看已轉下站的箱" onclick="wipDetail('${x.s.code}','${pn}','moved','${esc(wo)}','${esc(lot)}')">${x.moved}</a>`:'<span class="muted" title="沒有轉出過（末站無下一站，不會再轉出）">—</span>'}</td>${''/* ★99-7 0→「—」：鏡射 07「已轉出」欄同一套 falsy 規則（不是末站特例，是通用的「沒發生過就顯示—」）。末站在資料層 moved 結構性恆為 0（末站清點只寫 stockin 不寫 received、且擋掉再領用），改成「—」不會遮蔽任何真數字；順帶消掉「點 0 開出空面板」的死連結。 */}
-      <td><a class="lk" onclick="wipDetail('${x.s.code}','${pn}','stock','${esc(wo)}','${esc(lot)}')"><b style="color:var(--teal)">${x.stock}</b></a>${(q=>q?`<div class="small" style="color:#b9760f;white-space:nowrap;cursor:pointer;text-decoration:underline" title="點入質控檢驗" onclick="event.stopPropagation();goQcInsp('${x.s.code}','${esc(wo)}','${esc(lot)}')">⏳待驗 ${q}</div>`:'')((db.data.pending||[]).filter(s=>s.status==='pending'&&s.processCode===x.s.code&&(!pn||s.partNo===pn)&&(!wo||s.orderNo===wo)&&(!lot||s.lot===lot)).reduce((a,s)=>a+(+s.qtyProd||0),0))}</td>
+      <td><a class="lk" onclick="wipDetail('${x.s.code}','${pn}','stock','${esc(wo)}','${esc(lot)}')"><b style="color:var(--teal)">${x.stock}</b></a>${(q=>q?`<div class="small" style="color:#b9760f;white-space:nowrap;cursor:pointer;text-decoration:underline" title="點入質控檢驗" onclick="event.stopPropagation();goQcInsp('${x.s.code}','${esc(wo)}','${esc(lot)}')">⏳待驗 ${q}</div>`:'')((db.data.pending||[]).filter(s=>pendScopeReadable(s)&&s.status==='pending'&&s.processCode===x.s.code&&(!pn||s.partNo===pn)&&(!wo||s.orderNo===wo)&&(!lot||s.lot===lot)).reduce((a,s)=>a+(+s.qtyProd||0),0))}</td>
       <td>${x.boxes}</td>
       <td>${x.nr?'<span class="pill" style="background:#fef0dd;color:#b9760f">'+x.nr+'</span>':'<span class="muted">0</span>'}</td>
       <td>${x.ng?'<span class="pill ng">'+x.ng+'</span>':'<span class="muted">0</span>'}</td>
@@ -2460,7 +2514,7 @@ function wipDetail(code,pn,kind,wo,lot){   /* ★97-2 展開的箱清單同步�
   /* ★99-12 補上 isNormalBox()：計算層 stationLedger() 一開頭就有 `if(!isNormalBox(c)) return;`，
      這裡卻沒有 ⇒ **欄位數字排除了不良／作廢箱，點進去的明細卻把它們列出來**（欄位寫 8 箱、清單列 10 箱）。
      三個呼叫端（out／moved／stock）語意上都是「正常箱」，NR/NG 欄不走這支 ⇒ 加了不會誤殺。 */
-  let boxes=db.data.containers.filter(c=>isNormalBox(c)&&c.processCode===code&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot));
+  let boxes=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&c.processCode===code&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot));   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
   if(kind==='moved') boxes=boxes.filter(c=>drawnOut(c.cid)>0||(isReceived(c)&&remaining(c.cid)>0));   /* ★97 含已點交未領 */
   if(kind==='stock') boxes=boxes.filter(c=>remaining(c.cid)>0&&!isReceived(c));
   const title={out:'OK產出',moved:'已轉下站',stock:'期末在手量'}[kind];
@@ -2859,6 +2913,8 @@ function opExportCsv(){
 /* ★89 登入帳號 Excel/CSV 匯入：讀「②登入帳號」分頁，逐筆走 EF 建帳號/開通（已存在＝只加 profile 不碰密碼）。
    角色欄位打勾＝V/✓；廠區預設 SDY；密碼一律預設 qms12345（首次登入強制改）。 */
 function userImportFile(ev){
+  /* ★★99-53：同上，而且這支能一次建出一堆帳號，更要擋。 */
+  if(!canEditUsers()){ toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err'); ev.target.value=''; return; }
   if(wGuard('perm','c',undefined,'批次匯入帳號')) return;
   if(simOn() && opsScopeCodes()) { toast('🏭 目前限定廠區，不開放批次匯入帳號（這支能一次建出跨廠區、甚至管理員等級的帳號）','err'); ev.target.value=''; return; }
   const f=ev.target.files&&ev.target.files[0]; ev.target.value=''; if(!f) return;
@@ -2921,11 +2977,23 @@ function userImportFile(ev){
   }catch(e){ toast('解析失敗：'+(e.message||e),'err'); } };
   if(isXls) rd.readAsArrayBuffer(f); else rd.readAsText(f,'utf-8'); }
 function userExportCsv(){
+  /* ★★★99-53：匯出也要收窄 —— 這是 99-20 對工牌匯出做過的同一類漏洞的**第三次發作**：
+     「清單看不到、但按一下匯出就整包帶走＝資料外流面」（opExportCsv 的註解原句）。
+     舊版直接吃 MHR_USERS 全集 ⇒ 廠區管理員畫面只看得到自己廠區那幾筆，
+     一按匯出卻把**全公司帳號（含系統管理員）**整包拿走。
+     ⇒ 跟畫面清單走**同一套過濾**（_adminSites 那三條規則）。 */
+  const _sc=isSiteAdmin()?(opsScopeSites()||[]):null;
+  const _src=_sc?MHR_USERS.filter(p=>{
+    if(p.account_type==='admin'||p.mhr_role==='admin') return false;
+    const cs=[].concat(p.site_codes||[]);
+    if(cs.includes('*')) return false;
+    return cs.some(c=>_sc.includes(c));
+  }):MHR_USERS;
   const rows=[['廠區','姓名','Email','角色','可看範圍','來源','狀態']];
-  MHR_USERS.forEach(p=>{ const roles=((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋');
+  _src.forEach(p=>{ const roles=((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋');
     const scope=(p.account_type==='admin'||p.mhr_role==='admin'||(p.site_codes||[]).includes('*'))?'全部':([].concat((p.bu_codes||[]).map(c=>c+'群'),(p.site_codes||[])).join('、')||p.vendor_code||'');
     rows.push([ scope&&p.account_type!=='admin'?(p.site_codes||[]).join('+')||p.vendor_code||'':'管理員', p.name||'', p.email, roles, scope, p.source==='oms'?'OMS名單':'MHR自建', p.active===false?'停用':'啟用' ]); });
-  csvExport('MHR_登入帳號_'+localYMD()+'.csv',rows); toast('已匯出 '+MHR_USERS.length+' 筆帳號','ok'); }   /* ★99-2 同上 */
+  csvExport('MHR_登入帳號_'+localYMD()+'.csv',rows); toast('已匯出 '+(rows.length-1)+' 筆帳號','ok'); }   /* ★99-53 筆數改用實際匯出的列數（舊版寫 MHR_USERS.length，收窄後會對不上） */   /* ★99-2 同上 */
 /* ★96-5e 原 IMP_PROC_COLS（寫死中文欄名→站碼）已移除：模板欄名「噴砂」對不到表裡的「珠擊」，
    噴砂人員的製程歸屬被丟成空白＝不限站、每站作業員清單都冒出來（260730 實測 4 位中招）。
    改為匯入時用 matchStation() 吃製程主檔別名對照（見 opImportCsv 內 _procCols）。 */
@@ -3218,13 +3286,11 @@ function renderPermPage(){
      ★85-1 欄位照 OMS 資料（使用者定案 260722）：第一欄＝廠區（OMS factory_code；自建＝勾選的廠區；
      管理員/委外用識別標）、姓名優先顯示 OMS 名字。原「類型」欄從列表移除（功能照舊，編輯表單仍可改）。 */
   const omsOf=em=>OMS_USERS.find(u=>(u.email||'').toLowerCase()===(em||'').toLowerCase());
-  /* ★101-2（260902）廠區欄改「以 OMS 主檔為準」，並與 uVal(p,'site') 對齊同一個優先序。
-     原本 admin 排第一 ⇒ 管理員永遠顯示「管理員」，看不到自己的廠區；
-     但篩選／排序用的 uVal 是 om.factory_code 優先
-     ⇒ 用廠區篩「SY」選得出這個人、畫面卻寫「管理員」，兩套對不起來。
-     廠區欄講的是「這個人屬於哪個廠」（人的屬性，OMS 員工主檔是唯一來源），
-     權限範圍另有「可看範圍」欄在講，不該混在同一欄。
-     ⇒ admin 降為 fallback：OMS 查得到就顯示廠區，查不到（如 admin@id 虛擬帳號）才標「管理員」。 */
+  /* ★104（原 101-2）廠區欄改「以 OMS 主檔為準」，與 uVal(p,'site') 對齊同一優先序。
+     原本 admin 排第一 ⇒ 管理員永遠顯示「管理員」、看不到自己的廠區；
+     但篩選／排序用的 uVal 是 om.factory_code 優先 ⇒ 用廠區篩「SY」選得出這個人、畫面卻寫「管理員」。
+     廠區欄講的是「這個人屬於哪個廠」（人的屬性，OMS 員工主檔唯一來源），
+     權限範圍另有「可看範圍」欄在講 ⇒ admin 降為 fallback。 */
   const siteTag=p=>{
     if(p.account_type==='vendor'||p.vendor_code) return '<span class="pill" style="background:#fef3e0;color:#b9760f">'+esc(siteName(p.vendor_code||'')||'委外')+'</span>';
     const om=omsOf(p.email);
@@ -3268,7 +3334,7 @@ function renderPermPage(){
   if(_usrt.key) _ulist=_ulist.slice().sort((a,b)=>String(uVal(a,_usrt.key)).localeCompare(String(uVal(b,_usrt.key)),'zh-Hant',{numeric:true})*_usrt.dir);
   const rows=_ulist.map(p=>{
     const isMe=(getSession()||{}).profile&&getSession().profile.email===p.email;
-    const _rv=omsRevoked(p);   /* ★101 OMS 已取消授權 */
+    const _rv=omsRevoked(p);   /* ★104 OMS 已取消授權 */
     const src=p.source==='oms'?(_rv?'<span class="pill ng" title="OMS「系統資料授權」頁已取消此人的 MHR 勾選 —— 登入會被擋下。要正式停用請按「編輯」改狀態，或按「移除」收回 MHR 權限。">OMS 已取消授權</span>':'<span class="pill dc">OMS 名單</span>'):'<span class="pill pk">MHR 自建</span>';
     const om=omsOf(p.email);
     const dispName= om&&om.name? (esc(om.name)+(om.eng_name?' <span class="muted small">'+esc(om.eng_name)+'</span>':'')) : esc(p.name||'');
@@ -3280,10 +3346,11 @@ function renderPermPage(){
       <td class="small">${scopeShort(p)}</td>
       <td>${src}</td>
       <td>${p.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}${(_rv&&p.active!==false)?'<br><span class="small" style="color:var(--red)">登入已擋</span>':''}</td>
-      <td style="white-space:nowrap">
+      <td style="white-space:nowrap">${canEditUsers()?`
         <button class="btn ghost sm" onclick="editUser('${esc(p.email)}')">編輯</button>
         <button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>
-        ${(isMe||!can('perm','d'))?'':`<button class="btn gray sm" onclick="revokeUser('${esc(p.email)}')">移除</button>`}
+        ${(isMe||!can('perm','d'))?'':`<button class="btn gray sm" onclick="revokeUser('${esc(p.email)}')">移除</button>`}`
+        :'<span class="muted small" title="「誰能進 MHR」由系統管理員設定；你可以看、不能改。要異動請洽系統管理員">唯讀</span>'}
       </td></tr>`;
   }).join('');
 
@@ -3332,6 +3399,9 @@ function renderPermPage(){
   v.innerHTML=pageHead+tabBar+`
   ${form}
   ${(()=>{ /* ★85-8 對調：新增人員移到名單上方（與三主檔一致），預設折疊 */
+    /* ★★99-53：**新增帳號就是「決定誰能進 MHR」**，比修改更直接
+       ⇒ 廠區管理員連這整塊（①從 OMS 名單勾選 ②自建帳號）都不該看到。 */
+    if(!canEditUsers()) return '';
     /* ★★99-33（260817 使用者實測）「我在 OMS 加了人，MHR 卻沒出現」。
        【查證結果：資料一直是對的】OMS 那句查詢實際回的 11 人裡就有 `GT2019805 高凌仙`，
          他從頭到尾都在「① 從 OMS 名單勾選」裡等著被按「＋加入 MHR」。
@@ -3360,7 +3430,7 @@ function renderPermPage(){
     </div>
   </div>`; })()}
 
-  <div class="card"><h3>MHR 名單（${MHR_USERS.length}）<span class="vi">${esc(MHR_USERS_STATUS)}　<a class="lk" onclick="reloadPerm()">重新載入</a>　·　<a class="lk" onclick="userExportCsv()">📤 匯出 CSV</a>　<label class="lk" style="cursor:pointer">📥 匯入 Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,text/csv" onchange="userImportFile(event)" style="display:none"></label></span></h3>
+  <div class="card"><h3>MHR 名單（${MHR_USERS.length}）<span class="vi">${esc(MHR_USERS_STATUS)}　<a class="lk" onclick="reloadPerm()">重新載入</a>　·　<a class="lk" onclick="userExportCsv()">📤 匯出 CSV</a>${canEditUsers()?`　<label class="lk" style="cursor:pointer">📥 匯入 Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,text/csv" onchange="userImportFile(event)" style="display:none"></label>`:''}</span></h3>
     ${MHR_USERS.length?`
     <div class="row" style="margin:0 0 8px">
       <div style="min-width:240px"><input id="u_q" placeholder="🔍 搜尋：姓名 / Email / 廠區 / 角色" value="${esc(window._userQ||'')}" oninput="window._userQ=this.value;renderPermPage();setTimeout(()=>{const e=document.getElementById('u_q');if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},0)"></div>
@@ -3413,7 +3483,9 @@ function permMatrixBody(){
     const rows=items.map(pg=>{
       if(pg.id==='perm'){
         /* ★91 廠區管理員(sadmin) 兩列都可，但限自己廠區、不可授予 admin/sadmin */
-        return rowHTML('⚙ 名單管理－權限設定', k=>k==='admin'?'vced':(k==='sadmin'?'vce':''), '設角色與可看範圍；集團內誰能進由 OMS 授權，外部廠商 MHR 自建')
+        /* ★99-53：sadmin 從 'vce' 改成 'v' —— 使用者定調「廠區管理員不能設定誰能進入 MHR」。
+           ⚠ 這一列是**寫死的文字**不是真規則，真規則在 canEditUsers()；兩邊要一致。 */
+        return rowHTML('⚙ 名單管理－權限設定', k=>k==='admin'?'vced':(k==='sadmin'?'v':''), '設角色與可看範圍；集團內誰能進由 OMS 授權，外部廠商 MHR 自建')
              + rowHTML('⚙ 名單管理－工牌名單', k=>k==='admin'?'vced':((k==='sadmin'||k==='sup')?'vce':''), '廠區管理員／主管限自己廠區');
       }
       /* ★98-21 矩陣加括號註記（使用者提）：98 最大的責任變動＝「產箱」從作業員移到品保手上，
@@ -3439,6 +3511,8 @@ function editUser(email,isNew){
   render(); if(window.scrollTo) window.scrollTo(0,0);
 }
 async function saveUser(){
+  /* ★★99-53：UI 藏起來不夠——舊分頁、控制台、直接呼叫都繞得過去（同 backlog `0v2` 的教訓）。 */
+  if(!canEditUsers()) return toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err');
   /* ★★這是唯一能「擴權」的入口：在限定廠區下建一個 account_type='admin' 的帳號，
      前面 40 幾支守門就全部失效。所以限定廠區時：①不准建/改全域 admin ②範圍必須是自己範圍的子集。 */
   { const _eu=window._editUser||{}; if(wGuard('perm', _eu.isNew?'c':'e', undefined, '帳號')) return; }
@@ -3471,6 +3545,8 @@ async function saveUser(){
   await loadMhrUsers(); render();
 }
 async function resetPwd(email){
+  /* ★★99-53：UI 藏起來不夠——舊分頁、控制台、直接呼叫都繞得過去（同 backlog `0v2` 的教訓）。 */
+  if(!canEditUsers()) return toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err');
   if(wGuard('perm','e',undefined,'重設密碼')) return;
   { const _my=simOn()?opsScopeCodes():null; const u=(MHR_USERS||[]).find(x=>x.email===email);
     if(_my && u && [].concat(u.site_codes||[]).some(c=>_my.indexOf(c)<0)) return toast('🏭 這個帳號不在你目前的廠區範圍內','err'); }   /* 在 confirm 之前 */
@@ -3480,6 +3556,8 @@ async function resetPwd(email){
   toast(r.message||'已重設','ok'); await loadMhrUsers(); render();
 }
 async function revokeUser(email){
+  /* ★★99-53：UI 藏起來不夠——舊分頁、控制台、直接呼叫都繞得過去（同 backlog `0v2` 的教訓）。 */
+  if(!canEditUsers()) return toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err');
   if(wGuard('perm','d',undefined,'移除 MHR 權限')) return;
   { const _my=simOn()?opsScopeCodes():null; const u=(MHR_USERS||[]).find(x=>x.email===email);
     if(_my && u && [].concat(u.site_codes||[]).some(c=>_my.indexOf(c)<0)) return toast('🏭 這個帳號不在你目前的廠區範圍內','err'); }   /* 在 confirm 之前 */
@@ -3787,13 +3865,13 @@ function renderMaster(){
       <table style="margin:0"><tbody>${rows}</tbody></table></div>`;
   }).join('');
   v.innerHTML=`<style>.pm td{padding:5px 11px!important}.pm .card{margin-bottom:10px!important}</style><div class="pm">
-  <div class="page-h"><h2>製程主檔 Process Master</h2><p>系統內建的標準製程清單（${STATIONS.filter(s=>!s.legacy).length} 站），依類別分區。產品路線只能從這裡挑。委外不是製程屬性、改在產品路線各站勾選。可勾選各製程「需記設備」（建箱／報工時該站設備就變必填；委外站改記廠商）與「需記質控」（該站裝箱＝存檔時質控必填，沒人驗不能裝箱；預設全站開）。<b>★99-42 起這兩個開關可以各廠不同</b>：不切廠區檢視時改的是「全公司預設」，切到某一廠時改的是那一廠的自訂（只記例外，其餘跟隨全公司）。</p></div>
-  <div class="card"><h3>🏷 標籤條碼格式 <span class="vi">（全公司一致，存雲端）</span></h3>
+  <div class="page-h"><h2>製程主檔 Process Master</h2><p>系統內建的標準製程清單（${STATIONS.filter(s=>!s.legacy).length} 站），依類別分區。產品路線只能從這裡挑。委外不是製程屬性、改在產品路線各站勾選。可勾選各製程「需記設備」（建箱／報工時該站設備就變必填；委外站改記廠商）與「需記質控」（該站裝箱＝存檔時質控必填，沒人驗不能裝箱；預設全站開）。<b>★99-42 起這兩個開關、★99-48 起上方的標籤條碼格式，都可以各廠不同</b>：不切廠區檢視時改的是「全公司預設」，切到某一廠時改的是那一廠的自訂（只記例外，其餘跟隨全公司）。</p></div>
+  <div class="card"><h3>🏷 標籤條碼格式 <span class="vi">${labelCodeScopeNote()}</span></h3>
     <div class="row" style="align-items:center">
       <label class="chip" style="font-weight:600;cursor:pointer"><input type="radio" name="lblcode" value="c128"${labelCodeType()==='c128'?' checked':''} onchange="setLabelCodeType(this.value)" style="width:auto;margin-right:6px;vertical-align:-2px">Code 128 <span class="small muted">（一維條碼，現場掃描槍已驗證可讀）</span></label>
-      <label class="chip" style="font-weight:600;cursor:pointer"><input type="radio" name="lblcode" value="qr"${labelCodeType()==='qr'?' checked':''} onchange="setLabelCodeType(this.value)" style="width:auto;margin-right:6px;vertical-align:-2px">QR Code <span class="small muted">（二維，較耐油污；需確認掃描槍支援）</span></label>
+      <label class="chip" style="font-weight:600;cursor:pointer"><input type="radio" name="lblcode" value="qr"${labelCodeType()==='qr'?' checked':''} onchange="setLabelCodeType(this.value)" style="width:auto;margin-right:6px;vertical-align:-2px">QR Code <span class="small muted">（二維，較耐油污；需確認掃描槍支援）</span></label>${siteSettingHasOv('label_code_site')?(siteOvTag()+siteOvResetBtn('clearLabelCodeType()')):''}
     </div>
-    <div class="small muted" style="margin-top:6px">條碼內容都是<b>箱號</b>；改了之後<b>新印的標籤</b>才會變，已印出的標籤照舊可用。</div></div>
+    <div class="small muted" style="margin-top:6px">條碼內容都是<b>箱號</b>；改了之後<b>新印的標籤</b>才會變，已印出的標籤照舊可用。${labelCodeScopeHint()}</div></div>
   <div class="small muted" style="margin-bottom:10px">欄位：標準名 ｜ 代碼 ｜ 別名/各廠說法（<span class="pill" style="background:#ede6f5;color:#6a4c93">局部</span> ＝只處理工件部分區域）</div>${procScopeBanner()}${blocks}</div>`;
 }
 
@@ -3931,7 +4009,7 @@ function ordRow(o){ return { no:o.no, date:o.date||null, customer:o.customer||nu
   source:o.source||'mhr', erp:o.erp||null, site:o.site||null, issued_by:o.issuedBy||null, updated_at:new Date().toISOString() }; }   /* ★99-46 site */
 async function loadOrders(){
   MHR_ORD_STATUS='載入中…';
-  const d=await sbGet('mhr_orders?select=*&order=created_at.desc');
+  const d=await sbGetAll('mhr_orders?select=*&order=created_at.desc');   /* ★99-49 分頁，免得破千靜默截斷 */
   MHR_ORDERS=(Array.isArray(d)?d:[]).map(r=>({ _uuid:r.id, no:r.no, date:r.date||'', customer:r.customer||'',
     partNo:r.part_no, qty:+r.qty||0, unit:r.unit||'PCS', dueDate:r.due_date||'', note:r.note||'',
     status:r.status||'進行中', source:r.source||'mhr', erp:r.erp||null, createdAt:r.created_at,
@@ -4422,13 +4500,46 @@ async function createBox(){ if(wGuard('create','c',undefined,'首站打單')) re
 const C128=('212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112').split(' ');
 /* ★88-7 標籤條碼格式可選（使用者定案：Code128 已驗證可掃；QR 大永說印得出來，兩種都留，
    現場實測後再定）。存 mhr_settings.label_code＝'c128'|'qr'，全公司一致。 */
-function labelCodeType(){ return (MHR_SETTINGS.label_code==='qr')?'qr':'c128'; }
+/* ★★99-48（0L）分廠區：本廠有設就用本廠，沒設才跟隨全公司。
+   ★ 全檔 labelCodeType() 讀取點只有 3 個（製程主檔兩顆 radio、印標籤），**呼叫端一行都不用改**。
+   ⚠ 與 procNeedQc/Mc 同一個契約：舊鍵匙 label_code 結構**原封不動**（舊分頁相容的唯一保證），
+     另開 label_code_site＝{廠區:值} **只記例外**。上線當下沒人設過 ⇒ 畫面完全不變。 */
+function labelCodeTypeGlobal(){ return (MHR_SETTINGS.label_code==='qr')?'qr':'c128'; }
+function labelCodeType(){ const ov=siteSettingOv('label_code_site');
+  if(ov!==null) return (ov==='qr')?'qr':'c128';
+  return labelCodeTypeGlobal(); }
+function labelCodeName(v){ return (v==='qr')?'QR Code':'Code 128'; }
 function setLabelCodeType(v){
   /* ⚠ 這顆的 UI radio 原本連 can('master','e') 都沒包（同頁的站別開關 checkbox 有）⇒ 查詢角色也點得到、直接寫雲端。順手補上。 */
-  if(wGuard('master','e',undefined,'標籤條碼格式')) return;
-  if(vsOn()) return toast('🏭 標籤條碼格式全公司一致（不分廠區），檢視模式不能改','err');
-  setSetting('label_code', v==='qr'?'qr':'c128');
-  toast('標籤條碼改用 '+(v==='qr'?'QR Code':'Code 128')+'（已存雲端）','ok'); render(); }
+  const st=procScopeSite();
+  /* ★99-48 擋下要 render()：radio 已經被瀏覽器點亮、資料卻沒改 ⇒ 畫面與資料不一致
+     （同 99-43 給 99-42 補的那個缺口，也是 backlog `0r` 同一類病）。 */
+  if(wGuard('master','e',st,'標籤條碼格式')) return render();
+  v=(v==='qr')?'qr':'c128';
+  /* ★99-48（0L）舊版這裡是 `if(vsOn()) return toast('全公司一致…不能改')` ——
+     分廠區之後那句話不再成立，改成寫本廠。 */
+  if(st){ const t=Object.assign({},MHR_SETTINGS.label_code_site||{}); t[st]=v;
+    setSetting('label_code_site',t);
+    toast('🏭 '+st+'　標籤條碼：'+labelCodeName(v)+'（本廠自訂，已存雲端）','ok'); return render(); }
+  setSetting('label_code',v);
+  toast('標籤條碼改用 '+labelCodeName(v)+'（全公司預設，已存雲端）','ok'); render(); }
+/* ↺ 清掉本廠例外＝改回跟隨全公司。⚠ 比照 clearProcNeedMc：清完把那一廠的鍵刪掉，
+   不要留 {大永:undefined} 的空殼，日後盤點分不出「沒設過」與「設過又清光」。 */
+function clearLabelCodeType(){
+  const st=procScopeSite(); if(!st) return;
+  if(wGuard('master','e',st,'標籤條碼格式')) return;
+  const t=Object.assign({},MHR_SETTINGS.label_code_site||{}); delete t[st];
+  setSetting('label_code_site',t);
+  toast('🏭 '+st+'　標籤條碼：改回跟隨全公司預設（'+labelCodeName(labelCodeTypeGlobal())+'）','ok'); render(); }
+/* ★99-48（0L）三態說明文字。比照 procScopeBanner() 的用意：
+   三態差異很細，沒有這一句，切了廠區檢視的人會以為自己在改全公司設定（或反過來）。 */
+function labelCodeScopeNote(){ const st=procScopeSite();
+  return st?('（目前改的是「'+esc(st)+'」這一廠，存雲端）'):'（全公司預設，存雲端）'; }
+function labelCodeScopeHint(){ const st=procScopeSite();
+  if(!st) return ' 各廠可以自己指定不同格式（切廠區檢視後再改）——條碼格式取決於<b>各廠掃描槍硬體</b>，不是集團政策。';
+  return siteSettingHasOv('label_code_site')
+    ? ' 本廠已自訂，按 <b>↺</b> 可以改回跟隨全公司預設（'+labelCodeName(labelCodeTypeGlobal())+'）。'
+    : ' 目前<b>跟隨全公司預設</b>（'+labelCodeName(labelCodeTypeGlobal())+'）；一改就變成本廠自訂。'; }
 function c128svg(txt){
   txt=String(txt||''); if(!txt) return '';
   for(const ch of txt){ const v=ch.charCodeAt(0); if(v<32||v>126) return '<div style="color:#900;font-size:8pt">條碼內容含不支援字元</div>'; }
@@ -4599,6 +4710,10 @@ function skPendRedraw(){ const box=$('#sk_pend_rows'); if(!box) return;
   <div style="margin-top:8px"><button class="btn navy" onclick="skAddChecked()">＋ ${L('加入勾選的箱')}</button></div>`
   :'<div class="empty">沒有待入庫的箱（質控產箱後會出現在這）</div>'; }
 function skDone(){
+  /* ★★★99-51（backlog `0Q`）補守門 —— 它跟 `rvDone`（清點移轉）4906、
+     `vbDone`（委外回廠點收）4745 是**同一組三兄弟**，那兩支都有 wGuard，**只有這支漏了**。
+     （跟 99-50 修的 `vbPending` 一模一樣的病：三兄弟漏一個。） */
+  if(wGuard('receive','e',undefined,'物控入庫')) return;
   if(!window._sk.length) return toast('請先掃箱','err');
   for(let i=0;i<window._sk.length;i++){ const a=+(($('#sk_a'+i)||{}).value||0); if(!(a>=0)) return toast(window._sk[i]+' 實收數不正確','err'); }
   const by=sessionName()||'—'; const at=nowISO(); let nDiff=0;
@@ -4672,7 +4787,8 @@ function renderReceive(){
    ・結案短少走 box.writeOff 一次核銷 → 不會變成「還沒做完」掛在委外站帳上
    ・超交＝同一套記錄只差正負號，可與先前短交互相沖銷 */
 window._vb=[];window._vbS={};
-function vbPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&remaining(c.cid)>0
+/* ★★99-50：三兄弟中**唯一沒過濾的** —— rvPending（4508）、stkPending（4515）都有 boxScopeReadable。 */
+function vbPending(){ return db.data.containers.filter(c=>isNormalBox(c)&&boxScopeReadable(c)&&remaining(c.cid)>0
   &&c.received&&c.received.kind==='sendout'); }
 function vbAdd(cid0){
   const inp=$('#vb_cid'); const cid=(cid0||(inp?inp.value:'')||'').trim().toUpperCase(); if(!cid) return;
@@ -5009,148 +5125,27 @@ document.addEventListener('keydown',function(e){
   }catch(err){}
 });
 
-/* ---------- 04 過站報工（整箱投入為預設；來源限「已接收」＝A 嚴格） ---------- */
-window._draws=[]; // [{cid,take}]
-function renderReport(){
-  const nElig=eligibleSrc().length;
-  $('#view').innerHTML=`
-  <div class="page-h"><h2>${L('過站打單')}</h2><p>★97 三步：① 查找要處理的箱 → ② 轉入領料（可部分、可多箱接力）→ ③ <b>過站打單（只填產出總數＝領料）→ 產待驗單</b>；OK/NR/NG 分類與產箱印標由「<b>質控檢驗</b>」完成。</p></div>
-  <div class="card"><h3>${L('① 查找 / 選擇要處理的製程箱')}</h3>
-    <p class="small muted" style="margin:-4px 0 8px">先找出要報工的箱（在上一站、有結存、有下一站）。可掃箱號，或點「查找」從清單選。目前 <b>${nElig}</b> 箱可處理。</p>
-    <div class="row"><div style="flex:1;min-width:220px"><label>${L('掃描來源箱號 CID')}</label><input id="r_cid" class="mono" placeholder="如 DC${todayYMD()}0001" oninput="loadInfo()"></div>
-      <button class="btn navy" onclick="toggleFinder()">🔍 ${L('查找可處理的箱號')}</button></div>
-    <div id="r_finder" style="display:none;margin-top:8px"></div>
-    <div id="r_info" class="step" style="margin-top:8px"></div>
-  </div>
-  <div class="card"><h3>${L('② 轉入（領料）')}</h3>
-    <p class="small muted" style="margin:-4px 0 8px">把上方①選到的箱領入本站。可只領一部分（剩料留原箱）、可多箱接力湊單。</p>
-    <div class="row"><div style="width:160px"><label>${L('本次領用數')}</label><input id="r_take" type="number" placeholder="領多少"></div>
-      <button class="btn navy" onclick="addDraw()">${L('加入領料')}</button></div>
-    <div id="r_draws" style="margin-top:10px"></div>
-    <div id="r_backlog" style="display:none;margin-top:10px"></div>
-  </div>
-  <div id="r_form"></div>
-  <div id="r_result"></div>`;
-  window._draws=[]; renderDraws();
-}
-// 下一站「目前在站堆積」：製程站＝nx 且仍有結存的箱（＝已停在該站、尚未轉出/出貨的量），全機種
-function nextBacklog(nx){ let q=0,n=0; db.data.containers.forEach(x=>{ if(!isNormalBox(x)) return; if(x.processCode!==nx) return; const r=remaining(x.cid); if(r>0){ q+=r; n++; } }); return {q,n}; }
-function backlogBoxes(nx){ return db.data.containers.filter(x=>isNormalBox(x)&&x.processCode===nx&&remaining(x.cid)>0).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))); }
-// 在站堆積明細：列出目前停在 nx 站的每一箱（全機種），點箱可追溯
-function showBacklog(nx){ const el=$('#r_backlog'); if(!el||!nx) return;
-  const list=backlogBoxes(nx); const q=list.reduce((a,x)=>a+remaining(x.cid),0);
-  el.innerHTML=`<div class="note" style="margin:0 0 6px">下一站「${stN(nx)}」目前在站堆積：共 <b>${list.length}</b> 箱、<b style="color:#b9760f">${q}</b> pcs（已停在該站、尚未轉出/出貨；點箱可追溯）<a class="lk small" style="float:right;cursor:pointer" onclick="$('#r_backlog').style.display='none'">收合</a></div>
-   ${list.length?`<table><thead><tr><th>箱號</th><th>機種</th><th>批號</th><th>結存</th><th>狀態</th><th>時間</th></tr></thead><tbody>
-   ${list.map(x=>{ const fin=isFinished(x); const nx2=nextStation(x.partNo,x.processCode); return `<tr style="cursor:pointer" onclick="traceBox('${x.cid}')"><td><span class="badge">${esc(x.cid)}</span>${x.pack==='carton'?' <span class="pill" style="background:#eef;color:#3355aa;font-size:10px">紙箱</span>':''}${x.workType==='rework'?' <span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工</span>':''}</td><td>${esc((prodOf(x.partNo)||{}).model||x.partNo)}</td><td class="mono small">${esc(x.lot||'-')}</td><td><b style="color:var(--teal)">${remaining(x.cid)}</b></td><td class="small">${fin?'<span class="pill ok">待出貨</span>':'→ 待轉 '+stN(nx2)}</td><td class="small muted">${esc(localDT(x.createdAt))}</td></tr>`; }).join('')}
-   </tbody></table>`:'<div class="empty">該站目前無在站堆積</div>'}`;
-  el.style.display='block';
-}
-function toggleBacklog(nx){ const el=$('#r_backlog'); if(!el) return; if(el.style.display==='none'||!el.innerHTML){ showBacklog(nx); } else { el.style.display='none'; } }
-function loadInfo(){
-  const cid=$('#r_cid').value.trim().toUpperCase(); const c=findC(cid); const el=$('#r_info'); if(!cid){ el.innerHTML=''; return; }
-  if(!c){ el.innerHTML=`<div class="note" style="border-color:var(--red);background:var(--redbg)">找不到箱號 ${esc(cid)}</div>`; return; }
-  const rem=remaining(cid); const nx=nextStation(c.partNo,c.processCode);
-  const stat=(lbl,val,color,sub)=>`<div style="flex:1;min-width:96px;background:#fff;border:1px solid #e3e9f0;border-radius:8px;padding:8px 12px">
-    <div class="small muted">${lbl}</div><div style="font-size:18px;font-weight:700;line-height:1.25${color?';color:'+color:''}">${val}${sub?` <span class="small muted" style="font-weight:400">${sub}</span>`:''}</div></div>`;
-  let backlog='';
-  if(nx){ const b=nextBacklog(nx); backlog=`<div onclick="toggleBacklog('${nx}')" style="flex:1;min-width:120px;background:#fff;border:1px solid #e3e9f0;border-radius:8px;padding:8px 12px;cursor:pointer">
-    <div class="small muted">下一站「${stN(nx)}」目前在站堆積 <span style="color:var(--navy)">▾ 點看明細</span></div>
-    <div style="font-size:18px;font-weight:700;line-height:1.25;color:#b9760f"><b>${b.q}</b> <span class="small muted" style="font-weight:400">pcs ｜ ${b.n} 箱</span></div></div>`; }
-  el.innerHTML=`<div style="background:#f7fafc;border:1px solid #e3e9f0;border-left:4px solid var(--navy);border-radius:10px;padding:12px 14px">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-      <span class="badge">${esc(cid)}</span>${c.workType==='rework'?'<span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工</span>':''}
-      <span style="font-weight:600">${pnCell(c.partNo)}</span>
-      <span class="pill dc">${stN(c.processCode)}</span>
-      ${c.lot?`<span class="mono small muted">${esc(c.lot)}</span>`:''}
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      ${stat('原數量',c.qty)}
-      ${stat('已領',drawnOut(cid))}
-      ${stat('剩可領',rem,'var(--teal)')}
-      ${stat('下一站',nx?stN(nx):'已末站')}
-      ${stat('點交',isReceived(c)?'已接收 ✓':(needReceive(c)?'未接收':'豁免'),isReceived(c)?'var(--green)':'#b9760f')}
-      ${backlog}
-    </div>
-  </div>`;
-}
-/* 查找箱號：列出可領用的在庫來源箱（有結存且有下一站；已開始領料則鎖同機種同製程），點選帶入領料 */
-function eligibleSrc(){
-  let list=db.data.containers.filter(c=>isNormalBox(c) && remaining(c.cid)>0 && nextStation(c.partNo,c.processCode) && canDraw(c));   // 3a-2 A嚴格：只列已接收
-  if(window._draws.length){ const f=findC(window._draws[0].cid); if(f) list=list.filter(c=>c.partNo===f.partNo&&c.processCode===f.processCode); }
-  return list.sort((a,b)=>String(a.processCode).localeCompare(String(b.processCode))||String(a.cid).localeCompare(String(b.cid)));
-}
-function toggleFinder(){ const el=$('#r_finder'); if(!el) return;
-  if(el.style.display==='none'){ el.style.display='block';
-    const lock=window._draws.length?`<div class="muted small" style="margin:2px 0 6px">已鎖定機種／製程：僅列同批可併領的箱</div>`:'';
-    el.innerHTML=`<div class="card" style="background:#f7fafc">
-      <div class="row"><div style="flex:1"><input id="r_find_kw" placeholder="搜尋 箱號 / 機種 / 品名 / 批號" oninput="filterFinder()"></div><button class="btn gray sm" onclick="toggleFinder()">關閉</button></div>
-      ${lock}<div id="r_find_list" style="margin-top:6px"></div></div>`;
-    filterFinder(); const f=$('#r_find_kw'); if(f) f.focus();
-  } else { el.style.display='none'; }
-}
-function filterFinder(){ const box=$('#r_find_list'); if(!box) return;
-  const kw=((($('#r_find_kw')||{}).value)||'').trim().toLowerCase();
-  let list=eligibleSrc();
-  if(kw) list=list.filter(c=>[(c.cid||''),(c.partNo||''),pnNm(c.partNo)||'',(c.lot||'')].some(x=>String(x).toLowerCase().includes(kw)));
-  if(!list.length){ box.innerHTML='<div class="empty">沒有可領用的在庫來源箱</div>'; return; }
-  box.innerHTML=`<table><thead><tr><th>箱號</th><th>機種 / 料號</th><th>批號</th><th>目前站</th><th>剩可領</th><th>下一站</th></tr></thead><tbody>${list.map(c=>{ const already=window._draws.filter(d=>d.cid===c.cid).reduce((a,d)=>a+d.take,0); const rem=remaining(c.cid)-already; const nx=nextStation(c.partNo,c.processCode); return `<tr style="cursor:pointer" onclick="pickSrc('${c.cid}')"><td><span class="badge">${esc(c.cid)}</span>${c.workType==='rework'?` <span class="pill" style="background:#efe9fb;color:#7a4dd0;font-size:10px">重工</span>`:''}</td><td>${pnCell(c.partNo)}</td><td class="mono small">${esc(c.lot||'-')}</td><td><span class="pill dc">${stN(c.processCode)}</span></td><td><b style="color:var(--teal)">${rem}</b></td><td class="small">→ ${stN(nx)}</td></tr>`; }).join('')}</tbody></table>`;
-}
-function pickSrc(cid){ const c=findC(cid); if(!c) return; $('#r_cid').value=cid; const already=window._draws.filter(d=>d.cid===cid).reduce((a,d)=>a+d.take,0); const rem=remaining(cid)-already; if(rem>0&&!(+$('#r_take').value)) $('#r_take').value=rem; loadInfo(); const fn=$('#r_finder'); if(fn) fn.style.display='none'; }
-function addDraw(){
-  const cid=$('#r_cid').value.trim().toUpperCase(); const take=+$('#r_take').value||0; const c=findC(cid);
-  if(!c) return toast('找不到箱號','err');
-  const nx=nextStation(c.partNo,c.processCode); if(!nx) return toast('此箱已在末站，無下一站','err');
-  if(!canDraw(c)) return toast('此箱尚未移轉到本站——先到「03 清點移轉」掃箱完成物控清點，才能投入打單','err');   /* ★98-21 用詞更新：98 已把 🅐接收＋🅑點交合併成一個動作 */
-  if(window._draws.length){ const f=findC(window._draws[0].cid);
-    if(f.partNo!==c.partNo) return toast('同一次報工的來源箱需同機種','err');
-    if(f.processCode!==c.processCode) return toast('同一次報工的來源箱需同製程站','err'); }
-  const already=window._draws.filter(d=>d.cid===cid).reduce((a,d)=>a+d.take,0);
-  const rem=remaining(cid)-already;
-  if(take<=0) return toast('請輸入領用數','err');
-  if(take>rem) return toast(`超過剩餘可領（剩 ${rem}）`,'err');
-  const ex=window._draws.find(d=>d.cid===cid); if(ex) ex.take+=take; else window._draws.push({cid,take});
-  $('#r_cid').value=''; $('#r_take').value=''; $('#r_info').innerHTML=''; renderDraws();
-}
-function rmDraw(cid){ window._draws=window._draws.filter(d=>d.cid!==cid); renderDraws(); }
-function renderDraws(){
-  const wrap=$('#r_draws'); const form=$('#r_form');
-  if(!window._draws.length){ wrap.innerHTML='<span class="muted small">尚未加入來源箱（先在 ① 選箱、這裡填領用數加入）</span>';
-    const bl=$('#r_backlog'); if(bl){ bl.style.display='none'; bl.innerHTML=''; }
-    form.innerHTML=`<div class="card"><h3>${L('③ 轉出（完工報工）')}</h3><div class="empty">先在 ② 轉入領料後，這裡會出現完工欄位（OK / NR / NG → 下一站、設備、作業員）。</div></div>`; return; }
-  const total=window._draws.reduce((a,d)=>a+d.take,0);
-  const first=findC(window._draws[0].cid); const nx=nextStation(first.partNo,first.processCode);
-  wrap.innerHTML=`<table><thead><tr><th>${L('來源箱')}</th><th>${L('本次領用')}</th><th></th></tr></thead><tbody>
-    ${window._draws.map(d=>`<tr><td><span class="badge">${esc(d.cid)}</span></td><td>${d.take} pcs</td><td><button class="btn gray sm" onclick="rmDraw('${d.cid}')">${L('移除')}</button></td></tr>`).join('')}
-    <tr><td><b>合計領料</b></td><td><b>${total}</b> pcs</td><td></td></tr></tbody></table>`;
-  showBacklog(nx);   // 領料後下方自動呈現「待進下一站」全機種明細（標出已領）
-  /* ★97 併箱（產出去向）移「質控檢驗」頁 */
-  const os=isOS(first.partNo,nx);
-  const macs=machinesFor(nx);
-  const macOpts=`<option value="">— 選擇設備 —</option>`+macs.map(m=>`<option value="${esc(m.id)}">${esc(m.id)}${m.site?' · '+esc(m.site):''}</option>`).join('');
-  window._repNextCode=nx;   /* ★89 記住目標站，供班別/組別連動 */
-  const opOpts=operatorOpts(lastOp(),nx);   /* ★85-9 按目標站過濾 */
-  const vdOpts=vendorListFor(nx).map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');
-  form.innerHTML=`<div class="card"><h3>${L('③ 過站打單（產出）')} → ${stN(nx)}${os?' · '+Lt('委外'):''}</h3>
-    ${stageNo(first.partNo,nx)?`<div class="step">下一站階段料號：<span class="mono">${esc(stageNo(first.partNo,nx))}</span></div>`:''}
-    <div class="grid g3">
-      <div><label>${L('產出數（＝領料合計）')} <span style="color:var(--red)">*</span></label><input id="o_ok" type="number" value="${total}"></div>${''/* ★97 OK/NR/NG、每箱裝入、產出去向 → 移質控檢驗頁 */}
-      <div><label>班別 <span class="vi">（縮小作業員清單）</span></label><select id="o_shift" onchange="onRepFilter()">${shiftOpts('')}</select></div>
-      <div><label>組別(線別)</label><select id="o_team" onchange="onRepFilter()" data-shift="">${teamOpts(nx,'','')}</select></div>
-      <div><label>${L('作業員')} <span class="small muted">點選或掃工牌</span></label>
-        <div class="row" style="gap:6px"><select id="o_op" style="flex:1" onchange="opBig('o_op','o_opbig')">${opOpts}</select><button class="btn ghost sm" onclick="scanPick('o_op','operator')">${L('📷掃碼')}</button></div>
-        <div id="o_opbig" style="display:none;font-size:19px;font-weight:800;color:var(--navy);margin-top:3px"></div></div>
-      ${os?`<div><label>${L('委外廠商')} <span style="color:var(--red)">*</span></label><select id="o_vendor">${vdOpts}</select></div>`
-          :`<div><label>設備（僅顯示${stN(nx)}站機台）${procNeedMc(nx)?' <span style="color:var(--red)">*</span>':' <span class="small muted">選填</span>'}<span class="small muted">點選或掃機台QR</span></label>
-        <div class="row" style="gap:6px"><select id="o_mc" style="flex:1" onchange="onRepFilter()">${macOpts}</select><button class="btn ghost sm" onclick="scanPick('o_mc','machine','${nx}')">${L('📷掃碼')}</button></div>${macEmptyHint(nx)}</div>`}
-      ${stationHasJig(first.partNo,nx)?`<div style="grid-column:1/-1"><label>治夾具 <span class="vi">（選填，可複選）</span></label><div id="o_jigs">${jigChips(first.partNo,nx)}</div></div>`:''}
-    </div>
-    <div class="small muted" style="margin-top:8px">★97 質控斷點：打單只填<b>產出總數（必須＝領料 ${total}）</b>；OK/NR/NG 分類、每箱裝入、產箱印標 → 到「<b>質控檢驗</b>」頁完成${procNeedQc(nx)?'':'（<b>此站未啟用質控斷點</b>＝打單直接產箱）'}。設備清單已依「${stN(nx)}」站過濾。</div>
-    <div style="margin-top:14px"><button class="btn lg green" onclick="doReport()">🖨 ${L('打單（產出 → 待驗單）')}</button></div>
-    <div style="margin-top:14px"><h3 style="margin-bottom:6px">📋 ${L('本站待驗單區')}</h3>${pendZoneHTML(nx)}</div>
-  </div>`;
-  opBig('o_op','o_opbig');
-}
-/* demo：模擬掃碼 = 從該類清單跳出選單帶入（正式版為相機掃 QR，依前綴 EMP/MAC 自動歸位） */
+/* ═════ ★★★99-52（backlog `0P`）這裡原本是 **04 過站報工的舊版，已移除** ═════
+   【發現經過】260819 跑「寫入入口 vs 守門」定向掃描時，工具報「`doReport` 沒有守門」——
+     實查才發現 **全檔 532 支 top-level function 裡，正好 2 支重複定義**：
+       ・`renderReport`（舊 5023 ／ 活 5379）・`doReport`（舊 5185 ／ 活 5427）
+     JS 函式宣告**後面那支贏** ⇒ ★97 改寫版才是活的，這一段從那時就是死碼。
+   【為什麼非刪不可】
+     ① 讀到舊的 `doReport` 會以為那就是報工邏輯——**我自己就差點據此報錯一條缺陷**。
+     ② 舊的 `doReport` **沒有 `wGuard`** ⇒ 日後若有人搬動順序或刪錯一支，**守門會静默消失**。
+     ③ 對死碼做修正等於白做。
+   【刪了什麼】區塊註解＋`window._draws`＋**14 支函式**：
+     `renderReport`、`nextBacklog`、`backlogBoxes`、`showBacklog`、`toggleBacklog`、`loadInfo`、
+     `eligibleSrc`、`toggleFinder`、`filterFinder`、`pickSrc`、`addDraw`、`rmDraw`、`renderDraws`、`doReport`。
+     （前 2 支是被同名遮蔽；其餘 12 支實查**只被這個死區引用**、外面一處也沒用到。）
+   【★★ `scanPick` 刻意保留（就在下面）】它雖然定義在這個區塊裡，
+     却被**活的** `repFormHTML()` 用到（⛩90-幾行後的兩顆「📷掃碼」按鈕）。
+     ⚠ 我第一次把死區畫成 4975～5330（舊行號）就誤判它是孤兒，**正確邊界到 `repAllBoxes` 為止**。
+     它只依賴 `prodOpsList`／`machinesFor`／`needMcMsg`／`onRepFilter`／`onCreFilter`，全部在死區之外。
+   【驗證過才刪】① 全檔無動態引用（`window['x']`／`eval`）
+     ② 預驗腳本對 `renderReport`／`doReport` 的 6 處都是**執行期呼叫**（會解析到活的那支）
+     ③ `window._draws` 的 22 處引用**全在死區內** ④ 刪完跑預驗＋對照組。 */
+
 function scanPick(targetId,kind,code){
   let list;
   if(kind==='operator') list=prodOpsList();
@@ -5173,65 +5168,7 @@ function scanPick(targetId,kind,code){
   sel.value=v; toast('已帶入：'+v,'ok');
   if(targetId==='o_mc') onRepFilter(); else if(targetId==='c_mc') onCreFilter();   /* ★96-6③ 掃碼帶入機台不觸發 onchange，手動套人機同廠 */
 }
-function doReport(){
-  /* ★97 報工＝「產出打單」：產出數必須＝領料（強制相等）；分類/分箱/產箱移「質控檢驗」頁。
-     「需記質控」關閉的站＝照舊直接產箱（跳過質控段）。 */
-  if(!window._draws.length) return toast('請先加入來源箱','err');
-  const qty=+$('#o_ok').value||0;
-  const total=window._draws.reduce((a,d)=>a+d.take,0);
-  if(qty!==total) return toast(`產出數 ${qty} ≠ 領料 ${total}（強制相等；OK/NR/NG 分類到質控檢驗頁做）`,'err');
-  const first=findC(window._draws[0].cid); const nx=nextStation(first.partNo,first.processCode);
-  const vEl=$('#o_vendor');
-  const shift=($('#o_shift').value||'').trim(), op=($('#o_op')?$('#o_op').value:'').trim(), mc=($('#o_mc')?$('#o_mc').value:'').trim(), vendor=vEl?vEl.value.trim():'';
-  const os=isOS(first.partNo,nx);
-  if(os){ if(!vendor) return toast('委外站請選委外廠商','err'); }
-  else if(procNeedMc(nx) && !mc) return toast(needMcMsg(nx),'err');   /* ★99-1 同上 */
-  const jigs=readChecks('o_jigs');
-  const draws=window._draws.map(d=>({cid:d.cid,take:d.take}));
-  if(!procNeedQc(nx)){
-    const at=nowISO();
-    const nc={cid:genCID(nx),partNo:first.partNo,name:first.name,lot:first.lot,orderNo:first.orderNo,
-      processCode:nx,stagePartNo:stageNo(first.partNo,nx),qty,operator:op,qc:'',machine:mc,vendor,shift,workType:'normal',
-      jigs,sources:draws,pid:null,createdAt:at};
-    if(nx==='PK'){ nc.pack='carton'; nc.oqc='待OQC'; }
-    db.data.containers.push(nc);
-    db.data.reports.push({id:'R'+Date.now()+Math.floor(Math.random()*1000),partNo:first.partNo,lot:first.lot,orderNo:first.orderNo,
-      fromStation:first.processCode,toStation:nx,draws,ok:qty,nr:0,ng:0,intoCid:nc.cid,nrCid:null,ngCid:null,shift,operator:op,qc:'',createdAt:at});
-    db.save(); rememberOp(op);
-    toast('此站未啟用質控斷點：已直接產箱 '+nc.cid,'ok');
-    window._draws=[]; renderReport();
-    const re0=$('#r_result'); if(re0) re0.innerHTML=`<div class="card"><h3>✅ 已產箱（此站未啟用質控斷點）</h3>
-      <div class="note">箱號 <span class="badge">${esc(nc.cid)}</span>（${qty} pcs）</div>
-      <div style="margin-top:10px"><button class="btn navy" onclick='printLabels(${JSON.stringify([nc.cid])})'>🖨 列印標籤</button></div></div>`;
-    return;
-  }
-  const slip={pid:genPID(nx),partNo:first.partNo,name:first.name,lot:first.lot,orderNo:first.orderNo,
-    processCode:nx,qtyProd:qty,operator:op,machine:mc,shift,team:((($('#o_team')||{}).value)||'').trim(),
-    mold:'',cavity:'',jigs,draws,pdate:'',status:'pending',qc:'',qmsNo:'',boxCids:[],
-    vendor,fromStation:first.processCode,createdAt:nowISO()};
-  db.data.pending.push(slip);
-  db.save(); rememberOp(op);
-  toast('已打單 '+slip.pid+'（'+stN(nx)+' 待質控）','ok');
-  window._draws=[]; renderReport();
-  const re=$('#r_result'); if(re) re.innerHTML=`<div class="card"><h3>🧾 ${L('已打單（產出 → 待驗單）')}</h3>
-    <div class="note" style="border-color:var(--teal)">待驗單 <b class="mono">${esc(slip.pid)}</b>｜${stN(nx)}｜產出 <b>${qty}</b>（領料 ${draws.length} 箱）<br>
-    <span class="small muted">實體放待驗區；「質控檢驗」驗完＝分類產箱＋印標</span></div></div>`;
-}
 
-/* ═══════════ ★97-2 過站打單重構（使用者定案：點交＝料已到站，免領料程序；與 02 首站打單同構） ═══════════
-   規則（使用者提案＋我定的預設）：選「已點交到本站」的箱（多選/掃碼）→ 填完成數 → 打單。
-   完成數＝選箱合計（最常見，預填）；少於合計＝餘量自動留在「最後一箱」（照選箱順序先進先出扣帳）；
-   大於合計＝擋。sources 鏈/結存/⏳占用照舊。以下宣告覆蓋上面的舊版 renderReport/doReport（舊領料流程停用備查）。 */
-/* ★99-8 04 的篩選狀態收在一處宣告：_rWo/_rLot/_rDate 一直沒宣告、靠 `||''` 活著，
-   加第四個篩選（_rPn）時一起補齊，日後加第五個才不會漏。行為零改變
-   （原本 undefined 在 `!x` 與 `(x||'')` 兩種用法下都與空字串等價）。 */
-window._rSel=[]; window._rSt=''; window._rPn=''; window._rWo=''; window._rLot=''; window._rDate='';
-/* ★98-9 04 過站打單排除「委外站」（使用者定案）：委外那一站的加工是廠商做的，大永只負責
-   「03 委外轉出」和「03 委外回廠點收」。原本委外站同時出現在 04 與 03，同一批料會被打兩次單。
-   ⚠委外是「產品路線上每站各自勾選」的，所以用 isOS(料號,站) 逐箱判斷，不是整站排除。 */
-/* ★99-8 「待投產箱」的定義收斂到這一個出處（原本 repStations／repBoxesAt 各抄一份 filter，
-   99-8 又要多一個「全部站」來源，抄第三次一定會走樣）[[centralize-shared-rule-not-per-page]]
-   ⚠ 行為等價：原本 repBoxesAt 裡 isOS(c.partNo,st) 的 st 就等於 c.received.station。 */
 function repAllBoxes(){ return db.data.containers.filter(c=>isNormalBox(c)&&remaining(c.cid)>0&&isReceived(c)&&c.received.station
   &&!isOS(c.partNo,c.received.station)); }
 function repStations(){ return [...new Set(repAllBoxes().map(c=>c.received.station))]; }
@@ -5778,7 +5715,25 @@ function voidPending(pid){ if(wGuard('qcinsp','d',undefined,'作廢待驗單 '+p
   db.save(); toast('已作廢（記錄保留）','ok'); render(); }
 
 /* ---------- 06 不良 / 重工（會判處置：重工回流 / 報廢 / 改判放行） ---------- */
-function reworkOrderOpts(){ return getOrders().filter(o=>o.status!=='完成').map(o=>`<option value="${esc(o.no)}">`).join(''); }
+/* ★★99-48（backlog `4d`②）兩個修正。
+   ⚠⚠ **候選源本身不動** —— 現在列的是「未完成的正常工單」，而欄位語意是 R 類重工單，
+     這個不對。但「要不要改成列既有 R 單號」是**設計決定、使用者尚未拍板**，本版不夾帶。
+     （真要根治是 `4d`③「重工工單落地成真的單」那個大題。）
+   ① **去重**：工單主鍵是 (no, part_no)，同一張單多機種＝多筆明細
+     ⇒ 舊版同一個工單號會列好幾次（TY-Starlink 有 3 筆明細就列 3 次）。
+   ② ★**廠區過濾**：舊版直接吃 getOrders()，**沒走 ordScopeReadable**
+     ⇒ 敬得的人在下拉裡看得到大永的工單號。**這是 99-47-1 的漏網** ——
+     那一版的教訓正是「除了基底函式，還要掃**頁面自己算的**那一類」，
+     而 reworkOrderOpts() 就是頁面自己算的。fail-closed 由 ordScopeReadable 自動成立。 */
+function reworkOrderOpts(){
+  const seen=new Set(), out=[];
+  getOrders().forEach(o=>{
+    if(o.status==='完成') return;
+    if(!ordScopeReadable(o)) return;                              /* ★99-48 廠區 */
+    const no=String(o.no||'').trim(); if(!no||seen.has(no)) return;   /* ★99-48 去重 */
+    seen.add(no); out.push(no);
+  });
+  return out.map(no=>`<option value="${esc(no)}">`).join(''); }
 /* ═══ ★99-18 06 不良／重工 篩選（比照全站通則 [[filter-cascade-clear-rule]]）═══
    【為什麼】① 待會判/待重工 原本是一張**裸表、連一個篩選都沒有**。實測正式庫 16 箱、
      跨 7/29～8/12 半個月都還沒處置 → 只能一頁頁翻。②③ 兩張同樣沒有。
@@ -5824,8 +5779,12 @@ function renderRework(){
     .sort().map(l=>({v:l,t:l}));
   const _rwStItems=[...new Set(_rwAll.filter(c=>rwHit(c,'st')).map(c=>c.processCode).filter(Boolean))]
     .sort((a,b)=>repStOrd(a)-repStOrd(b));   /* 依製程順序，不是字母序 */
-  const nrBoxes=rwFilter(db.data.containers.filter(c=>c.kind==='NR'));
-  const ngBoxes=rwFilter(db.data.containers.filter(c=>c.kind==='NG'));
+  /* ★★★99-50：舊版這兩行吃的是 **db.data.containers 未過濾全集**，
+     而同一頁的「全部 N 箱」用的是已過濾的 _rwAll（＝rwBase()，5767 行）
+     ⇒ 不只外洩，還會**自相矛盾**（可能出現「符合 30 箱／全部 19 箱」）。
+     ⇒ 改成從 _rwAll 再分 NR/NG：**一個來源不要兩份**（rwBase 本來就只收 NR＋NG）。 */
+  const nrBoxes=rwFilter(_rwAll.filter(c=>c.kind==='NR'));
+  const ngBoxes=rwFilter(_rwAll.filter(c=>c.kind==='NG'));
   const pend=nrBoxes.filter(c=>remaining(c.cid)>0);
   const pendQty=pend.reduce((a,c)=>a+remaining(c.cid),0);
   const ngQty=ngBoxes.reduce((a,c)=>a+(+c.qty||0),0);
@@ -5954,7 +5913,9 @@ function renderAll(){
   const prodOpts=prodOptions(Lt('全部機種'),'',prodsVisible());   /* ★99-20-3 依廠區收斂 */
   const stOpts='<option value="">全部製程</option>'+STATIONS.map(s=>`<option value="${s.code}">${stNo(s)}</option>`).join('');
   /* ★96-3 加「日期」篩選（使用者要求）：選項＝現有箱子的建箱日期（含作廢箱，新到舊），比對 createdAt 日期段 */
-  const aDates=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)).map(c=>prodDayOf(c.createdAt)).filter(Boolean))].sort().reverse();
+  /* ★★★99-50：下拉候選源外洩（同 reworkOrderOpts 那一類）—— 同一支函式裡的
+     機種下拉 prodsVisible() 有收斂（99-20-3），日期／批號／工單三個卻沒有，**自己就不一致**。 */
+  const aDates=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)&&boxScopeReadable(c)).map(c=>prodDayOf(c.createdAt)).filter(Boolean))].sort().reverse();
   const aDateOpts='<option value="">'+Lt('全部日期')+'</option>'+aDates.map(d=>`<option value="${d}">${d}</option>`).join('');
   /* ★96-4 批號篩選（原追溯③「依批號列箱子」移到本頁）：可打字組合框；含作廢箱的批號也列 */
   /* ★97 批號清單標「全作廢」（使用者困惑：08 有4批、07 只列2批——因 07 流轉分析不列全作廢批）：
@@ -5963,9 +5924,9 @@ function renderAll(){
      comboFill('a_lot', …map(l=>({v:l,t:l}))) 會用「純批號」把整份 datalist 蓋掉，
      而 allSyncOpts() 在 renderAllTable() 尾端一定會跑 ⇒ 使用者永遠看不到「（全作廢）」。
      ⇒ 標籤規則收斂成 lotVoidItems() 一個出處，兩邊共用 [[centralize-shared-rule-not-per-page]] */
-  window._alLots=lotVoidItems([...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)&&c.lot).map(c=>c.lot))].sort());
+  window._alLots=lotVoidItems([...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)&&c.lot&&boxScopeReadable(c)).map(c=>c.lot))].sort());   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
   /* ★96-6 ④工單篩選（使用者要求：測試箱要能用工單快速圈出） */
-  window._alWos=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)).map(c=>c.orderNo).filter(Boolean))].sort().map(w=>({v:w,t:w}));
+  window._alWos=[...new Set(db.data.containers.filter(c=>c&&!c.ngHolder&&!isDefect(c)&&boxScopeReadable(c)).map(c=>c.orderNo).filter(Boolean))].sort().map(w=>({v:w,t:w}));   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
   $('#view').innerHTML=`
   <div class="page-h"><h2>${L('全部箱號')}</h2><p>系統內所有箱號完整清單，可搜尋、篩選機種 / 批號 / 製程 / 日期 / 狀態。點任一列追溯；滑過箱號可看入庫次序。</p></div>
   <div class="card">
@@ -5995,6 +5956,7 @@ function allCascadeBase(skip,noKw){
   const lt=comboResolve('a_lot',window._alLots||[])||'', aw=comboResolve('a_wo',window._alWos||[])||'';
   const kw=noKw?'':(($('#a_kw')?$('#a_kw').value:'').trim().toLowerCase());
   return db.data.containers.filter(c=>{ if(!c||c.ngHolder||isDefect(c)) return false;
+    if(!boxScopeReadable(c)) return false;   /* ★99-50 連動基底也要過濾，否則下拉有選項但列表 0 筆 */
     if(skip!=='pn'&&pn&&c.partNo!==pn) return false;
     if(skip!=='wo'&&aw&&c.orderNo!==aw) return false;
     if(skip!=='lot'&&lt&&c.lot!==lt) return false;
@@ -6130,7 +6092,8 @@ function renderAllTable(){
 /* ★96 追溯加「工單篩選」＋可打字組合框：②機種+工單、③機種+工單 改 datalist 組合框
    （點開=全清單、打字=縮小、空=全部）；工單清單=有箱資料的工單號；②機種↔工單雙向聯動（traceSync）。
    ④區間分析選項少、維持原下拉。 */
-function traceWoItems(pn){ return [...new Set(db.data.containers.filter(c=>isNormalBox(c)&&c.orderNo&&(!pn||c.partNo===pn)).map(c=>c.orderNo))].sort().map(w=>({v:w,t:w})); }
+/* ★★99-50：工單下拉外洩（同 08 那三個、同 reworkOrderOpts）。 */
+function traceWoItems(pn){ return [...new Set(db.data.containers.filter(c=>isNormalBox(c)&&boxScopeReadable(c)&&c.orderNo&&(!pn||c.partNo===pn)).map(c=>c.orderNo))].sort().map(w=>({v:w,t:w})); }
 /* ★★99-6 帳差的「認列單位」＝這筆短少／超收「該誰賠」。三處（明細欄／彙總／CSV 匯出）
    一律走這個函式，不要再各寫各的——這個 bug 的成因就是三處各自寫 `r.vendor||r.resp`。
    【原病徵，260812 使用者實測抓到】委外轉出時物控清點少 2 顆 → 認列單位顯示「昇榮」，
@@ -6817,17 +6780,102 @@ function traceStationBoxes(pn,code,cids){
 }
 
 /* ---------- 示範資料（含部分領用 / 接力併箱 / OK·NR·NG / 到成品） ---------- */
-/* ★102（260903）「匯出備份」收斂到系統管理員。
-   它倒的是 db.data ＝**全公司單一資料集、沒有廠區維度**（confirmDestructive 的註解已寫明），
-   而原本這顆掛在 dev_admin1 的 span **外面** ⇒ 所有登入者都看得到也按得下去
-   ⇒ 限定廠區的帳號按一下就整包帶走全公司的箱／工單／報工
-      （同 backlog 71-7「清單看不到、按一下匯出就整包帶走」的同一類外流面，只是當初沒掃到這一支）。
-   ⚠ UI 藏起來不夠 —— 舊分頁／控制台直接呼叫都繞得過去（backlog 71-6 的教訓）⇒ 函式層也要擋。
-   ⚠ 這只擋掉「按一下就有」；懂 F12 的登入者仍能直接打 API 撈全公司，
-      因為 RLS policy 對 authenticated 是全開（260903 實測：anon 讀 8 張表全部回空＝RLS 有擋未登入者）。
-      真正的把關＝policy 加廠區條件，前置是 backlog 9e
-      （mhr_containers 目前**連 site 欄都沒有**，260903 實測 column does not exist；mhr_orders 有，99-46 加的）。
-   ★ 99-49 其實做過正確版本 exportFullBackup（原始 DB row、只給 sysadmin），但那六版從沒上線。 */
+/* ═════ ★★★99-49 完整備份（方案 A）══════════════════════════════
+   【為什麼要這一顆】舊的「匯出備份」（exportJSON）只包 db.data 四張表（products/containers/reports/pending）——
+     **主檔、設定、工單全部不在裡面**。廠區主檔（含各廠時區）、製程分廠區例外、模具廠區欄、
+     工單廠區欄 —— 99-41～99-48 做的東西一個都備份不到。
+   【三個刻意的設計決定】
+     ① **匯出原始 DB row，不用記憶體裡正規化過的形狀** —— normSite()／dbFromRow() 把 full_name→full、
+        extra.tz→tz 拆開了，那個形狀**還原不回去**。備份要能直接 upsert 回同名表才有用。
+     ② **每張表都走分頁** —— 備份建立在「只讀得到前 1000 筆」的讀取上，會產出一份
+        **看起來完整其實缺料**的檔 ⇒ 比沒有備份更糟。
+     ③ ★**任一張表抓失敗就整個中斷、不產生檔案** —— sbGet 失敗時回 []，跟「表是空的」分不出來，
+        所以這裡**不用 sbGet**，自己 fetch 並檢查 r.ok。寧可沒有備份，也不要一份缺料的備份。
+   【故意不備的】
+     ・`mhr_sites`／`mhr_business_units`＝**OMS 的正本**（集團 20 廠區）。備了會製造「兩份正本」的混淆。
+     ・`mhr_profiles`（帳號）＝它走 Edge Function、而且真正的帳號在 `auth.users`；
+       只還原 profiles 會變成**孤兒資料**。帳號已經有獨立的 CSV 匯出（名單管理頁）。
+   ⚠ **這不是備份策略，是聊勝於無** —— 它靠人記得按。真正能救命的是 Supabase 端的自動備份／PITR（目前 FREE 方案沒有）。
+   ⚠ 只給**系統管理員**：這份檔含全公司主檔與工牌名單（姓名／工號），是 99-20 講過的**資料外流面**。
+     （舊的「匯出備份」只有四張交易表，維持所有人可用、一行不動。） */
+const BACKUP_TABLES=[
+  {t:'mhr_orders',       q:'select=*&order=created_at.desc',              why:'工單（99-46 起是廠區判斷鏈路的起點）'},
+  {t:'mhr_containers',   q:'select=*&order=created_at.asc',               why:'箱'},
+  {t:'mhr_reports',      q:'select=*&order=created_at.asc',               why:'報工'},
+  {t:'mhr_products',     q:'select=*&order=created_at.asc',               why:'產品／BOM'},
+  {t:'mhr_pending_insp', q:'select=*&order=created_at.asc',               why:'待驗單'},
+  {t:'mhr_vendors',      q:'select=*&order=created_at.asc',               why:'廠區／廠商主檔（含各廠時區 extra.tz）'},
+  {t:'mhr_machines',     q:'select=*&order=site,mach_id',                 why:'設備主檔'},
+  {t:'mhr_molds',        q:'select=*&order=created_at.asc',               why:'模具／治夾具主檔（含 99-41 廠區欄 extra.plant）'},
+  {t:'mhr_settings',     q:'select=*',                                    why:'系統設定（含 99-42 製程分廠區例外・99-48 標籤條碼格式）'},
+  {t:'mhr_operators',    q:'select=*&order=site_code,badge',              why:'工牌名單'}
+];
+/* ★不用 sbGet：它失敗時回 []，跟「表是空的」分不出來 ⇒ 備份會靜默缺料。這支失敗就 throw。 */
+async function bkFetchAll(path){
+  const out=[]; let from=0;
+  for(;;){
+    const r=await fetch(SB_URL+'/rest/v1/'+path+(path.indexOf('?')>=0?'&':'?')+'offset='+from+'&limit=1000',
+      {headers:{apikey:SB_KEY,Authorization:sbBearer()}});
+    if(!r.ok) throw new Error(path.split('?')[0]+'：HTTP '+r.status+' '+(await r.text().catch(()=>'')).slice(0,120));
+    const d=await r.json().catch(()=>null);
+    if(!Array.isArray(d)) throw new Error(path.split('?')[0]+'：回傳的不是陣列');
+    out.push(...d);
+    if(d.length<1000) break;
+    from+=1000;
+  }
+  return out;
+}
+async function exportFullBackup(){
+  if(!isSysAdmin()) return toast('只有系統管理員可以匯出完整備份（含全公司主檔與工牌名單）','err');
+  toast('完整備份：開始抓取 '+BACKUP_TABLES.length+' 張表…','ok');
+  const tables={}, counts={};
+  try{
+    for(const b of BACKUP_TABLES){
+      const rows=await bkFetchAll(b.t+'?'+b.q);
+      tables[b.t]=rows; counts[b.t]=rows.length;
+    }
+  }catch(e){
+    /* ★★中斷就不產檔 —— 寧可沒有備份，也不要一份看起來完整其實缺料的備份。 */
+    return toast('❌ 完整備份已中斷：'+(e&&e.message||e)+'　—— **沒有產生檔案**（寧可沒備份，不要缺料的備份）','err');
+  }
+  const total=Object.keys(counts).reduce((a,k)=>a+counts[k],0);
+  const ver=(String(document.title).match(/v[\d.\-]+/)||['(未知)'])[0];
+  const payload={
+    _meta:{
+      system:'MHR 製造履歷系統',
+      appVersion:ver,
+      exportedAt:new Date().toISOString(),
+      exportedAtLocal:localDT(new Date().toISOString()),
+      exportedBy:(sessionName()||'')+' <'+(((getSession()||{}).profile||{}).email||'')+'>',
+      rowShape:'原始 DB row（未經前端正規化）—— 還原時可直接 upsert 回同名表',
+      pagination:'每張表都走 offset/limit=1000 迴圈，不是單次 1000 筆上限',
+      excluded:{
+        'mhr_sites':'OMS 集團組織表的正本在 OMS，不由 MHR 備份',
+        'mhr_business_units':'同上',
+        'mhr_profiles':'帳號走 Edge Function，真正的帳號在 auth.users；只還原 profiles 會變孤兒。帳號另有 CSV 匯出'
+      },
+      counts:counts, totalRows:total,
+      restoreHint:'還原＝把 tables 底下每個陣列 upsert 回同名表（各表主鍵：'
+        +'mhr_orders=(no,part_no)、mhr_containers=cid、mhr_reports=id、mhr_products=part_no、'
+        +'mhr_pending_insp=pid、mhr_vendors=short、mhr_settings=key、mhr_operators=badge）。'
+        +'⚠ 還原前先備份現狀（bk_ 備份表），並確認廠區欄位沒被拉回舊值。',
+      warning:'本檔只是快照，不是備份策略；它靠人記得按。真正能還原到時間點的是 Supabase 的 PITR。'
+    },
+    tables:tables
+  };
+  const name='MHR_完整備份_'+localYMD().replace(/-/g,'')+'.json';
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+  toast('✅ 已匯出 '+name+'　'+BACKUP_TABLES.length+' 張表、共 '+total+' 筆','ok');
+}
+/* ★104（原 102）「匯出備份」收斂到系統管理員。它倒的是 db.data＝全公司單一資料集、沒有廠區維度，
+   原本掛在 dev_admin1 的 span 外面 ⇒ 所有登入者都按得到、限定廠區的人按一下就整包帶走
+   （同 backlog 71-7「清單看不到、按一下匯出就整包帶走」的外流面，只是當初沒掃到這一支）。
+   ⚠ UI 藏起來不夠（舊分頁／控制台直接呼叫都繞得過去，71-6 的教訓）⇒ 函式層也要擋。
+   ⚠ 這只擋掉「按一下就有」；RLS policy 對 authenticated 全開，懂 F12 仍能直接打 API，
+      治本＝policy 加廠區條件，前置是 backlog 9e（mhr_containers 連 site 欄都沒有）。
+   ★ 另有 exportFullBackup（99-49）＝原始 DB row 的完整備份，本來就只給 sysadmin。 */
 function exportJSON(){
   if(!isSysAdmin()){ toast('只有系統管理員可以匯出備份（內容是全公司資料，不分廠區）','err'); return; }
   const name='MHR備份_'+localYMD().replace(/-/g,'')+'.json';   /* ★99-2 同上 */
