@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v105-1</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 正式版 v106-3</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v105-1</span>
+      <span class="tag">正式版 v106-3</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1598,15 +1598,27 @@ function pendZoneHTML(code,compact){
        那一小時打的單其生產日算前一天，但 UTC 日已跳今天 → 會被誤判成「今日」而列出／或反之漏列。
      不影響數量計算，但那正是最需要看待驗單的時候。改成兩邊都用生產日。 */
   const today=todayProdDay();
-  const list=(db.data.pending||[]).filter(p=>(!code||p.processCode===code))
-    .filter(p=>p.status==='pending'||prodDayOf(p.createdAt)===today)
+  /* ★★106-2（0N 續）待驗單區也要過濾 —— 這一段同時長在 02 打單頁、04、05 三頁。
+     沙箱實測：站在敬得觀音，02 的待驗單區仍列得出大永的單。
+     ⚠ fail-closed 的代價要知道：pendScopeReadable 靠「待驗單 → 工單 → 廠區」推，
+       工單若不在 mhr_orders 裡（沒走 ERP 的手動單），限定廠區的帳號就會看不到自己的單。
+       不限廠區的帳號（admin）看得到全部，所以救得回來；同 99-46 定的語意。 */
+  const _zone=(db.data.pending||[]).filter(p=>(!code||p.processCode===code))
+    .filter(p=>p.status==='pending'||prodDayOf(p.createdAt)===today);
+  /* ★★106-3（0N 續）**被廠區擋掉的要講出來**，不可無聲消失。
+     理由：pendScopeReadable 是 fail-closed（對不到工單就不給看）。真的發生時現場看到的是
+     「我的單不見了」，而不是任何錯誤訊息 —— 那正是 V103-1 那一版在修的同一種病
+     （[[failure-must-not-look-like-success]]）。寧可多一行字，也不要讓人對著空清單猜。 */
+  const _hid=_zone.filter(p=>!pendScopeReadable(p)).length;
+  const _hidNote=_hid?`<div class="small" style="margin-top:4px;color:#b9760f">🏭 另有 <b>${_hid}</b> 張待驗單不在你目前的廠區範圍內，沒有列出。<span class="muted">若那是你自己打的單，多半是它的工單還沒進工單主檔——請找系統管理員。</span></div>`:'';
+  const list=_zone.filter(pendScopeReadable)
     .sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,15);
-  if(!list.length) return '<div class="empty">尚無待驗單</div>';
+  if(!list.length) return '<div class="empty">尚無待驗單</div>'+_hidNote;
   if(compact)   /* ★窄欄版（02 右欄）：單號＋料號/批號小字；⏳列可點＝跳質控檢驗並自動選單（待驗區→質控轉接） */
     return `<table style="width:100%"><thead><tr><th>待驗單號</th><th style="text-align:right">生產數</th><th>狀態</th><th>時間</th></tr></thead><tbody>${
-      list.map(p=>`<tr${p.status==='pending'?` style="cursor:pointer" title="點列 → 質控檢驗選此單" onclick="window._qiPick='${esc(p.pid)}';window._qiSt='';window._qiFs='pending';go('qcinsp')"`:''}><td style="white-space:normal"><span class="badge">${esc(p.pid)}</span>${p.rush?' <span class="pill ng" style="font-size:10px">🔥急</span>':''} ${bfTag(p.backfill,p.entryAt)}<div class="small muted mono" style="font-size:10px"><span style="color:var(--navy);font-weight:600">${esc((stOf(p.processCode)||{}).zh||p.processCode)}</span>｜${esc(p.partNo||'')}｜${esc(p.lot||'').replace(/_/g,'_<wbr>')}</div>${''/* ★97-6 窄版補站別：原本只有單號看不出屬於哪一站 */}</td><td style="text-align:right"><b>${p.qtyProd}</b></td><td>${pendStatusPill(p)}${p.status==='pending'?' <span class="small" style="color:var(--teal)">➜</span>':''}</td><td class="small muted" style="white-space:nowrap">${esc(localDT(p.createdAt).slice(5))}</td></tr>`).join('')}</tbody></table>`;
+      list.map(p=>`<tr${p.status==='pending'?` style="cursor:pointer" title="點列 → 質控檢驗選此單" onclick="window._qiPick='${esc(p.pid)}';window._qiSt='';window._qiFs='pending';go('qcinsp')"`:''}><td style="white-space:normal"><span class="badge">${esc(p.pid)}</span>${p.rush?' <span class="pill ng" style="font-size:10px">🔥急</span>':''} ${bfTag(p.backfill,p.entryAt)}<div class="small muted mono" style="font-size:10px"><span style="color:var(--navy);font-weight:600">${esc((stOf(p.processCode)||{}).zh||p.processCode)}</span>｜${esc(p.partNo||'')}｜${esc(p.lot||'').replace(/_/g,'_<wbr>')}</div>${''/* ★97-6 窄版補站別：原本只有單號看不出屬於哪一站 */}</td><td style="text-align:right"><b>${p.qtyProd}</b></td><td>${pendStatusPill(p)}${p.status==='pending'?' <span class="small" style="color:var(--teal)">➜</span>':''}</td><td class="small muted" style="white-space:nowrap">${esc(localDT(p.createdAt).slice(5))}</td></tr>`).join('')}</tbody></table>`+_hidNote;
   return `<div class="tblfit"><table><thead><tr><th>待驗單號</th><th>站別</th><th>料號</th><th>批號</th><th style="text-align:right">生產數</th><th>狀態</th><th>時間</th></tr></thead><tbody>${
-    list.map(p=>`<tr><td><span class="badge">${esc(p.pid)}</span>${p.rush?' <span class="pill ng" style="font-size:10px">🔥急</span>':''} ${bfTag(p.backfill,p.entryAt)}</td><td>${stN(p.processCode)}</td><td class="mono small">${esc(p.partNo||'')}</td><td class="mono small">${esc(p.lot||'')}</td><td style="text-align:right"><b>${p.qtyProd}</b></td><td>${pendStatusPill(p)}${p.status==='done'&&(p.boxCids||[]).length?` <span class="small mono muted">${esc((p.boxCids||[])[0])}${(p.boxCids||[]).length>1?'…':''}</span>`:''}</td><td class="small muted">${esc(localDT(p.createdAt).slice(5))}</td></tr>`).join('')}</tbody></table></div>`;
+    list.map(p=>`<tr><td><span class="badge">${esc(p.pid)}</span>${p.rush?' <span class="pill ng" style="font-size:10px">🔥急</span>':''} ${bfTag(p.backfill,p.entryAt)}</td><td>${stN(p.processCode)}</td><td class="mono small">${esc(p.partNo||'')}</td><td class="mono small">${esc(p.lot||'')}</td><td style="text-align:right"><b>${p.qtyProd}</b></td><td>${pendStatusPill(p)}${p.status==='done'&&(p.boxCids||[]).length?` <span class="small mono muted">${esc((p.boxCids||[])[0])}${(p.boxCids||[]).length>1?'…':''}</span>`:''}</td><td class="small muted">${esc(localDT(p.createdAt).slice(5))}</td></tr>`).join('')}</tbody></table></div>`+_hidNote;
 }
 /* ===== 不良品 / 重工：核心模型 =====
    不良箱＝紅色容器(kind:NR/NG)，批+站一個、累加、sources 帶來源箱（結存可追）。
@@ -5469,7 +5481,15 @@ function canVoidPending(){ const p=(getSession()||{}).profile||{}; const rs=[].c
   return p.account_type==='admin'||rs.includes('admin')||rs.includes('sup'); }
 /* ★97 從 07/00/01 跳質控檢驗頁並自動套篩選（使用者要求：待質控數字可點回質控頁） */
 function goQcInsp(st,wo,lot){ window._qiSt=st||''; window._qiFs='pending'; window._qiWo=wo||''; window._qiLot=lot||''; window._qiDate=''; window._qiPick=null; go('qcinsp'); }
-function qcSlips(st,status){ return (db.data.pending||[]).filter(p=>(!st||p.processCode===st)&&(!status||p.status===status))
+/* ★★106-2（0N 續）**這支是 06 真正列出來給人按「驗收產箱」的清單** —— 補上廠區過濾。
+   【病徵】99-47 當時補的是**篩選下拉的候選**（stPool／_qBase 兩處都有 pendScopeReadable），
+     但這份清單本身沒有 ⇒ 限定廠區的帳號在 06 看得到**別廠的待驗單，而且按得下去**。
+     07 只是看得到（查詢頁），06 會真的寫資料，嚴重一級。
+   【為什麼收斂在這支、不寫在呼叫端】同一頁三個來源分三處各寫一次，正是 99-47 補兩處漏一處的原因
+     （[[centralize-shared-rule-not-per-page]]）。這支只有 renderQcInsp 一個呼叫端，且語意就是
+     「06 頁要列的待驗單」，過濾放這裡最不會再漏。
+   ⚠ 這支**不可以**拿去做內部計算或取號 —— 那些走 findP／genPID／drawnOut（它們刻意不過濾）。 */
+function qcSlips(st,status,all){ return (db.data.pending||[]).filter(p=>(all||pendScopeReadable(p))&&(!st||p.processCode===st)&&(!status||p.status===status))
   .sort((a,b)=>((b.rush?1:0)-(a.rush?1:0))||String(b.createdAt).localeCompare(String(a.createdAt))); }   /* ★急件置頂 */
 function renderQcInsp(){
   let st=window._qiSt||''; const fs=(window._qiFs===undefined)?'pending':window._qiFs;
@@ -5484,10 +5504,13 @@ function renderQcInsp(){
   const _qU=arr=>[...new Set(arr.filter(Boolean))].sort().map(v=>({v,t:v}));
   const _qWoItems =_qU(_qBase.filter(p=>!qlt||String(p.lot||'').toLowerCase().includes(qlt)).map(p=>p.orderNo));
   const _qLotItems=_qU(_qBase.filter(p=>!qwo||String(p.orderNo||'').toLowerCase().includes(qwo)).map(p=>p.lot));
-  let list=qcSlips(st,fs);   /* ★篩選＝工單/批號/日期（與 04 同一組，使用者定案） */
-  if(qwo) list=list.filter(p=>String(p.orderNo||'').toLowerCase().includes(qwo));
-  if(qlt) list=list.filter(p=>String(p.lot||'').toLowerCase().includes(qlt));
-  if(qdt) list=list.filter(p=>prodDayOf(p.createdAt)===qdt);
+  /* ★106-3（0N 續）同一組篩選跑兩次：一次套廠區、一次不套，差額＝被廠區擋掉幾張（理由同 pendZoneHTML） */
+  const _qf=a=>{ if(qwo) a=a.filter(p=>String(p.orderNo||'').toLowerCase().includes(qwo));
+    if(qlt) a=a.filter(p=>String(p.lot||'').toLowerCase().includes(qlt));
+    if(qdt) a=a.filter(p=>prodDayOf(p.createdAt)===qdt); return a; };
+  let list=_qf(qcSlips(st,fs));   /* ★篩選＝工單/批號/日期（與 04 同一組，使用者定案） */
+  const _qiHid=_qf(qcSlips(st,fs,1)).length-list.length;
+  const _qiHidNote=_qiHid?`<div class="small" style="margin-top:4px;color:#b9760f">🏭 另有 <b>${_qiHid}</b> 張待驗單不在你目前的廠區範圍內，沒有列出。<span class="muted">若那是你們廠自己的單，多半是它的工單還沒進工單主檔——請找系統管理員。</span></div>`:'';
   const stOpts='<option value="">（全部站別）</option>'+stAvail.map(c=>`<option value="${esc(c)}"${c===st?' selected':''}>${stN(c)} (${esc(c)})</option>`).join('');
   const pick=window._qiPick?findP(window._qiPick):null;
   $('#view').innerHTML=`
@@ -5517,9 +5540,10 @@ function renderQcInsp(){
         <td style="white-space:nowrap">${p.status==='pending'?`${canQcInsp()?`<button class="btn sm" onclick="event.stopPropagation();window._qiPick='${esc(p.pid)}';render()">${L('選單')}</button> `:''}${canVoidPending()?`<button class="btn ghost sm" onclick="event.stopPropagation();voidPending('${esc(p.pid)}')">${L('作廢')}</button>`:''}`
           :p.status==='void'?(isAdminNow()?`<button class="btn ghost sm" onclick="voidPending('${esc(p.pid)}')">↩ ${L('恢復')}</button>`:'')
           :`<button class="btn ghost sm" onclick="event.stopPropagation();qcViewDone('${esc(p.pid)}')">🔍 ${L('檢驗記錄')}</button>`}</td></tr>`; }).join('')}</tbody></table></div>
+      ${_qiHidNote}
       <div class="small muted" style="margin-top:4px">💡 點「整列」即選單開檢驗表單（表單在清單下方）</div>
       ${list.length>80?'<div class="small muted">僅列最近 80 筆，請用站別/狀態縮小範圍</div>':''}`
-    :'<div class="empty">此篩選沒有待驗單</div>'}
+    :('<div class="empty">此篩選沒有待驗單</div>'+_qiHidNote)}
   </div>
   ${(pick&&pick.status==='pending'&&canQcInsp())?qcFormHTML(pick):''}
   <div id="qi_result" style="margin-top:12px"></div>`;
@@ -5554,6 +5578,13 @@ function qiSum(){ const p=window._qiPick?findP(window._qiPick):null; if(!p) retu
 async function doQcInsp(){ if(wGuard('qcinsp','e',undefined,'質控檢驗')) return;
   const p=window._qiPick?findP(window._qiPick):null;
   if(!p||p.status!=='pending') return toast('待驗單不存在或已結案','err');
+  /* ★★106-3（0N 續）**寫入層守門**：兩個點選入口（06 清單、02 待驗單區）在 106-2 都過濾了，
+     但這支拿單子走的是 findP()，findP 刻意不過濾（它是查表，濾了取號與內部計算會壞）。
+     ⇒ 剩一條路還開著：**先點了單、再切廠區檢視**，下方檢驗表單還留著剛才那張 → 按得下去。
+     清單看不到卻做得到，就是 [[failure-must-not-look-like-success]] 那種「藏按鈕≠資料分家」。
+     ⚠ 這條**不走 wGuard** —— wGuard 只在模擬中強制（那是 PERM 表的議題，見 `0v2`），
+       廠區範圍是資料可見性，真實身分一樣要守。 */
+  if(!pendScopeReadable(p)) return toast('🏭 這張待驗單不在你目前的廠區範圍內，不能驗收','err');
   if(!canQcInsp()) return toast('僅質控職能＋系統管理可輸入檢驗結果','err');
   const ok=+$('#qi_ok').value||0, nr=+$('#qi_nr').value||0, ng=+$('#qi_ng').value||0;
   if(ok<0||nr<0||ng<0) return toast('數量不可為負','err');
@@ -6228,7 +6259,7 @@ function doInterval(){
   const pn=$('#iv_pn').value, st=$('#iv_st').value;
   const from=$('#iv_from').value, to=$('#iv_to').value;
   const out=$('#iv_out'); clearTraceOuts('iv_out');
-  let reps=db.data.reports.filter(r=>(!pn||r.partNo===pn)&&(!st||r.toStation===st));
+  let reps=db.data.reports.filter(r=>repScopeReadable(r)&&(!pn||r.partNo===pn)&&(!st||r.toStation===st));   /* ★106（0N）廠區過濾：機種下拉雖已收斂，但選「全部機種」時會算到別廠 */
   if(from) reps=reps.filter(r=>prodDayOf(r.createdAt)>=from);
   if(to) reps=reps.filter(r=>prodDayOf(r.createdAt)<=to);
   if(!reps.length){ out.innerHTML='<div class="empty">此條件區間內無報工紀錄</div>'; return; }
@@ -6296,24 +6327,28 @@ function doQuery(){
       <tr class="grp"><th colspan="5"></th><th class="tagA">A</th><th colspan="5"></th><th class="tagA">B</th><th></th><th></th><th class="tagA">C</th><th class="tagS">A＋B＋C</th></tr>
       <tr><th>${L('順序')}</th><th>${L('製程站')}</th><th>${L('接收')}</th><th>${L('委外帳差')}</th><th>${L('已投產')}</th><th>${L('待投產')}</th><th>${L('已驗')}</th><th>OK</th><th>NR</th><th>NG</th><th>${L('良率')}</th><th>${L('待質控')}</th><th>${L('清點帳差')}</th><th>${L('已轉出')}</th>${''/* ★98-24 原名「帳差」，與新增的「委外帳差」配成一對才分得清。不用「廠內帳差」——委外站自己也會有物控清點帳差，叫廠內會自相矛盾；用動作命名（清點）才準，也跟 03「清點移轉」一致 */}<th>${L('待轉出')}</th><th>${L('製程存量')}</th></tr></thead><tbody>
       ${(()=>{ /* ★97 在途兩態（使用者反映「點交後看不到」）：⏳待驗=該站已打單未驗量；⏭已收=已點交到該站未投產結存 */
-        const boxesF=db.data.containers.filter(b=>isNormalBox(b)&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot));
+        const boxesF=db.data.containers.filter(b=>boxScopeReadable(b)&&isNormalBox(b)&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot));   /* ★106（0N）廠區過濾 */
         const rcvQ=c=>boxesF.filter(b=>b.received&&b.received.station===c&&remaining(b.cid)>0).reduce((a,b)=>a+remaining(b.cid),0);
-        const slipQ=c=>(db.data.pending||[]).filter(q=>q.status==='pending'&&q.processCode===c&&(!pn||q.partNo===pn)&&(!wo||q.orderNo===wo)&&(!lot||q.lot===lot)).reduce((a,q)=>a+(+q.qtyProd||0),0);
+        /* ★★106-1（0N 續）待驗單也要過濾 —— 106 只補了箱與報工，**待驗單漏了**。
+           沙箱實測（同料號 P-BOTH 兩廠各一張工單）：站在敬得觀音，待質控欄印 517
+           ＝大永那張 500 ＋ 敬得自己的 7 ＋ 箱 10，別廠的量被加進本廠的數字。
+           ⚠ 過濾條件只能加在這裡（輸出層），pendScopeReadable 是 99-46 建的單一出處，不要自己寫 siteReadable。 */
+        const slipQ=c=>(db.data.pending||[]).filter(q=>pendScopeReadable(q)&&q.status==='pending'&&q.processCode===c&&(!pn||q.partNo===pn)&&(!wo||q.orderNo===wo)&&(!lot||q.lot===lot)).reduce((a,q)=>a+(+q.qtyProd||0),0);
         /* ★97 表格改用「Excel 勾稽模型」（使用者提供表格為準）：
            接收＝已投產＋待投產；已投產＝已驗＋待質控；已驗＝OK+NR+NG；OK＝已轉出＋待轉出；
            製程存量＝待投產＋待質控＋待轉出。97 前舊資料無待驗單 → 回退用報工帳（led）算，畫面不空白。 */
-        const slipsAt=c=>(db.data.pending||[]).filter(q=>q.processCode===c&&q.status!=='void'&&(!pn||q.partNo===pn)&&(!wo||q.orderNo===wo)&&(!lot||q.lot===lot));
+        const slipsAt=c=>(db.data.pending||[]).filter(q=>pendScopeReadable(q)&&q.processCode===c&&q.status!=='void'   /* ★106-1（0N 續）同 slipQ */&&(!pn||q.partNo===pn)&&(!wo||q.orderNo===wo)&&(!lot||q.lot===lot));
         const num=v=>v?'<b>'+v+'</b>':'<span class="muted">—</span>';
         return route.map((c,i)=>{ const x=led[c]||{input:0,out:0,moved:0,stock:0,nr:0,ng:0}; const last=c===lastStation(pn);
         /* ★以「箱」為統一基準（97 前舊箱沒有待驗單，混用會對不起來——使用者實測全部批號時抓到）：
            OK/NR/NG＝該站實際產出的箱；待質控＝未驗待驗單；其餘由勾稽式推回 */
-        const defQ=(k)=>db.data.containers.filter(b=>b.kind===k&&b.processCode===c&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot)).reduce((a,b)=>a+(+b.qty||0),0);
+        const defQ=(k)=>db.data.containers.filter(b=>boxScopeReadable(b)&&b.kind===k&&b.processCode===c&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot)).reduce((a,b)=>a+(+b.qty||0),0);
         const waitQc=slipsAt(c).filter(q=>q.status==='pending').reduce((a,q)=>a+(+q.qtyProd||0),0);   // 待質控
         const okNow=x.out, nr=defQ('NR'), ng=defQ('NG');                   // okNow＝物控清點後箱上實際的 OK 量
         /* ★98-4 帳差＝讀物控清點時實際記錄的差異（不用「已驗−生產數」推算）：
            ①97 前舊箱沒有待驗單，推算法只能顯示「—」，但待清點的箱幾乎全是舊箱＝整欄看不到東西
            ②會判回流箱沒有打單，推算法會把它誤算成正值 → 改讀 stockin.diff 兩個問題一次解決 */
-        const stkBoxes=db.data.containers.filter(b=>b.processCode===c&&b.stockin
+        const stkBoxes=db.data.containers.filter(b=>boxScopeReadable(b)&&b.processCode===c&&b.stockin
           &&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot));
         const hasStk=stkBoxes.length>0;
         const diffQ=stkBoxes.reduce((a,b)=>a+(+b.stockin.diff||0),0);      // 帳差＝物控清點差異合計
@@ -6330,7 +6365,7 @@ function doQuery(){
         /* ★98-23 委外帳差（使用者 260806 定案）＝該站「委外回廠點收」記錄的短交／超收合計。
            資料源＝vendorReturn 事件（與檢視「⚖ 帳差記錄」同一份），負＝短少、正＝超收，一條式子兩種都涵蓋。
            ⚠ 不能改讀箱上的 writeOff——那只有短少會寫，超收不會。 */
-        const osRecs=(db.data.reports||[]).filter(r=>r.type==='handover'&&r.kind==='vendorReturn'&&r.fromStation===c
+        const osRecs=(db.data.reports||[]).filter(r=>repScopeReadable(r)&&r.type==='handover'&&r.kind==='vendorReturn'&&r.fromStation===c
           &&(!pn||r.partNo===pn)&&(!wo||(r.orderNo||'')===wo)&&(!lot||(r.lot||'')===lot));
         const osDiff=osRecs.reduce((a,r)=>a+(+r.diff||0),0);
         /* ★98-23 接收還原成「上站轉出的真實量」（使用者實測抓到）：料是**全數**轉出去給廠商的，
@@ -6373,7 +6408,7 @@ function doQuery(){
      MHR 只出數量與憑證欄位，不算錢；匯出 CSV 給各部門做領用沖銷。 */
   if(view==='diff'){
     const d1=(($('#q_d1')||{}).value)||'', d2=(($('#q_d2')||{}).value)||'';
-    const rows=(db.data.reports||[]).filter(r=>r.type==='handover'&&(+r.diff||0)!==0)
+    const rows=(db.data.reports||[]).filter(r=>repScopeReadable(r)&&r.type==='handover'&&(+r.diff||0)!==0)
       .filter(r=>(!pn||r.partNo===pn)&&(!wo||(r.orderNo||'')===wo)&&(!lot||(r.lot||'')===lot))
       .filter(r=>!st||r.fromStation===st)
       .filter(r=>{ const dt=prodDayOf(r.createdAt); return (!d1||dt>=d1)&&(!d2||dt<=d2); })
@@ -6480,16 +6515,22 @@ function doQuery(){
     /* ★97 箱號移轉記錄（使用者要求：每個製程的箱號移轉逐筆可查）＝把「箱的一生」攤平成事件時序：
        ①打單(待驗單) ②質控產箱 ③🅐物控接收入庫 ④🅑點交/委外轉出 ⑤被下站領用（來源鏈回推）
        資料源：mhr_pending_insp（打單/驗收）＋箱.stockin/received 快照＋箱.sources（誰領走誰） */
+    /* ★★106（0N）**這個索引刻意不加廠區過濾** —— 它是 cid→箱 的查表，給後面判斷關聯用。
+       濾掉別廠的箱會讓查表回 undefined ⇒ **本廠的合法資料反而被誤判成不符合而漏掉**。
+       過濾要放在「輸出那一層」（上面各個 filter 已經加了），不是查表層。
+       同 backlog `9e` 的鐵則：**內部計算與取號絕不可過濾**（斷言 68-11 釘住）。 */
     const boxOf={}; db.data.containers.forEach(c=>{ if(c.cid) boxOf[c.cid]=c; });
     const hit=o=>(!pn||o.partNo===pn)&&(!wo||(o.orderNo||'')===wo)&&(!lot||(o.lot||'')===lot);
     const ev=[];
-    (db.data.pending||[]).forEach(p=>{ if(!hit(p)) return; if(st&&p.processCode!==st) return;
+    /* ★106-1（0N 續）下面那行箱的迴圈 106 已經補了 boxScopeReadable，**這一行待驗單漏了** ——
+       沙箱實測：站在敬得觀音，移轉記錄仍列得出大永的打單事件 P-SDY-1。 */
+    (db.data.pending||[]).forEach(p=>{ if(!pendScopeReadable(p)||!hit(p)) return; if(st&&p.processCode!==st) return;
       ev.push({at:p.createdAt,st:p.processCode,kind:'打單',cid:'',qty:p.qtyProd,who:p.operator||'',
         note:`待驗單 ${p.pid}${(p.draws||[]).length?'｜領 '+(p.draws||[]).map(d=>d.cid+'×'+d.take).join('、'):'（首站）'}${p.rush?'　🔥急件':''}${p.status==='void'?'　🚫已作廢':''}`});
       if(p.status==='done') ev.push({at:p.doneAt||p.createdAt,st:p.processCode,kind:'質控產箱',cid:(p.boxCids||[]).join(' '),qty:(+p.ok||0),who:p.qc||'',
         note:`${p.pid} 驗收 OK${p.ok||0}／NR${p.nr||0}／NG${p.ng||0}${p.qmsNo?'｜QMS '+p.qmsNo:''}`});
     });
-    db.data.containers.forEach(c=>{ if(!hit(c)||!isNormalBox(c)) return;
+    db.data.containers.forEach(c=>{ if(!boxScopeReadable(c)||!hit(c)||!isNormalBox(c)) return;   /* ★106（0N）廠區過濾 */
       if(c.stockin&&(!st||c.processCode===st)) ev.push({at:c.stockin.at,st:c.processCode,kind:'🅐物控接收',cid:c.cid,qty:c.stockin.actual,who:c.stockin.by||'',
         note:`入暫存區　應收${c.stockin.expect}／實收${c.stockin.actual}${c.stockin.diff?'　帳差'+(c.stockin.diff>0?'+':'')+c.stockin.diff+'（'+(c.stockin.resp||'')+'）':''}`});
       if(c.received&&(!st||c.processCode===st||c.received.station===st)) ev.push({at:c.received.at,st:c.processCode,kind:c.received.kind==='sendout'?'🅑委外轉出':'🅑點交下站',cid:c.cid,qty:c.received.actual,who:c.received.by||'',
@@ -6517,6 +6558,8 @@ function doQuery(){
   }
   if(view==='rep'){
     /* ★96 工單過濾：報工記錄比 r.orderNo；舊記錄（烤漆出爐曾漏存 orderNo）靠產出箱 intoCid 回查 */
+    /* ★★106（0N）同上：cid→工單／批號 的查表，**刻意不過濾**。它是給下面 reps 判斷用的，
+       濾掉會讓本廠報工查不到自己的工單而漏掉；過濾已經加在 reps 自己那層。 */
     const woOf={}, lotOf={}; if(wo||lot) db.data.containers.forEach(c=>{ if(c.cid){ woOf[c.cid]=c.orderNo||''; lotOf[c.cid]=c.lot||''; } });   /* ★96-4b 批號也走產出箱回查保險 */
     /* ★99-26（backlog 0k②）報工檢視只列「報工」，不要把清點移轉的記錄一起算進來。
        【病徵】`db.data.reports` 這張表其實裝了兩種東西：
@@ -6527,7 +6570,7 @@ function doQuery(){
        ✅ 良率不受影響：分母＝OK+NR+NG，那些列全是 0。
        ⚠ 用 `type!=='handover'` 而不是 `!r.type`：日後若有人給報工加上 type，`!r.type` 會整批消失；
          用排除法只會漏放行、不會誤殺。 */
-    const reps=db.data.reports.filter(r=>r&&r.type!=='handover'&&(!pn||r.partNo===pn)&&(!st||r.toStation===st)&&(!wo||r.orderNo===wo||(r.intoCid&&woOf[r.intoCid]===wo))&&(!lot||r.lot===lot||(r.intoCid&&lotOf[r.intoCid]===lot))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+    const reps=db.data.reports.filter(r=>r&&repScopeReadable(r)&&r.type!=='handover'&&(!pn||r.partNo===pn)&&(!st||r.toStation===st)&&(!wo||r.orderNo===wo||(r.intoCid&&woOf[r.intoCid]===wo))&&(!lot||r.lot===lot||(r.intoCid&&lotOf[r.intoCid]===lot))).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
     if(!reps.length){ out.innerHTML='<div class="empty">無報工紀錄</div>'; return; }
     const sok=reps.reduce((a,r)=>a+(+r.ok||0),0),snr=reps.reduce((a,r)=>a+(+r.nr||0),0),sng=reps.reduce((a,r)=>a+(+r.ng||0),0);
     const sp=sok+snr+sng; const rate=n=>sp?(n/sp*100).toFixed(1)+'%':'—';
@@ -6544,7 +6587,7 @@ function doQuery(){
           <td>${r.intoCid?`<span class="badge" style="cursor:pointer" onclick="traceFromQuery('${r.intoCid}')">${esc(r.intoCid)}</span>`:'<span class="muted small">—</span>'}</td></tr>`; }).join('')}</tbody></table></div>`;
     return;
   }
-  const rows=db.data.containers.filter(c=>isNormalBox(c)&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)&&(!st||c.processCode===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
+  const rows=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)&&(!st||c.processCode===st)).slice().sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));
   if(!rows.length){ out.innerHTML='<div class="empty">無符合資料</div>'; return; }
   const tot=rows.reduce((a,c)=>a+(+c.qty||0),0);
   out.innerHTML=`<div class="step">共 <b>${rows.length}</b> 箱，OK合計 <b>${tot}</b> pcs（點列追溯）${woTag}</div>
@@ -6620,7 +6663,7 @@ function allFilterClear(){
 function traceLot(lot,hl){ if(hl&&hl.cids) setHLCells(hl.cids,hl.focus);
   go('all'); setTimeout(()=>{ const e=$('#a_lot'); if(e) e.value=lot; if(typeof renderAllTable==='function') renderAllTable(); applyHL(); },80); }
 function flowDetail(code,pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（流轉檢視展開的箱清單同步過濾） */
-  const boxes=db.data.containers.filter(c=>isNormalBox(c)&&c.processCode===code&&c.partNo===pn&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
+  const boxes=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&c.processCode===code&&c.partNo===pn&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
   const el=$('#flow_detail'); if(!el) return;
   /* ★97 清單加「目前位置」欄（使用者實測抓到顯示矛盾：已點交走的箱列在本站、結存看起來像本站在手）
      ＝本清單按「箱是哪一站產出」列；箱可能已點交到下站或待物控接收，故分項標示並拆合計 */
@@ -6642,7 +6685,7 @@ function flowDetail(code,pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（
 }
 /* ★97 待轉出／已轉出可展開（使用者要求）：kind='stock'＝還在本站等點交；'moved'＝已點交走或已被領用 */
 function flowStock(code,pn,wo,lot,kind){
-  const all=db.data.containers.filter(c=>isNormalBox(c)&&c.processCode===code&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot));
+  const all=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&c.processCode===code&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot));
   const boxes=all.filter(c=>{ const rem=remaining(c.cid); const hand=(isReceived(c)&&rem>0);
     return kind==='stock' ? (rem>0&&!hand) : (drawnOut(c.cid)>0||hand); }).sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
   const el=$('#flow_detail'); if(!el) return;
