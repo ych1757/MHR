@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v106-3</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
+<title>MHR 製造履歷系統 — 正式版 v108</title><!-- 每版另存時記得同步改 title 與側欄 tag 的版號 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -397,7 +397,7 @@
     <div class="brand">
       <h1>MHR</h1>
       <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v106-3</span>
+      <span class="tag">正式版 v108</span>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1876,23 +1876,62 @@ async function mhrAuthLogin(email,password){
       return {ok:false,msg: raw.indexOf('not confirmed')>=0 ? '帳號尚未啟用，請聯絡管理員' : '帳號或密碼錯誤'}; }
     const token=d.access_token, refresh=d.refresh_token, uid=d.user&&d.user.id;
     const meta=(d.user&&d.user.user_metadata)||{};
+    return await mhrAuthAfterToken(token,refresh,uid,meta.must_change===true);
+  }catch(e){ return {ok:false,msg:'網路錯誤，請稍後再試'}; }
+}
+/* ═══ ★★★108（backlog `0U`）「拿到通行證之後」的四道檢查，抽成單一出處 ═══
+   【為什麼要抽】這一版起有**兩條路**會拿到 token：
+     ① 本箱密碼（mhrAuthLogin）　② SyncHub 代驗（mhrSsoTryLogin，EF 直接簽好 token）
+   兩條路各寫一份檢查 ⇒ 遲早有一邊漏掉一道（QMS 那邊也是這樣抽的，照抄不要另創寫法）。
+   ⚠ 四道的順序與訊息一字不改，代驗進來的人跟密碼進來的人**受完全一樣的檢查**。 */
+async function mhrAuthAfterToken(token,refresh,uid,mustChange){
+  try{
     // 讀自己的 mhr_profiles（RLS: read-own）。查不到 = 沒有 MHR 權限（例如此人只有 QMS）
     const pr=await fetch(SB_URL+'/rest/v1/mhr_profiles?id=eq.'+encodeURIComponent(uid)+'&select=*&limit=1',
       {headers:{apikey:SB_KEY,Authorization:'Bearer '+token}});
     const pd=pr.ok?await pr.json().catch(()=>[]):[];
     const profile=(pd&&pd[0])||null;
-    if(!profile) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
-    if(profile.active===false) return {ok:false,msg:'此帳號已停用，請聯絡管理員'};
-    if(profile.can_access_mhr===false) return {ok:false,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
+    /* ★108（0U）`definite:true`＝**這是明確的原因，不是「帳號或密碼可能錯」**。
+       工號登入本來一律印籠統訊息（打工號時分不出是工號錯還是密碼錯，印太細等於幫人試探帳號），
+       但「已停用／無權限／授權被取消」這三種是**已經驗過密碼、拿到 profile 之後**才判出來的，
+       籠統化只會讓現場以為是自己打錯密碼，一直重打。SSO 上線後第四道更常被踩到 ⇒ 要講清楚。 */
+    if(!profile) return {ok:false,definite:true,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
+    if(profile.active===false) return {ok:false,definite:true,msg:'此帳號已停用，請聯絡管理員'};
+    if(profile.can_access_mhr===false) return {ok:false,definite:true,msg:'此帳號無 MHR 使用權限，請聯絡管理員'};
     /* ★104 第四道：OMS 授權門禁。前三道看的都是 MHR 自己的表，OMS 撤銷不會反映進來
        ⇒ 這道回頭問 OMS。只對 OMS 來源的內部帳號做，查不到 OMS 就放行（不讓 OMS 故障變停線）。 */
     if(profile.source==='oms' && (profile.email||'').toLowerCase()!==ADMIN_EMAIL){
       const g=await omsGrantCheck(profile.email,'MHR');
       if(g.checked && !g.granted)
-        return {ok:false,msg:'此帳號的 MHR 使用授權已被取消（'+g.why+'），請洽管理員'};
+        return {ok:false,definite:true,msg:'此帳號的 MHR 使用授權已被取消（'+g.why+'），請洽管理員'};
     }
-    return {ok:true,token,refresh,uid,profile,mustChange:meta.must_change===true};
+    return {ok:true,token,refresh,uid,profile,mustChange:mustChange===true};
   }catch(e){ return {ok:false,msg:'網路錯誤，請稍後再試'}; }
+}
+/* ═══ ★★★108（backlog `0U`）SSO 階段②「代驗」═══
+   內部人員用 **SyncHub（OMS/GHG 那一箱）的同一組密碼**登入 MHR。
+   【後端是共用的，MHR 不必自己寫一支】EF `qms-sso-login` 部署在 QMS/MHR 共用的這個 Supabase 專案，
+     Verify JWT 已關（登入前呼叫，這時還沒有任何 token）。
+     ⚠ **一定要帶 `system:'MHR'`** —— 同一支 EF 兩邊共用，不帶就被當成 QMS 去檢查授權。
+   【它只回兩種】
+     `mode:'sso'`   ＝這個人是 OMS 名單上的內部人員、SyncHub 密碼正確，已用本箱 service_role 簽好通行證
+     `mode:'local'` ＝不歸代驗管（admin@id／供應商／TEST／外部自建）或代驗沒過 ⇒ 照原本的本箱密碼再驗一次
+   【★所有錯誤一律當 local，絕不鎖人】EF 沒部署（404）、連不上、回傳怪東西 —— 通通退回原本流程
+     ⇒ **EF 掛掉時前端等於完全照舊**。現場天天要打單，不能因為代驗壞掉就進不來。
+   【過渡期會有「兩組密碼都能用」，這是刻意的】Supabase 為防帳號探測，「查無此帳號」與「密碼錯」
+     回的是同一種錯、分不出來；126 個授權者裡只有十來個有 SyncHub 帳號，
+     若把沒過一律當密碼錯，其餘的人會直接被鎖在門外。日後 OMS 在 identity_access 加
+     「有無 SyncHub 帳號」欄位就能收緊。 */
+async function mhrSsoTryLogin(identifier,password){
+  try{
+    const r=await fetch(SB_URL+'/functions/v1/qms-sso-login',{method:'POST',
+      headers:{apikey:SB_KEY,'Content-Type':'application/json'},   /* ⚠ 不要帶 Authorization */
+      body:JSON.stringify({identifier,password,system:'MHR'})});
+    if(!r.ok) return {mode:'local'};                    /* 含 404＝EF 還沒部署 ⇒ 完全照舊 */
+    const d=await r.json().catch(()=>({}));
+    if(d&&d.mode==='sso'&&d.access_token) return d;
+    return {mode:'local'};
+  }catch(e){ try{ console.warn('SyncHub 代驗無法連線，改用 MHR 密碼：',e); }catch(_){} return {mode:'local'}; }
 }
 async function mhrAuthChangePassword(newPwd){
   const s=getSession(); if(!s||!s.token) return {ok:false,msg:'尚未登入'};
@@ -2066,11 +2105,20 @@ async function empLookup(emp){
   const k=String(emp).trim().toLowerCase();
   if(_omsById && _omsById[k]) return _omsById[k];
   try{
-    const url=OMS_SB_URL+'/rest/v1/identity_access?select=email,name&emp_id=eq.'+encodeURIComponent(emp)+'&active=eq.true&limit=1';
+    /* ★★108（0U）`eq.` 是**大小寫敏感**的 —— 260924 實查 OMS：工號一律存大寫（SS085、SV1085…），
+       所以現場打小寫 `ss085` 會回「查無工號」而根本進不到密碼那一步。
+       同一個人在 QMS 卻進得去（那支代驗用的是 ilike）⇒ 兩系統行為不一致，正是使用者今天說會搞混的那種事。
+       ⇒ 改用門禁鐵則定的寫法（[[system-access-gate-standard]] 第 ⑥ 條）：
+         **ilike ＋ 放寬 limit ＋ 前端精確比對**。三個都要：
+         ・`ilike` 不分大小寫，但它的 `_` 是**萬用字元**（`TEST_1` 會誤中 `TESTA1`）
+         ・所以 limit 不能是 1（會取到別人那一筆），要放寬
+         ・最後在前端逐筆做**精確**比對，才不會拿到別人的 email。 */
+    const url=OMS_SB_URL+'/rest/v1/identity_access?select=emp_id,email,name&emp_id=ilike.'+encodeURIComponent(emp)+'&active=eq.true&limit=20';
     const r=await fetch(url,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
     if(!r.ok) return null;
     const d=await r.json();
-    return (Array.isArray(d)&&d[0]&&d[0].email)?{email:String(d[0].email).trim(),name:String(d[0].name||'').trim()}:null;
+    const hit=(Array.isArray(d)?d:[]).find(x=>String((x&&x.emp_id)||'').trim().toLowerCase()===k);
+    return (hit&&hit.email)?{email:String(hit.email).trim(),name:String(hit.name||'').trim()}:null;
   }catch(e){ return null; }
 }
 /* email→{name}：集團內部才有；外部廠商不在名單＝null。快取已載＝權威 */
@@ -2112,14 +2160,39 @@ async function doLogin(){
     email=hit.email;
   }
   btn.textContent='登入中…';
-  const res=await mhrAuthLogin(email,pwd);
+  /* ★★108（0U）先試 SyncHub 代驗，不歸它管或沒過就照原本的 MHR 密碼驗（見 mhrSsoTryLogin 的註解）。
+     ⚠ **管理員虛擬帳號不進代驗** —— 兩箱的 admin 密碼各自獨立（EF 端也會再擋一次，這裡是第一道）。
+     ⚠ 代驗拿到 token 後**還是要跑完整四道檢查**（mhrAuthAfterToken）；
+       檢查沒過就**不算代驗成功**，訊息照原本的走、也不再退回密碼（退回也是同一個結果）。 */
+  let res=null, viaSso=false;
+  if((email||'').toLowerCase()!==ADMIN_EMAIL){
+    const sso=await mhrSsoTryLogin(email,pwd);
+    if(sso.mode==='sso'){
+      res=await mhrAuthAfterToken(sso.access_token,sso.refresh_token,sso.user_id,sso.must_change===true);
+      viaSso=res.ok;
+    }
+  }
+  if(!res) res=await mhrAuthLogin(email,pwd);
   btn.disabled=false; btn.textContent='登入 Login';
-  if(!res.ok) return lgErr(byEmp? '登入失敗：密碼錯誤，或此工號尚未開通 MHR（請洽管理員加入名單）' : res.msg);
-  setSession({token:res.token,refresh:res.refresh,uid:res.uid,profile:res.profile,mustChange:res.mustChange});
+  /* ★108（0U）只有「可能是工號或密碼錯」才印籠統訊息；明確原因（停用／無權限／授權被取消）照實講。 */
+  if(!res.ok) return lgErr((byEmp && !res.definite)? '登入失敗：密碼錯誤，或此工號尚未開通 MHR（請洽管理員加入名單）' : res.msg);
+  setSession({token:res.token,refresh:res.refresh,uid:res.uid,profile:res.profile,mustChange:res.mustChange,sso:viaSso});
   if(res.mustChange){ showChangePwd(); return; }
   bootApp();
 }
-function showChangePwd(){ $('#lg_panel_login').style.display='none'; $('#lg_panel_chg').style.display=''; lgErr('','cg_err'); const e=$('#cg_p1'); if(e) e.focus(); }
+/* ★★108（0U）用 SyncHub 那一組密碼進來的人，密碼**根本不在 MHR 這一箱** ——
+   在這裡改只會改到那個「代驗之後再也用不到」的本箱舊密碼，改完還以為改好了＝白忙一場。
+   強制改密的旗標是 SyncHub 端給的（EF 回的 must_change）⇒ **只提示、不擋著不給用**。
+   ⚠ 兩個呼叫端（doLogin 首登、initMHR 重整）都會走到這裡，所以守在這一支就夠，不必各改一次。
+   ⚠ 提示要在 bootApp() 之後才發得出來（登入畫面上沒有 toast 容器），所以排在後面一拍。 */
+function showChangePwd(){
+  const s=getSession();
+  if(s&&s.sso){
+    bootApp();
+    setTimeout(()=>{ try{ toast('您的密碼由 SyncHub 統一管理（與 OMS／GHG 同一組），不是在 MHR 這裡改 —— 請到 SyncHub 大廳登入後修改，或洽管理員於 OMS 重設','err'); }catch(e){} },400);
+    return;
+  }
+  $('#lg_panel_login').style.display='none'; $('#lg_panel_chg').style.display=''; lgErr('','cg_err'); const e=$('#cg_p1'); if(e) e.focus(); }
 async function doChangePwd(){
   const p1=$('#cg_p1').value||'', p2=$('#cg_p2').value||'';
   if(!pwdValid(p1)) return lgErr('密碼至少 8 碼，且需含英文與數字','cg_err');
@@ -5756,15 +5829,43 @@ function voidPending(pid){ if(wGuard('qcinsp','d',undefined,'作廢待驗單 '+p
      ⇒ 敬得的人在下拉裡看得到大永的工單號。**這是 99-47-1 的漏網** ——
      那一版的教訓正是「除了基底函式，還要掃**頁面自己算的**那一類」，
      而 reworkOrderOpts() 就是頁面自己算的。fail-closed 由 ordScopeReadable 自動成立。 */
-function reworkOrderOpts(){
-  const seen=new Set(), out=[];
+/* ═══ ★★107（backlog `4d`②）重工工單號的候選源 ═══
+   【原本錯在哪】欄位語意是「R 類重工單」，但下拉列的是 `getOrders()` 裡的**一般工單（S 類標準單）**
+     —— 現場等於在一堆 `TY-Starlink…` 裡面找一個根本不在裡面的東西。
+     （99-48 補的是去重與廠區過濾，**候選源一直沒動**。）
+   【兩種現場，一個下拉】使用者 260924 定調：
+   ・**集團公司（敬得）**：重工工單在 Oracle 開，跟一般工單一樣要抓進系統
+     ⇒ 01 工單管理的 ERP 查詢本來就有「類別」下拉（ERP_CLASS：S標準／R重工／O委外／N非標委外／T試跑），
+       抓進來會把 `erp.classCode` 存著 ⇒ 這裡只認 classCode 開頭是 R 的。
+       使用者原話：「**從下拉挑一張已經開好的單**」⇒ 挑不到＝ERP 還沒開，送出時要明白講（見 doDisposition）。
+   ・**還沒接 ERP 的廠（大永）**：R 單號是會判當場打的字串，存在箱的 `reworkOrder`
+     ⇒ 列出**本廠用過的**，打過一次之後就挑得到，
+       免得今天打 `R-BM04-2601`、明天打 `R-BM042601`，追溯時當成兩張單。
+   ⚠ **不問「這個廠有沒有接 ERP」** —— 有 ERP 重工單就列、沒有就列用過的、兩邊都空才需要自由輸入。
+     合乎多廠區鐵則：不寫死廠區字串、讀取收斂單一函式（[[multi-site-multi-process-framework]]）。
+   ⚠ 廠區過濾一律走既有的 `ordScopeReadable`／`boxScopeReadable`，**不要自己寫 siteReadable**
+     （[[centralize-shared-rule-not-per-page]]）。
+   ⚠ 這支**只管給人挑**，不是主檔也不是驗證器 —— 真正的檢核在 doDisposition，且刻意是軟提醒不硬擋。 */
+function reworkOrderItems(){
+  const erp=[], used=[], seen=new Set();
   getOrders().forEach(o=>{
     if(o.status==='完成') return;
-    if(!ordScopeReadable(o)) return;                              /* ★99-48 廠區 */
-    const no=String(o.no||'').trim(); if(!no||seen.has(no)) return;   /* ★99-48 去重 */
-    seen.add(no); out.push(no);
+    if(String(((o.erp||{}).classCode)||'').charAt(0).toUpperCase()!=='R') return;   /* ★只認重工類 */
+    if(!ordScopeReadable(o)) return;                                                /* ★99-48 廠區 */
+    const no=String(o.no||'').trim(); if(!no||seen.has(no)) return;                 /* ★99-48 去重 */
+    seen.add(no);
+    erp.push({no, note:'ERP 重工單'+(o.partNo?' ｜ '+o.partNo:'')+(+o.qty>0?' ｜ 計畫 '+o.qty:'')});
   });
-  return out.map(no=>`<option value="${esc(no)}">`).join(''); }
+  const cnt={};
+  (db.data.containers||[]).forEach(c=>{ const r=String((c&&c.reworkOrder)||'').trim();
+    if(!r||seen.has(r)||!boxScopeReadable(c)) return; cnt[r]=(cnt[r]||0)+1; });
+  Object.keys(cnt).sort().forEach(r=>used.push({no:r, note:'本廠用過 ｜ '+cnt[r]+' 箱'}));
+  return {erp, used};
+}
+/* datalist 沒有分組（optgroup）可用 ⇒ 靠 option 的**說明文字**分辨來源：
+   瀏覽器會把 value 顯示在前、內文顯示在後，等同於「R-2601-0087　ERP 重工單 ｜ BM04 ｜ 計畫 500」。 */
+function reworkOrderOpts(){ const it=reworkOrderItems();
+  return it.erp.concat(it.used).map(x=>`<option value="${esc(x.no)}">${esc(x.note)}</option>`).join(''); }
 /* ═══ ★99-18 06 不良／重工 篩選（比照全站通則 [[filter-cascade-clear-rule]]）═══
    【為什麼】① 待會判/待重工 原本是一張**裸表、連一個篩選都沒有**。實測正式庫 16 箱、
      跨 7/29～8/12 半個月都還沒處置 → 只能一頁頁翻。②③ 兩張同樣沒有。
@@ -5901,7 +6002,12 @@ function dispForm(cid){ const c=findC(cid); if(!c) return ''; const rem=remainin
       <div><label>${L('報廢 NG 數')}</label><input id="dp_ng_${cid}" type="number" value="0"></div>
       <div><label>${L('改判放行 OK 數')}</label><input id="dp_rl_${cid}" type="number" value="0"></div>
       <div><label>${L('重工去向製程')} <span class="small muted">依不良狀況</span></label><select id="dp_st_${cid}">${stHtml}</select></div>
-      <div><label>${L('重工工單號 (R 類)')}</label><input id="dp_wo_${cid}" list="rwo_${cid}" placeholder="如 R-...（重工回流時填）"><datalist id="rwo_${cid}">${reworkOrderOpts()}</datalist></div>
+      ${(()=>{ /* ★107（4d②）候選＝ERP 重工單 ＋ 本廠用過的；兩邊都空時要指路，別讓人對著空下拉猜 */
+        const it=reworkOrderItems(), tot=it.erp.length+it.used.length;
+        return `<div><label>${L('重工工單號 (R 類)')} <span class="vi">${tot?('（可挑 '+tot+' 張'+(it.erp.length?'，含 ERP '+it.erp.length+' 張':'')+'）'):''}</span></label>
+        <input id="dp_wo_${cid}" list="rwo_${cid}" placeholder="${tot?'點一下從清單挑，或直接打':'重工回流時必填'}"><datalist id="rwo_${cid}">${reworkOrderOpts()}</datalist>
+        ${tot?'':`<div class="small" style="color:#b9760f;margin-top:2px">⚠ 目前沒有可挑的重工工單。ERP 開好了的話，請先到 <b>01 工單管理</b> 用「類別＝重工」抓進來。</div>`}</div>`;
+      })()}
       <div><label>${L('判定來源')}</label><select id="dp_src_${cid}"><option>現場會判</option><option>品保會判</option><option>工程會判</option><option>QMS 檢驗</option></select></div>
       ${''/* ★★★99-45（backlog `4d`①）判定人從「手打文字框」改成**唯讀顯示登入者**。
          【為什麼】會判是責任判定（重工／報廢／放行），比「誰生產的」更需要不可抵賴，
@@ -5932,6 +6038,21 @@ function doDisposition(cid){ if(wGuard('rework','c',undefined,'不良品會判')
   if(rw+ng+rl<=0) return toast('請至少填一項處置數量','err');
   if(rw+ng+rl>rem) return toast(`三項合計 ${rw+ng+rl} 超過待處置 ${rem}`,'err');
   if(rw>0&&!wo) return toast('重工回流請填重工工單號(R 類)','err');
+  /* ★★107（backlog `4d`③）打的號碼不在候選裡就明白講一次。
+     【為什麼是軟提醒不硬擋】①正式庫已經有舊的 R 單號（例如 R-BM04-2601），硬擋會讓人連舊資料都動不了
+       ②大永還沒接 ERP，本來就是當場打的 ⇒ 硬擋等於停線。
+     【為什麼還是要提醒】使用者 260924 定調集團公司是「**從下拉挑一張已經開好的單**」
+       ⇒ 挑不到就代表 ERP 那邊還沒開單，這件事現場自己看不出來，要講給他聽並指路。
+     ⚠ 訊息**分兩種情況**寫：有 ERP 單可挑卻挑了別的（多半是 ERP 沒開）／根本沒 ERP 單（那就是大永那種用法）。 */
+  if(rw>0){
+    const it=reworkOrderItems();
+    if(!it.erp.concat(it.used).some(x=>x.no===wo)){
+      const msg=it.erp.length
+        ? '「'+wo+'」不在從 ERP 抓進來的重工工單裡。\n\n如果這張單已經在 ERP 開好了，請先到 01 工單管理用「類別＝重工」抓進來，再回來會判。\n如果是現場先做、ERP 事後補開，按「確定」繼續。'
+        : '「'+wo+'」是一個新的重工工單號（這個廠沒用過）。\n\n確定要用這個號嗎？之後同一張單的其他箱，記得打一模一樣的號，追溯才串得起來。';
+      if(!confirm(msg)) return;
+    }
+  }
   if(!by) return toast('抓不到登入者，請重新登入後再會判','err');   /* ★99-45 正常情況不會發生（沒登入根本進不了這一頁），保留當最後一道保險 */
   if(!reworkDispose(cid,rw,ng,rl,wo,src,by,null,st)) return toast('處置失敗，請檢查數量','err');
   const stMsg=(rw>0&&st&&st!==findC(cid).processCode)?'（去向 '+stN(st)+'）':'';
