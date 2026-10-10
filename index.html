@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v108-1</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
+<title>MHR 製造履歷系統 — 正式版 v110-3</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -30,6 +30,8 @@
   .brand h1{font-size:26px;font-weight:800;letter-spacing:2px;color:#7FD4DE;text-shadow:0 1px 6px rgba(0,0,0,.35)}
   .brand .sub{font-size:12px;color:#C9D8E8;margin-top:3px;font-weight:600;letter-spacing:1px}
   .brand .tag{display:inline-block;margin-top:8px;font-size:11px;font-weight:700;background:var(--teal);color:#fff;padding:2px 10px;border-radius:10px}
+/* ★109-1 版號跟「製造履歷系統」同一行（使用者 260929：移到上方、不寫「正式版」）⇒ 取消原本獨立一行用的上邊距 */
+.brand .sub .tag{margin:0 0 0 6px;vertical-align:1px;padding:1px 8px;letter-spacing:0}
   nav{padding:5px 0;flex:1}
   nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#C7D4E6;
     padding:5px 18px;font-size:13.5px;cursor:pointer;border-left:3px solid transparent;font-family:inherit}   /* ★97 側欄 15 項：間距 6→5px 塞下（⑦A 案） */
@@ -192,6 +194,17 @@
   .tblfit table{width:100%}
   .tblfit th,.tblfit td{padding:4px 6px;font-size:12px}
   .tblfit th.wrap,.tblfit td.wrap{white-space:normal;word-break:break-word}
+  /* ★110-2 窄螢幕（平板直立、手機）不讓 .wrap 欄被擠成一個字寬。
+     【病徵】261010 在正式網域實測 110-1：寬 414 時 Q 頁「🚚 出貨 OQC」表與 09 出貨單表的「機種／料號」「出自哪些 LOT」
+       被擠到 24px、字直排、一列高 668px；00 點開的明細（99-31 舊功能）的批號／來源欄一樣（371px）＝共用樣式本來就有的問題，
+       只是出貨這幾張表有兩個 .wrap 欄才特別明顯。
+     【原因】.wrap＝可折行＋break-word ⇒ 最小寬度是「一個字」；窄螢幕時其他不可折的欄先佔滿，剩下的全擠在它身上。
+     【門檻】★110-3 由 820 改 720：110-2 實測寬 768（平板直立）原本放得下的表反而要橫滑（00 明細 85px）⇒ 768 維持原樣，
+       只有更窄（實測 527 起就會擠成直排）才啟動。
+     【做法】窄於 720px 時 .wrap 欄至少留 9 個字寬，放不下就讓 .tblfit 橫向滑（它本來就 overflow-x:auto，
+       跟不可折行的表同一個行為）。**只在窄螢幕生效**：電腦寬度（1280／1440／1920）一個像素都不變
+       （[[table-fit-one-page]]：min-width 只當平板手機的安全寬度）。 */
+  @media (max-width:720px){ .tblfit th.wrap,.tblfit td.wrap{min-width:9em} }
   .tblfit th.fix,.tblfit td.fix{width:1%;white-space:nowrap}
   .tblfit th.num,.tblfit td.num{text-align:right}
   .tblfit .btn.sm{padding:2px 6px;font-size:11px}
@@ -368,7 +381,7 @@
       <img src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX1BST0ZJTEUAAQEAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADb/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCACTAkkDASIAAhEBAxEB/8QAHQABAAICAwEBAAAAAAAAAAAAAAEHBQgCBAYDCf/EAGIQAAEDAwEEAgkMDAkJBQkAAAEAAgMEBREGBwgSITFBExQiUWFxkbLRFRgyN1Z0gZOUobGzFjU2OEJSYnJzg5LSFyM0U1VjdbTBJygzVGSChKLTJENF4fAlJkRGV4WVo8L/xAAcAQEAAgMBAQEAAAAAAAAAAAAAAQIDBAUGBwj/xABGEQACAQMCAgUHCAcGBwEAAAAAAQIDBBEFEiExBhNBUXEUMjNSgZGxFSIjNWFystEWNEJTocHwJXOCg5KiByZDREZiwmP/2gAMAwEAAhEDEQA/ANykREAwmFKICMJhSVAOUAwmEBUoCMJhOacz4EGRhMJlEAwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCYUogIwmFKICMJhSiAjCKVB6UAREQBERASETqUc0AccLEam1JZNNUBrr3coKKAdBkdzd4AOk/AultI1ZRaM0nV3ytPF2JuIo+uSQ8mtHwrRvWuqrzq69y3W81LpZHE9jjz3ETeprR1LTurtUOC5nsOi/ROprcnUnLbTXN9r+xGzl03kNGU07o6SluFY0fhtjDQfKup65nTH9DXL/l9K1RTqXMeo1vsPpcP+HmkJYak/abWneZ0x/Q9y/5fSuUe8rpqR7WMsd0e93INaGkk+LK172Z6FvGvL+LbbGiOFmDU1LhlkLe+e+e8FuDs52X6U0XSMFDQsqK0D+MrJ2h0rj14P4I8AW3b1bmtx5I8n0i03o3or6vbKdT1VJ8PF9hiLZtVuVyiEtHs91LKwjIJia3P7RCsmimfUUkU0kD4HPYHGN/smEjoPhC+zWMAGGgYXLAXRjFrmz51dVqNR/RU9ntb+ICIiuaoREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBQelSoPSgCIiAIiIAoPgXJQE7Qav75l7lkvNnsDHkQxRGqkbnpJPC36HLXo9SuPe+J/hXjHULZF58ipxeavG3Wkfo7obSjS0aht7Vn3snrypiY+SVsbAXOc4NaB1k8sLivUbJqJlw2l6fpJACx1dGSD1hp4sfMsEI7pJHevK/k9CdV/spv+BuJsW0ZT6M0RR0IjArZ2CWrkxzdIRnHiHQvcqIwOEeILlheqhFQioo/Ld3c1LuvOtVeZSeSApRFY1wiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAIiIAiIgCIiAKD0qVB6UAREQBERASoUqE7Qaeb3vtsR/2ZD58ip1XFve+2xH/ZkPnyKnV5m79NLxP0l0S+prf7oXsNi07KfarpyWQ4b28xvwnkPpXj12LbVy0Nwp62AlssErZGEdILTkfQsNOW2aZ2L+h5Ra1KK/aTXvR+jkZy0eJclgtCagpNUaWoL3RvaY6mEOIB9i7ocPgOQs4fGvVpprKPyzWpTo1JU5rDTwyUUDpUqTGEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBERAEREAREQBEKgZQEooKZQZJRQFKAIiIAiFRnmgJRRlMoCVB6UCHpQBERAEREBKhSoTtBp5ve+2xH/ZkPnyKnVcW977bEf9mQ+fIqdXmbv00vE/SXRL6mt/uhSoRa56MtfYHtVk0LXm3XQvlsdS8F+Ml1O78cDvd8eRbf2a7W68W6G4Wushq6WZuWSRuyCvzp8Kz+j9Y6l0pVdnsN2npMnLow7Mb/G08iuha3zpLbPij5/0n6D09Tm7i2e2o+fc/wAmfoK3pPJclqbat5XVtNCGXCz2yscPwmF8RPwc13vXPXn3LUfyt37q6PyhQ7z55LoFrcXjq0/ajaRFq365+8+5aj+Vu/dU+uevPuWo/lbv3U+UKHeR+get/uv4r8zaNFq4N5+8A89K0hHgq3fur0Omt5mz1MzIr7Zaiha7kZYXiVrfGOR8mVMb+hJ4UjDX6E61RjulRz4NP+ZsEiw+mdSWXUtvbXWS4Q1kDutjuYPeI6R8KyxK2001lHl6lOdKThNYa7GckUEqMnvqShyRfCpqqemYZKieKFo6S94aB5Vj3al0+3k6928f8Qz0qMpdpkhSqT4xi2ZdFhDq3TTem+28f8Q30rg7WOlh03+3D/iG+lRvj3mTySv6j9zM8ixdu1BZLjIIqC7UdTIRkNjma4keIFZIuwOlSmnyMU6c4PElhnJFjpb5Z4pDHLdaJj29LXTtBHzr6Ul0t1ZJwUlfTTu6xHIHH5im5EujUSy4v3HdRRkr5VVRDTRmWonjhjHS57gB5SpKJNvCPsixQ1DZD/4xQ/KG+ld+CeOeISwyMkYehzSCCoTTLypVIedFo+yLFXvUNlsjWuu10pKIO9j2aUNz5ViWbRNFPc1rdT2wknAHbDefzqHOK4NmSFpcVI7oQbX2Jnq0XwpKmGrp21FNMyWJ4y17DkHyLlLNHEOKSRjG99zsBWMDi08Y4n1RfCOqgkdiOojce8HAr65JCjIaaeGckXEHvoXAAEnkpIOSLqy3CihdwzVcEbu86QBcPVa2f0hS/Gt9KjcjIqNR8os7qLpeq1s/pCl+Nb6VBu1s/pCl+Nb6U3Inqanqv3HeRfGCoinbxwyslb+MxwIX0ye+mcmNprgzki4cYHS4eVTxeHKkg5IuPEpygJRQSoDs9ajIOSLiDnnnkpypBKLg6RrW5e4NHfJwujJfLPFIWSXSia4dRnaD9KhtLmXjTnPzVkyKLGer9lz9t6HHvhvpQX6zOOG3ahJPQBO30puRbqKvqv3GSK+NbUMpKSWplOI4mF7+WeQGSuUU0czA6KRr2nracqXtD2ljgC0jBB61LMeMP5xrvW7y5dcJYLVpKWqhjJ4XOnIc4D8ItDTgLsWneTgFxjhv+lqq307z/pmyFxaOs8JaM48C8xcbRQ6V3qrZQ2NjqWnnnY98Qd3P8Y08Qx3j3lae8/bKCfZNcKiSkhdNA6N8UnAOJjuIDIPiJXLjOu4zlu818j6VXtdEhXtreNs8Voxe7c8rPDlyLOtVbTXGhhraKZk9NOwSRSNOQ5pGQV2lW+7ZNJNscsjpHl5DZGAnqAkcAPIrHzyXRpy3QUu8+f39t5LdVKCedra9zwSijJQHwq5qHUvNwprVa6m5VknY6emidLK7vNaMla8Vu8+1tVI2i0v2SAOIjdJVYc4d8gN5K39uGP4JtTf2dN1/kleL3TKWnl2VsfLBG8mrl5uaCelalaVSVRU4PHaer0ihY0dOqXt1S6zElFLLXNZ7Do7P94i36h1FS2e52V9uNU8RwzMm7I3iPQDyGB4VejTluekLW3eRhhh2vaL7FDHHlzc8LQM4latkYwAxo8Cm3lPMoTecGHpBa2kKVvc2sNiqJvbnOMPHM5N8aHpU9ag9K2jzQREQBERASoUqE7Qaeb3vtsR/2ZD58ip1XFve+2xH/ZkPnyKnV5m79NLxP0l0S+prf7oREWuejCA+NEQBERQAiIg4BTnljqUIOSDwPQaF1fe9G3qO52WqMRBHZIie4lb3iP8A0ea3e2bawt2ttL096oO4c/uZoScuieOlp/w8a0CHSrp3S9USWvXT7BLKRS3OM8Lc8hI3mD8IyujYXEoTUHyZ8+6ddHqV3ZyvKaxUhx8V3G3XQFV23bac/RNHT2y0QCrvtf3NPFji4BnHEQOZ58gOsq0TjGVrzpCmj1bvP3241wEsVmZwwMdzDSMNB8vEfhXWuJNJRjzZ8p0C1oVKlS4uFmFKO5rvfJL3nRtGxvXmt2i7a91RU0nZu6FK08b2g9RHJrfEAVm27sumsc77dCfEwf4K9amZlPTyTSHhZG0uce8AFQFRvDXWruFU3Tmhp7nQwycDZxM7LvCQ1hAz41gnSt6aW/iztWWra9qTl5E1GMexbYpdy4nbG7Npjrvd08rPQuXrZtK/0zdD8LPQugNvOtP/AKZVR/XSf9NT/D1rTI/yY1Xi7NJ/01TNp3fwZvdX0q/e/wC6H5nkNs+yyl2Y2mh1Jp681wmbVNjIe4AjIJGC0DrHQrh1lqa5s3dajUcc3Y6+W2xkyN6Q5/C0uHh7olVNtI1Tr7anaKawQ7P6yhHbAlEgc5wJAIwSWtAHPpyrO2p2uey7tFZaqktM1LQwRv4ejIkYCoht+klTXDBa962pGyp38lKr1nHim9ra54Kl2R7FodfaTGoazUFTTSyTvY5ojD84xzJPSSsfeNLT7LNtWnLXbLvPUCeWne55HAS18pY5pA5EYHzq690v2pYffc30hV3vD8t4fSng7T/vLlR0YRoxmufA36WsXlxrFxY1ZZpJTSWF2Lh2Gz7Tlo8IWtu9zW11XqnTenWVckNHUNLntaSAXOkDQSOvHe8K2TZ7AeILWbeoGNqekR3mN+uC27z0L9nxPJdDUvlaDazhSf8ABndk3ZKBtO6QapqgQwuAMDcdHj6F9tzu4XB/2TWWoqpJ6WhfCYWvJ7guMgdjPQDwjktgJv5A/wDRH6Frvud/b/W358HnzLE6MKVaGxc8nRhqt1qmj3nlUt23ZjguGZfYjCbQ7NFrXeeZpu7VNQKKRojHY3gFjRE5/LPLpC9bqTd40dQWKvrYa669kgp3yN4pWkEhpPPufAsI8/55MB/Kd/d3rYq+URuNnq6ESdjNRC6PjIzw5GM/Ooo0Y1N7ksvLM2r6vdaf5HToVHGHVwbS5duTU3ZFtj+wXQtVau1ZrlXvqC6khc/DI2kDmT04z1AeRZyg0ltY2t1TbnqO4S2K1HJiY5rmcurhi5EjwuIVrbNdjGk9HNiqpacXS5s59tVLc8B77W9A8fSvZ6o1Tp7S9M2ovl1pqGMnDeyO5nxDpSFtLYlWlwXZ+ZW+6Q23lc56TQzUk/Pay/8ADHsNe7tsC1xZ2OrdOauNXOzLhGXPhefADkgnx4Wd2E7Ub+NUP0Hrpsjbg0lkEszeF4cBngd38jmD1q7dNX2z6itwuNkr4a6lJLeyRHIyOkFUPvT0Edm1fpbV9I0RVQqRHK9vIu4SHN+biHwqZ0lQSqU3w7iLLU6mtzlp2owTk09ssYlGSWeODYmeVkFO+aV4YxjS5zicAAda1e1TtB1ztT1dLpvQDpaS2MJHZmHgLmj/ALx7+pp6gOauDbtd5KHYpeK+F5a+amjiDh1dlc1n/wDS89ulWWmodm3qo2NvbFwne6R+OZa08LR8x8qyVm6lRUk8LGWaGjwpafYVdSqQU5qWyKfJPGW2jytFu3XOpiE141rK6odzcI4nOAPXzc7n8y7HrZme7Gr+IHpVt7QNoGmtCxU779WOhfUZ7FGxhe9wGMnA6hkLyB3hdnn+tVvyZypKjaw4P4m3Q1fpNdQVWim4vliKx8DyfrZme7Gr+IHpUetnjxz1jWD9QPSvW+uF2d/61W/JnKDvC7PMfyqs+TOUdXaPtXvMvl3Sz1Zf6V+RXGyEXnQm3yTQ/qrJXUMgcyQOyGnuONpDSTgjl0L3W9Jre96YtFstliqH0s9xkeJJ2eya1uOTe8TnpVfaGvdPq/elZfrRHM+jkLn5czBa0RcJJ73MfOs1vkc7npYd90n0tWFSatpbXwydStbQr69a+UQTk6acljnJJ80dOn2UbZqilZU/ZrC3jYH8JrpsjPPHscLCaa2u7QtJGv0lUUj75dIagxxOlD5HxkZBGAMvzyIW2FvGKCDH8236FjKmLTOn31F3qIbdbnzu4pqlzWRmR35TusrYdrtw4Swefp9J1Wc6V5bxqJ+aklHD9nE18N+3iLfRjVFTRSy0p7p9I6nYXBvhjHdAfOsnT7zdNHaeGt0xU+qre5dGyUCInv5I4h4sHxq/7XX2+6Ubau31UFVTu5NkieHNPkWIqNEaQmvXqxNpy2vrz0zugaT4+9nw9Kt1FWPmT95j+W9OrtxvbNJrls+b7Ga/x6323bRJCzTlsktlC7mJI4+xsx+lf0/7q5V2kNvun6d93hvsla6EdkdDDUmRxA5nuC3uvEMrYS6am0zZZo6Svu9BRyO5NjfK1p8HJZphZLEHNIexwyCDkFQrbd50234lp9JZ0MdVaQjTfY45yvF8yrNgO0+TXNBPb7uxkF7osCZoGBK3o4gOo55EKxtQXaislmqbtcZhBTU0ZkkeT0ALXWJjNO73jae2t7FDXuJmY3k08cRceXjbleq3w7pUUmz6ht8DyxtdWhsuD7JrWl2PLw+RRTryjSk5c48C15olGvqtvTofNhXUZY7s817MPBX1Ve9om2/UNRSWCWS12OE4J4yxjAejjcObnEfgj5l6KLdia+MOqdXSvmPNxbTYGfhcSrV2L2eh01sutbI2Mja6mFRUSEY4nOHESf8A11KsdR7xlUbzU0eldMOuVPAS3s7nuy7BxxBrQcDxrE6VKMVKtxbOrT1HU7i4na6LBQp0+HJeGW32s+frX6b3Vz/Jh6VDt2CnaMt1ZO134J7WBwfKuid4LXHuI+aX91fei3jL5S1MJv2jXwUbn8L5Wue1wHgDm4PiVE7N/wBM22ul+Mxmn4bDAXe2bT9iVVHcqa5Oudl4wHHLnQ8zyD2E5Znvg48K2M2a6wt+uNK097oO44u4nhJy6GQdLT9PhBBXZmbZ9aaLdkNqrbc6XIyOlrh9I/wVCbolVUW/V+pNMPkLoYgX9PLiY/gJHjytiC6iooxfzZHDupx1nTq1etBRr0cZaWNybxxXemRr4/529k/SU/mlWdvMe07d/wBX5wVY6/8Avt7J+kp/NKs7eY9p67/q/OCpHzKvizauP1zS/uw+JO7P7TVl/W/WOXodpWubPoWwPulzk4nnuaenaQHzP7wz856l57dn9pmy/rfrHKq9VQP2o7xvqBUvc6z2g8L4weTmtALvK448QKydY4UYbebwjnrTaV7rF1Ku8U6blKXgnyXiTS6823a+lfVaUtfaNt4iI3iJoaf99/sj4uS7gt+8n/rjfjYfQr1vd10/ozToqq+ent1upmhjBjAHU1rQOnxBeAfvCbPGnDaqtcO/2q5UlThH0lR58Tat9SuLhN2NhB01/wCjl732srnU1i3ha+wVtHcn9t0c0LmTQsfEXPaRzAxz8isbdVpaqi2YmmrKaammZWzB0crC1zTnrBSPeD2ePe1r6usYCebjTOwFZenrvbb7aobnaaqOppJhlkkZyCr0KdPfujLJrazqF/5D5NcWqpxck8qO3iviUBvL+27or84fWtWx8fsW+Ja47zHtvaJ8Y+tatjo/Yt8SvQ9LU8TV1r6tsfuy/EcutQelT1qD0raPLhERAEREBKhT1KCgNPN7322I/wCzIfPkVOq4973P8LEZxy9TYvPkVOEYXmbv00j9JdEn/Y1v90IiLXPRhERAEREAREQBERAF6nZJUPpdpmnpoyQ4V8Y5eE4P0rywXrNj9K+t2n6egjaSTWsdy/J7r/BXo+kjjvOfqrirGtu5bZfA33AyweJa60NT9gO85XC4HsNDqBv8VK7k3idjAz+cCPhC2KbyaPEvFbW9AWjXlj7VrnimrIMupaoeyjd4e+PAvSV4Skk480fnXRLyjb1Z0q/o6icXjs7n7GexmjjqqV8T8OjkaWnwghUPUbuslPVzusmta+hppXl/YhHnh59GQ4Zx4QsfQXzbHoOMWt8NBqegh7mGYTt4w0dAJyD5cnwrsS7Xtp+RwaEhA6+KfmtepVo1PSRfuO/YaZq1g5OxrRcZduY8e7hLkzsM3f7zzztFuXwRn99RPsJ1VRxma07Rq/tpoywSNc1pPeJDuS+Me2HaY1pM2g4SBzJE+OXlVhbFdpA2hW2tkltxoauhl7HLGH8TTnoIKrCFvN7Unn2mW9uekNpRderKLgsZxsfPvwjwOldo+r9Daop9J7ToGPinIbTXOMZB54GTgcQ8hGea93vElrtit/e0gh0URBBzkdlYvhvIacpr7sxuEz4m9sUDe2YH45tLekDxjkvFV15nvu6DNWVLi+ZlOyB7ic5LJ2tz8yvJyhupt54NpmvQp0bydrqFKKjLrIxklyzlNNLsyel3TPalh99zfSFXe8R98PpT/g/7y5WHum8tksBz/wDFzfSFXm8U4N3hNKveQ1oFISSeQxUuVJ/q0fYbtlx6SXP+Z8GbQR/6NviC1n3qfbT0l+Y364LYxlzt/A0dvU3R/Oha3b0NRBPtR0m6GZkoDWgljgefZhy5LLeNdU14fE5PQ6nKOqJtY+bL4M2Xm+17/wBEfoWu+539v9a/n0/nTLYib+QP/RH6Frvud/b/AFr+fT+dMpq+np+34GPSfqe//wAv8R1eZ3yYMcjxu/u7lsnVzR09NLUTO4Y4mF7nd4AcytcqMA74zsgHAf8AUlbB6l5aeuBHSKaTzSotXhTf2sydJYqdWzj/APlD+Zr9rfb5dr1W+oeze1zSzSHgFU6Eve7wsZ1eN3kHSsba9iGqb7T1epdoN4nZMIXzNp2y9klOASOJx5NH5IWc3LYITYL7OYmGXtprePhGccA5Z7yvbUoH2PXH3tJ5pWKnTdxHrKjz9nYdK/1RaJdOw06moYaTnzk84fN8ik9zIn7F73HxHhbXDAJ6O4C475fKxadx/r58wrluZfc3fffo80LjvmfaLTvv4+YVX/s/67zN/wCXvx/+T0e8N97zW/o6T62Nd7dgGNjdp7/FMf8A9jl0d4f73qt/R0f1sayG7IMbGbN3yZs/GOWZfrP+H+Zyqz/5dl/fP8JVe9TGyo2t6Wp5mh8T4Y2uYeggzEHkrrj2W7P+AZ0rbM4/mQqU3qJY4Nrml5pnhkccMb3uPIBomOSrtbtP0CGjOqbb0fzwVYbOtnvwbOoK++SrLyXdjbLO3PrfYDss2fe5W2/EhG7Ldn7TxDSls5f1IXIbT9Ae6q2/GhDtQ0Bgn7Krby/rQtjND7P4HB/trH/U/wBxmNPaY0/p8P8AUa0UdDx+yMMQaT48Khd8THq3pZuefE8/8zVfGndU6f1GHOsl3o64sGXCGQEtHhHSqB3vh/72aXHP2J88LDd7eoe06vRRVvlqHX53YlnOc+a+82RpARQRAdUY+hakXK36g2p7QtSUt0v8rKKzCWURYyAxpIAa0YGeXSVtzTfyJg/qx9C1i2Qctom0j3rUec5LpbnGL5P8i/Req7eF1cQS3xSw8ZxmWHg9PuYSyO0jeInPJYysaWtJyBlvPC729nqW+af07ao7LcZqHtud7JnRHDnANzjPUsfuXfcte/fjfNXw30/tHp4/7VJ5qxZas8/1zOg6UKnS9xnFNZ5P7pXO0fZeNN7OaTV1dfKi43CufE7hcMMaHtzzJySfhW0OySR8uzWwPkc5zjQxc3HJPchVPvEctgVh8VL9WrX2Qe1lp73jF5oV6EFCs1HuRqa9e1r3SadSs8tVJL2JciktQj/PDto8LPqXrMb6X3M2D36/zFh9Rj/PEto8LPqXrMb6P3MWAf7a/wAxYZeiq+J1rf610z+7XwkWLTkjYhxDkRZDz/Uqr9y2GJ9r1I98THO7PCMkZOOFys+H2jv/ALIfqVWe5YQLRqT3xD5rlnks1qeTj0MrR7/Hrx/EbBing6OwR/shVNvWU9ONktS8QRhzaiItdwjI7pW4Dy8fhVT71p/ySVY5fyiHr/LCz3XopHD6Oyl8qW+fWXxMvu8knY7YsknEBx5Sqk3Y/br1Zj8Wf+8K2t3g/wCRyyDP/cO+kqpN2Lltp1Z+ZP8A3haz50X/AFyPSQXzdW8f/tn11/8Afb2T9JT+aVZ28x7T13/V+cFWOv8A77eyfpKfzSrO3l/adu36vzgoj6Or4stcfrml/dh8Ru0e0xZj4JfrHKu9hTQ7eE1k4jJEk2PjCrE3aPaYsx8Ev1jlXmwn74LWf6SX6xW5qj/XYYU/pdU9v4xvlVMrq7StsLj2tK+WR7O+QWAecVb1Fs10LFRwxDStqPAwDLqZpJ5dZI5qnN8gj7IdHjo5T+fEtkIDmBmfxR9CvSipV6mV3GpqVerQ0axVKTinvzh8/nFebQNnuiotF3eWDTNshkZSSObJHTta5pDTzBAyvM7nkkj9nFSx7iWsrnhoPVkA/SrN2iHGhr1z6KKXP7JVX7nQ/wAnlbnliud9ASUUriOO5mKjXq1tBr9ZJyxOOMvPeYDeY9t7RX5w+tatjo/Yt8S1x3l/be0T+cPrWrY5nsG+JWo+lqez4FNb+rbH7svxHLrUHpUhQelbR5cIiIAiIgB6EUogNWt8uzyRahtF8DSYZoHU7ndQc08QHkJWv/gK352qaOotb6RqbLU4ZI4cdPL1xyDmCtHNW6du2l71NabzSPp6mM45juXjqc09YK4Oo0XGfWdjPufQDWqVzYK0k8Tp9nejEHpRCi559CCIiDIREQZCIiDIRECgDyfCr13RNKyXDVlRqeaIimt7DHE49DpXdOPEPpVd7MNnl+15dWU1ugdFQh3/AGiseMMjb14PWfAt2NEaZtukdOU1ktcYbDA3BcR3T3dbie+V0rC2cp75Lgj5z066SUba1lZUZZnPg8di7feZt2BzwtZdtk951Vt1t+hReamgt0jGNAiJIBLXOLi3Iz7EdK2aK1p2+W++6W2wW7aHR22Suooms4uFpIa5oIIcR0Ag8j310rzOxeJ876HuPl0lw37Jbc487s58DKDdnoTz+zC456/4kelT62ah92Fw+JHpXRdvNkEcGk5cY/CqP/JPXNyn/wCUZPj/APyWtmy7f5nolDphzUvwHeO7NQ9esLjy/qB6VZ2yjZ9atntklt9BPNUyTydkmnmADnnoHIdACqP1zUg5/YjJ8oP7qh+3/VV6j7BpnQ80lS7kHYfIGnv8h9OFenVtIPMeftNS+07pPe0uqupfM5vLgl7cFibyOpKSw7Mq+nklb21cG9rQR55uJ6fgAycrx9TY6m1boU9DJGWzGjFS9pGCOKUSHPwLp6N2Yaw1pqaHVW1Cod2KEh0FBxeHIBaOTW/OetXxerXSXWx1Vnqo2mlqYHQPYPxS3HL4FkUJVXKcljKwjnVbu30qnQtac1Nxmpza5ZXJLvwir90qWKTZSyNjwXx1coeOsZweazG2HZNbdoklLVvuEtur6VvAydkfZAW5zhzcjPPwjpVMUts2l7E77VG0W+W7WWd+e4Y6Rj2jOCQ0Za7HSejyL0I3jbuGgP0RNxDke7d0/srHGtT6tUqq5HSutJ1CpqMtR0uakpPKaays9jTA3Ypvd5J/+OP/AFVk9LbuFFa7/R3S56omuUdLI2RsLaXsXEWnIy4vdyz1LG+uPu3Vomf9t37q+1q3i6usvlDbZ9KmmNXOyIOdMeQc4Nzgjn1qsfI88F8TZqrpdKElKXDDzjZy9iybA1AAo5QOgMI+Za77nn2/1t+fB50y2JqDxUkp6P4s/QtddzzP2Qa1/Pg86ZbNX09P2/A87pP1Pff5f4jhb+e+LL4A/wCpWwepvuduHvaTzStZNol4qNn+8fLqmvts09K9nFEG8uyB0fDyPRkHqWeu28pbKu21NKzTlWDLE5gJlbgZGOa16VenSU1N4eWdrU9FvdRdpXtYboqnBN5XNZz2na3K/uav3vxvmBXnqb7nrj72k80ql9za3VlJo66VdRC+OKqqw6EuBHEA0DPlV13yGSos9ZTxDL5IHtaO+S0hZ7RNUEcLpNOL1yo0+G5fBFH7mP3N3338PNC475n2i077+PmFV7sg2mDZZFdrNd7HVS1MlVxuAcGFhAwQQfEo2v7TY9qPqLaLZZamCeKr4gC4PLyRgAAeNafWx8n6v9o9ktIu/wBIvLtv0XPdlYxt8S79u9K+s2AXCNgJ4KWnlOO8x7HH5gm65WQVOyC2xRvBfTySxyDra7jJx5CF7x1shr9Li0XCLjimpBDMwjqLcELWWGLXuwnUVUKSikumnpncRdwOMbh3yR7B3V4VtVW6VRVMcMYPNadCOp6fV06Ekqinvjl43cMNZ7zYHaNs70zruGAXyke6enyIZonlj2A9IyOkeNeH9bjoPrlumfBOPQsLS7zdn7CO2dN1zZOsNkaQvr65vT/ueuP7bVWVS1nxeC9vpvSe0gqVHcorsUlj4mWO7hoP+dunygehcfW46EyP426fKB6Fi/XN6f8Ac9cf22p65rT5PLTtx5/lt5qN1p9nuNjqOlvfP/UvzPH7P7JFovegZp+01FR2oziYeN2S5rouLB7+D9Cyu95z1hpUY6j9Y1Y7ZZXVevN4t2r6G2T09A3ifI5/MMHY+FoJ6Mk9Sym+JFUQXzTV0MEj6aIOy8DkHBwPD41g4eTyxyzwO2pSev2saz+k6rEvvYfP7TZGIYpWj8j/AAWsGyH2xNpHvWo85yzw3mrUGcH2OVvRjPZWrz27yKu/ao1zdKejlZFW0jwziHIPe5xDc99Z6laFWcNnHn8Djafo95plldTu4bVJRxxXrL7T1G5b9y179+N81fDfU+0WnvfUnmrwexDalR7M7dc7VdbPWzVE1SHENIaWEDBBB68rhtu2m0u06ntFttFnrYp4KhxDXYcXlwwAAFg62DterT4nZWkXi6SeXOH0Wc7srGNuO8sLeJ9oGweKl+rVr7IPay097xi80Ktd4u03AbCrbTinfJJR9r9nawFxbhuCeXUCvM6L3hrZYdK22zyafqpn0dO2Jz2yjDiBjks/WxpVm5vHBHC+TrjUtHjC1juaqSb4rt8TnqP78S2477PqXrP75tLNJoyz1bGkxw1/C897iY7H0LwujL7LtA3lLbqSht08EDe6la7nwNbG5uScY6SFspr7TVHq7SlbYq4fxdTHhrsc2OHNrh4jhVpQ62nUS7WZ9SufkrULCVbnThFSXdzTMXsznotQbLLS1jhJT1FA2KQA9Hc8Lh4+lUVJst2uaFvlcNA1L56Cod3L4p4mEtBPCHtkIGRnpGV1dJas1ZsOvE+nNRW6Srsz5CYiM8P50bujB62lWhT7xWz+SFr3uuUTj0tdTZx8IKnfSqRSm9sl7ArTVNNr1J2NNVqNXjy3J9qyuaaK/wC0N5r8at+UUn7y6lw0Ft31m6G06omljt5kDnvnqYSxvh4YyS4jqCs/1w2zv+fuHyU+lcXbxGz1rSRLcXHvCmPP51XZQ7amfaZVe65B7qenwi+xqm014cSwdM2qg0fo2mtbJg2lt9Nwuleccmjm4/OqB3TmuuG0nU97jYRTyMeRkdBfLxAeQFdTaHtXv+01/wBiGhrVVsp6k8M7sfxkjc9BxyY3v5KuvYnoGLQWkW0L3MluFQ7stXK3oLsexHgCyRarVI7fNj2nPrUp6Tptfyx/TV8fN7Uk8tvxKi1/99vZf0lP5pVn7y/tOXb9X5wVa7xNrvmmtqVr2i0FC6so4exufhpIY5h5h2OgEHp8a6Gu9u9k1bo2s0/W6eroTUx47IyUHhcDkHyhYpVIwVSEuDbOnTsa99LT7q2W+MFFSw1lNPjwLY3Z+exizDwS/WOVbbFqmOi3jtWUlSRHLPJN2ME+yIfn6DldPdK1jqA3tukHRGoszYZJWvDP9A7OfZd4knl3z4F6Hblsy1E3VjNf6GLvVBhDp4Y3YeXAYDmjrBHIhSpOdGE4LzeZiq29O11W8s7maj16e154Jt5We49tt42bv2gWKm7RqmU10oHl9O9+eFwOOJpI5jOAc98KuafS+8ZSwMp4dQQOjjHC0mdjjjxlmSuNq3iL1aGMotXaUnbVsGHPaDEXY6+FwWTG83Yvc5cM/pGqZzt5vc5NMpa2Wv2dFW6oQqwTeM7ZJZ7uK5mMrtF7wV6pJLZdNRUzaOobwTZmaO5PT7Fufg5K4dkmiINB6RisrKjtmUuMk8vDw8Tz04HeVSXveTFXROptO6bqjcJe4iMruIAnoOBzPiWB0vtX2gaArHxa5tNdWUtaTURmYFrmcXPDT0Y/JPRySnVo05ZTb+3uLXml61f2rpThCnxyoLanJ9/PsM3vL8truieX4Q+tatjYzmMeJaT7bNo0Gu9QWu6WujqaCShic0F7hxcRdkEEdHQtj93G9agvuziCs1C6WWcSObFNK3DpYx0E/P5Fa3rRlWml2mt0i0evb6Pa1KuE4Zi1njlvJZgUHpQIeldA8EEREAREQEhECICHc+SwGsNIae1bb+079bIqyMZ4XHIez81w5j4F6BCAekKHFS4MyUq1SjNVKcmpLtXBlA3Tdk0/NMXW+/3CmZ+JI1smPh5LpetfofdXU/Jm+lbF4TC1nZUG87T0cOmWtQioqu/cvyNdPWv0PurqfkzfSnrX6H3V1PyZvpWxeEwnkVD1S36aa3+/fuX5GunrX6H3V1PyZvpT1r9D7q6n5M30rYvCYTyKh6o/TTW/379y/I109a/Q+6up+TN9KetfofdXU/Jm+lbF4TCeRUPVH6aa3+/fuX5Gurd2C3DPHqqq5jlinb6V6PS+7tom1zia5vrLwR0Mmk4GfCGYz4icK58JgKY2dGLyomCv0t1ivFwlXeH3YXwwdO2W6itlDHR2+lhpaeNvCyOJga1o8QXaGOpcsBMLZPPSlKTy2QuDmNcCHNDh4V9EwEI5HW7Soy4u7Vgyf6sLkKamHRTxfsBfdFGC2+XefHten/mI/wBkLkyKJnsI2t8QwvphFOCNzZxxz5BSpTAQg4FrSMOAI7xC49gh5nsLD/uhfXCYR8eYTaPl2GHH+hj/AGQtZN49rWbd9JhgAHY6bOB/tDls+7qAVJby+z286j9TtT6aiMtztoIdE0gOezi4gW56SDk468rVuot0/mo9L0VuqdDUY9dLCaay+XFYWS5Z/wCRyfoz9C143O+V/wBa/nwedMsQ/axteqLcbK3Sk4rXM7EagUUnHnGM4Ixn5lZW7ToG5aN09W1t7Z2K6XR7XyxcQJja3PCCQSM90T8KxKarVYOK5ZOnUsJaNpNzTuJxcqjiopNPOHnPDsLTrKCirABV0kE+OgSMDvpXV9QbITn1JofiG+hZMc+SnHJb21M8XGtUisKT9584Yo4oxHCxsbGjAa0YAXIjPSuWAmFJjfHidCqtNsqpeyVNBTTP/GkiDj84Sms9qpphLT2+lik6nMiaCPIu+mAo2rngyddUxjc8HHC4vYx44Xsa4deRlfTCKTGuBjX2OzSPL32ujc49JMDfQo9QLJ/RNF8Q30LJ4RV2x7jKq9X1n7zGCwWT+iaL4hvoT1BsnP8A9kUPxDfQsnhE2ruHlFX1n7zr01LTUsQjp4I4WD8FjQB8ymqpqepj7FUwRzMP4L2ghffATAUtFN8s5zxMWLBZM5FpofiG+hd2mpqemZwQQxxNJyQxoAPkX3wmAiilyRMqtSaxJ5MfPZ7TPMZZ7dSSPPS50LST8y5U9ptlO8PgoKaJ2cgsia0/MF3sJgKNq7ieuqYxuePE+ckbHsLHtDmO6QRkFY/1BsuSTaqI/qG+hZTCKWk+ZEak4LEXg6tHQ0VGP+y0sEGf5uMN+hdnHeU4TCJJFXKUnlvJj7xaLZeKV1JdKGnrIHdLJow4fOvHS7Gtmssjnu0tSAn8V72jyA4VgYCnAVZU4y5o2be/urdYo1JR8G18CvBsW2Z+5en+Nk/eXJmxnZqx3c6Wpf8Aee8/SVYOAmFHU0/VXuNj5Z1H9/P/AFP8zEae03YtPU/a9ltVJQx9YhjDc+PvrKhcsIrpJcEaFSpOpLdNtv7T5yxskaWPYHNPSCMrovsVme8vfa6JzickmBuSe/0LJYRMJ8xGpOHmto61LRUlI3gpaaKBvejYGj5l9yATnvrlhMBSVcpSeW+J1qiipKlvDPSwyjvPYCup9j9kP/hNF8Q30LKYRRtXcXjVqRWIyZ0aW0Wyll7JT2+lhf8AjMhaD8wX2qaWmqY+x1FPFMz8V7Q4fOuwmExwwQ6k28tvJjWWOzRvD2Wqia4HIIgb6F3mMZG3gjaGNb0ADAX0wiJJchOpOfnPJAQ9KkBQelSUCIiAIiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAFccDhRFX9pEkMY0NBDR5FyCIpkuJJI5JlEUlRlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlMoiAZTKIgGUyiIBlERAEREB//2Q==" alt="Syncmold 信錦集團">
       <div class="lgtitle">MHR 製造履歷系統</div>
       <div class="lgsub">Manufacturing History Record</div>
-      <div class="lgver">系統版本 v108-1</div>
+      <div class="lgver">系統版本 v110-3</div>
     </div>
 
     <div id="lg_panel_login">
@@ -401,8 +414,7 @@
   <aside class="side">
     <div class="brand">
       <h1>MHR</h1>
-      <div class="sub">製造履歷系統</div>
-      <span class="tag">正式版 v108-1</span>
+      <div class="sub">製造履歷系統 <span class="tag">v110-3</span></div>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -568,13 +580,26 @@ const DB_MAPS={
       mold:'mold', cavity:'cavity', jigs:'jigs', draws:'draws', pdate:'pdate', status:'status',
       qc:'qc', qmsNo:'qms_no', ok:'ok', nr:'nr', ng:'ng', boxCids:'box_cids',
       voidAt:'void_at', voidBy:'void_by', voidNote:'void_note', createdAt:'created_at' } },
+  /* ★★109 成品出貨單（建表＝109_MHR_260929_成品出貨建表.sql）。
+     ⚠ 這張表**沒有 DELETE 權限**（單據只作廢不可刪）⇒ 前端**永遠不可以**把出貨單從 db.data.shipments 拿掉，
+       只能改 status='void'；拿掉的話 dbSyncKind 會去 DELETE、被擋下、但快照已經更新 ⇒ 重整後又冒回來。 */
+  shipments:{ table:'mhr_shipments', key:'shipId', keyCol:'ship_id',
+    cols:{ shipId:'ship_id', site:'site', shipNo:'ship_no', soNo:'so_no', shipDate:'ship_date', customer:'customer',
+      partNo:'part_no', qty:'qty', status:'status', draws:'draws', source:'source', erp:'erp',
+      oqcNo:'oqc_no', oqcResult:'oqc_result', oqcSrc:'oqc_src', oqcBy:'oqc_by', oqcAt:'oqc_at',
+      shippedBy:'shipped_by', shippedAt:'shipped_at', createdBy:'created_by',
+      voidAt:'void_at', voidBy:'void_by', voidNote:'void_note', createdAt:'created_at' } },
 };
 /* ★97-5 非文字欄清單（date / timestamptz / numeric）——空字串一律轉 null。
    來源＝三張表的建表 SQL：pending(pdate date；qty_prod/ok/nr/ng numeric)、
    containers(qty/nr/ng numeric)、reports(ok/nr/ng numeric)＋共通 created_at/updated_at/void_at。
    ⚠日後映射表新增非文字欄，記得同步加進這裡。 */
 const DB_NULLIFY_EMPTY=['pdate','created_at','updated_at','void_at',
-  'qty','qty_prod','ok','nr','ng'];
+  'qty','qty_prod','ok','nr','ng',
+  /* ★109 出貨表：日期／時間欄收到 '' 會 400（97 pdate 同一個坑）；
+     oqc_result／oqc_src 有 check 限制（只能是 合格/不合格、manual/qms），'' 會違反限制 → 整批同步卡死；
+     erp 是 jsonb，'' 不是合法 JSON。 */
+  'ship_date','oqc_at','shipped_at','oqc_result','oqc_src','erp'];
 /* ★87-1 修：bulk upsert 每列 keys 必須一致（PostgREST 規定「All object keys must match」）——
    改為輸出「完整欄位集」（映射表全列、缺值補 null），否則 A 箱有模具欄/B 箱沒有 → 整批 400 同步失敗 */
 function dbToRow(kind,o){ const m=DB_MAPS[kind]; const row={}, extra={};
@@ -597,8 +622,8 @@ async function dbFetchAll(table){ const out=[]; let from=0;
     if(!r.ok) throw new Error(table+'：'+r.error);
     if(!r.rows.length) break; out.push(...r.rows); if(r.rows.length<1000) break; from+=1000; }
   return out; }
-const db={ data:{products:[],containers:[],reports:[],pending:[]},
-  _snap:{products:{},containers:{},reports:{},pending:{}},
+const db={ data:{products:[],containers:[],reports:[],pending:[],shipments:[]},   /* ★109 shipments */
+  _snap:{products:{},containers:{},reports:{},pending:{},shipments:{}},
   _dirty:false,_timer:null,_busy:false,_retry:null,
   load(){}, /* 3c：開機不讀本機；登入後 dbCloudLoad() 載雲端 */
   save(){ this._dirty=true; dbSyncStatus('pend');
@@ -610,10 +635,18 @@ async function dbCloudLoad(){
   /* ★★★99-51（0R）四張交易表**全部拿到才能覆寫** —— 任一張失敗就整個中斷，
      `db.data` 一行都不動（寧可用舊資料，也不要拿空集把畫面掃掉），並跳紅字。
      ⚠ 2046 行是 `dbCloudLoad().then(...)` 沒有 .catch ⇒ 一定要在這裡接住，不能讓它往外丟。 */
-  let cs,rs,ps,pd;
+  let cs,rs,ps,pd,sh=[];
   try{
     cs=await dbFetchAll('mhr_containers'); rs=await dbFetchAll('mhr_reports');
     ps=await dbFetchAll('mhr_products');   pd=await dbFetchAll('mhr_pending_insp');
+    /* ★★109 出貨表要分兩種失敗處理，**這兩種絕對不能混為一談**：
+       ① **表還沒建**（前端比 109 建表 SQL 先上）：PostgREST 回 404＋`PGRST205`（260929 實測過）
+          ⇒ 當成「沒有任何出貨」、其餘照常載入。這時本來就不可能有出貨紀錄，**庫存數字不會錯**。
+          09 頁會提示先跑 SQL。**不這樣處理的話，整個系統會一筆資料都載不到**（四張表全有全無的規則）。
+       ② **表存在但抓失敗**（網路、權限…）：跟其他四張一樣**整個中斷、不覆寫**。
+          出貨沒載到 ＝ 出貨沒扣到 ＝ 成品庫存**虛胖**，而且畫面看不出來 ⇒ 寧可不載。 */
+    try{ sh=await dbFetchAll('mhr_shipments'); SHIP_TABLE_MISSING=false; }
+    catch(e2){ if(/PGRST205/.test(String(e2&&e2.message||e2))){ sh=[]; SHIP_TABLE_MISSING=true; } else throw e2; }
   }catch(e){
     /* ★104 這裡不再自己跳 toast —— noteLoadError 已統一講一句；
        原本那句用 \n\n 換行，但 toast 是 textContent、\n 不會換行 ⇒ 擠成一長串又被切成六行。 */
@@ -624,6 +657,8 @@ async function dbCloudLoad(){
   db.data.reports  =rs.map(r=>dbFromRow('reports',r));
   db.data.products =ps.map(r=>dbFromRow('products',r));
   db.data.pending  =pd.map(r=>dbFromRow('pending',r));   /* ★97 待驗單 */
+  db.data.shipments=sh.map(r=>dbFromRow('shipments',r)); /* ★109 出貨單 */
+  db._snap.shipments=dbSnapOf(db.data.shipments,'shipId');
   db._snap.containers=dbSnapOf(db.data.containers,'cid');
   db._snap.reports  =dbSnapOf(db.data.reports,'id');
   db._snap.products =dbSnapOf(db.data.products,'partNo');
@@ -645,6 +680,7 @@ async function dbSyncKind(kind){ const m=DB_MAPS[kind];
 async function dbSyncUp(){
   if(db._busy){ db.save(); return; } db._busy=true; db._dirty=false; dbSyncStatus('sync');
   try{ await dbSyncKind('containers'); await dbSyncKind('reports'); await dbSyncKind('products'); await dbSyncKind('pending');
+    if(!SHIP_TABLE_MISSING) await dbSyncKind('shipments');   /* ★109 表還沒建就跳過，否則每 10 秒重試一次、永遠紅燈 */
     dbSyncStatus('ok');
   }catch(e){ dbSyncStatus('err', String(e.message||e)); db._dirty=true;
     clearTimeout(db._retry); db._retry=setTimeout(()=>dbSyncUp(),10000); }
@@ -1393,6 +1429,22 @@ function woCell(no,pn){ if(!no) return '<span class="muted small">—</span>'; r
 /* 委外：依產品路線上的勾選(product.os=[站碼])判斷某產品某站是否委外 */
 function isOS(pn,code){ const p=prodOf(pn); return !!(p&&p.os&&p.os.indexOf(code)>=0); }
 function lastStation(pn){ const p=prodOf(pn); return p?p.route[p.route.length-1]:null; }
+/* ★109-2 製程站下拉照「該機種的製程順序」排（使用者 260929 在 08 實測：選了 BM04，下拉卻是
+   壓鑄→機加→巡牙→皮膜→組立→毛邊＝製程主檔的固定順序，跟 07 流轉表的 壓鑄→毛邊→機加→皮膜→巡牙→組立 對不起來）。
+   ・沒選機種＝多機種、沒有單一路線可依 → 回到製程主檔順序（＝原本的樣子）
+   ・路線外的站（例如會判重工去別站）排在路線後面、照主檔順序，不漏；合併工站（A+B）拆開來各自認位置
+   ・只搬 option 的位置：value／hidden（連動收起來的）／已選的值一律不動
+   ・07（q_st）與 08（a_st）共用這一支，不各寫一份 */
+function stSelOrder(el,pn){
+  if(!el||!el.options||!el.options.length) return;
+  const rt=pn?((prodOf(pn)||{}).route||[]):[];
+  const ri=c=>rt.findIndex(r=>r===c||String(r).split('+').indexOf(c)>=0);
+  const gi=c=>{ const i=STATIONS.findIndex(s=>s.code===c); return i<0?STATIONS.length:i; };
+  const key=c=>{ const i=ri(c); return i>=0?i:rt.length+gi(c); };
+  const cur=el.value;
+  [...el.options].filter(o=>o.value).sort((a,b)=>key(a.value)-key(b.value)).forEach(o=>el.appendChild(o));
+  el.value=cur;
+}
 function isFinished(c){ return c.processCode===lastStation(c.partNo); }
 function stageNo(pn,code){ const p=prodOf(pn); return (p&&p.stages&&p.stages[code])||''; }
 function nextStation(pn,cur){ const p=prodOf(pn); if(!p) return null; const i=p.route.indexOf(cur); return (i<0||i>=p.route.length-1)?null:p.route[i+1]; }
@@ -1402,6 +1454,13 @@ function prevStation(pn,cur){ const p=prodOf(pn); if(!p) return null; const i=p.
 function drawnOut(cid){ let s=0; db.data.containers.forEach(c=>(c.sources||[]).forEach(d=>{ if(d.cid===cid) s+=(+d.take||0); }));
   /* ★97 打單未驗的待驗單 draws 也占用來源結存（防同箱重複領）；質控產箱時 draws 轉入箱 sources、單結案(done)不再計=不重複 */
   (db.data.pending||[]).forEach(p=>{ if(p.status==='pending') (p.draws||[]).forEach(d=>{ if(d.cid===cid) s+=(+d.take||0); }); });
+  /* ★★★109 已出貨的量也是「被領走」—— **這一行是整個出貨功能的樞紐**。
+     remaining() 全站 77 處在用（00 總覽／07 流轉表／08 全部箱號／06…），接在這裡 ⇒ 出貨一扣，
+     所有頁面的成品數字自動跟著降，不用一頁一頁改（[[centralize-shared-rule-not-per-page]]）。
+     07 流轉表末站的「已轉出」也因此自動等於「已出貨」（stationLedger 的 moved 就是 drawnOut）。
+     ⚠ 只算 status==='shipped'：open（待指定 LOT）還沒扣、void（作廢）要還回去。
+     ⚠ **不可以加廠區過濾** —— 這是內部計算，濾了別廠的出貨，那箱的結存就會算錯（`9e` 鐵則，斷言 68-11 同理）。 */
+  (db.data.shipments||[]).forEach(sp=>{ if(sp.status==='shipped') (sp.draws||[]).forEach(d=>{ if(d.cid===cid) s+=(+d.take||0); }); });
   return s; }
 /* ★98-11 writeOff＝核銷量（目前只有「委外回廠結案短少」會寫）。
    為什麼要有這個欄：委外結案時那些料是真的回不來了，既沒被領去生產、也不該繼續掛在委外站當「待投產」。
@@ -1466,7 +1525,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;',
    但字典還停在舊鍵（建箱:"Create"、過站報工:"Report"），新名字查不到就整個留白 →
    側欄 02／Q／04 三頁只有中文。03 同時正名為「清點移轉」。
    ⚠越南文是照字面翻的，定版前請 Clara 確認。 */
-const I18N={"首站打單": {"en": "First Station", "vn": "Công đoạn đầu"}, "質控檢驗": {"en": "QC Inspection", "vn": "Kiểm tra QC"}, "清點移轉": {"en": "Transfer", "vn": "Kiểm đếm & chuyển"}, "過站打單": {"en": "Next Station", "vn": "Công đoạn tiếp"}, "接收點交": {"en": "Receive", "vn": "Nhận bàn giao"},"生產指令單": {"en": "Jobs", "vn": "Lệnh sản xuất"}, "不良 / 重工": {"en": "NR / Rework", "vn": "Hàng lỗi / Làm lại"}, "製程主檔": {"en": "Process Master", "vn": "DM công đoạn"}, "廠商主檔": {"en": "Vendors", "vn": "Nhà cung cấp"}, "設備主檔": {"en": "Equipment", "vn": "DM thiết bị"}, "模具/治夾具": {"en": "Molds & Jigs", "vn": "Khuôn / Đồ gá"}, "名單管理": {"en": "Users", "vn": "Người dùng"}, "總覽": {"en": "Dashboard", "vn": "Tổng quan"}, "產品 / BOM": {"en": "Products / BOM", "vn": "Sản phẩm / BOM"}, "建箱": {"en": "Create", "vn": "Tạo thùng"}, "過站報工": {"en": "Report", "vn": "Báo công"}, "混批換箱": {"en": "Repack", "vn": "Đổi thùng"}, "追溯查詢": {"en": "Trace", "vn": "Truy xuất"}, "全部箱號": {"en": "All Boxes", "vn": "Tất cả thùng"}, "總覽 Dashboard": {"en": "Dashboard", "vn": "Tổng quan", "key": "總覽"}, "建箱（首站入庫）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "建箱（首站）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "過站報工（領料 / 出庫）": {"en": "Process Report (Draw / Out)", "vn": "Báo công (Lĩnh / Xuất)"}, "混批換箱（烤漆 / 粉烤）": {"en": "Repack (Painting)", "vn": "Đổi thùng (Sơn)"}, "追溯查詢頁": {"en": "Traceability", "vn": "Truy xuất"}, "產品 / 機種 BOM": {"en": "Products / Models BOM", "vn": "Sản phẩm / BOM", "key": "產品 / 機種 BOM"}, "產品/機種": {"en": "Products", "vn": "Sản phẩm"}, "在製批次": {"en": "WIP Batches", "vn": "Lô đang SX"}, "累計 NR 可重工": {"en": "Total NR (Rework)", "vn": "NR (Sửa lại)"}, "累計 NG 報廢": {"en": "Total NG (Scrap)", "vn": "NG (Phế)"}, "區間總投入": {"en": "Total Input", "vn": "Tổng đầu vào"}, "真實良率（加總）": {"en": "Actual Yield", "vn": "Tỷ lệ đạt thực"}, "NR 累計": {"en": "Total NR", "vn": "Tổng NR"}, "NG 累計": {"en": "Total NG", "vn": "Tổng NG"}, "目前在製批次": {"en": "Batches in Production", "vn": "Lô đang sản xuất"}, "各製程 產出 / 轉出 / 在手": {"en": "Output / Transfer / On-hand by Process", "vn": "Sản lượng theo công đoạn"}, "各製程 產出 / 轉出 / 結存": {"en": "Output / Transfer / Balance by Process", "vn": "Sản lượng theo công đoạn"}, "最近箱號": {"en": "Recent Boxes", "vn": "Thùng gần đây"}, "① 貼上 BOM 快速建立": {"en": "① Paste BOM to Create", "vn": "① Dán BOM để tạo nhanh"}, "② 確認 / 手動調整": {"en": "② Confirm / Adjust", "vn": "② Xác nhận / Điều chỉnh"}, "已建立產品 / 機種": {"en": "Created Products / Models", "vn": "Sản phẩm đã tạo"}, "建立新箱": {"en": "Create New Box", "vn": "Tạo thùng mới"}, "箱號標籤": {"en": "Box Label", "vn": "Nhãn thùng"}, "① 加入來源箱（可分次部分領用、可多箱）": {"en": "① Add Source Box (partial / multiple)", "vn": "① Thêm thùng nguồn (lĩnh từng phần / nhiều thùng)"}, "② 完工報工": {"en": "② Finish & Report →", "vn": "② Báo công →"}, "① 選擇進爐來源箱（全量領用，可多選）": {"en": "① Select Source Boxes into Oven (full draw)", "vn": "① Chọn thùng vào lò (lĩnh toàn bộ)"}, "② 出爐重新裝箱": {"en": "② Repack after Oven", "vn": "② Đóng thùng lại sau lò"}, "① 箱號直查": {"en": "① Search by Box ID", "vn": "① Tra theo mã thùng"}, "② 依機種 / 製程查詢": {"en": "② By Model / Process", "vn": "② Theo model / công đoạn"}, "③ 依批號查找": {"en": "③ By Lot", "vn": "③ Theo số lô"}, "④ 區間累計不良分析": {"en": "④ Period Defect Analysis", "vn": "④ Phân tích lỗi theo kỳ"}, "追溯履歷（依此箱的真實流轉路徑 · 製程順序橫排）": {"en": "Trace History (real path of this box · by process order)", "vn": "Lịch sử truy xuất (theo đường đi thực của thùng)"}, "機種/料號": {"en": "Model/Item", "vn": "Model/Item"}, "批號": {"en": "Lot", "vn": "Số lô"}, "目前製程站": {"en": "Current Process", "vn": "Công đoạn hiện tại"}, "在庫(結存)": {"en": "In Stock", "vn": "Tồn"}, "狀態": {"en": "Status", "vn": "Trạng thái"}, "箱號": {"en": "Box ID", "vn": "Mã thùng"}, "機種": {"en": "Model", "vn": "Model"}, "工序": {"en": "Process", "vn": "Công đoạn"}, "OK數": {"en": "OK Qty", "vn": "SL OK"}, "結存": {"en": "Balance", "vn": "Tồn"}, "作業員": {"en": "Operator", "vn": "Công nhân"}, "時間": {"en": "Time", "vn": "Thời gian"}, "製程站": {"en": "Process", "vn": "Công đoạn"}, "投入(領料)": {"en": "Input (Draw)", "vn": "Đầu vào"}, "OK產出": {"en": "OK Output", "vn": "SL OK"}, "已轉下站": {"en": "Transferred", "vn": "Đã chuyển"}, "結存(在庫)": {"en": "Balance", "vn": "Tồn"}, "在庫箱": {"en": "Boxes", "vn": "Số thùng"}, "NR可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "良率": {"en": "Yield", "vn": "Tỷ lệ đạt"}, "已領走": {"en": "Drawn", "vn": "Đã lĩnh"}, "來源": {"en": "Source", "vn": "Nguồn"}, "料號/機種": {"en": "PN/Model", "vn": "PN/Model"}, "品名": {"en": "Name", "vn": "Tên"}, "製程路線（含階段料號）": {"en": "Route (w/ Stage PN)", "vn": "Tuyến công đoạn"}, "來源箱": {"en": "Source Box", "vn": "Thùng nguồn"}, "本次領用": {"en": "Qty", "vn": "SL lĩnh"}, "新箱號": {"en": "New Box ID", "vn": "Mã thùng mới"}, "數量": {"en": "Qty", "vn": "Số lượng"}, "階段料號": {"en": "Stage PN", "vn": "PN công đoạn"}, "製程": {"en": "Process", "vn": "Công đoạn"}, "站": {"en": "Process", "vn": "Công đoạn"}, "投入": {"en": "Input", "vn": "Đầu vào"}, "不良率": {"en": "Defect %", "vn": "Tỷ lệ lỗi"}, "分布": {"en": "Distribution", "vn": "Phân bố"}, "最後報工": {"en": "Last Report", "vn": "Báo công cuối"}, "順序": {"en": "Seq", "vn": "Thứ tự"}, "領料": {"en": "Drawn", "vn": "Lĩnh"}, "班別": {"en": "Shift", "vn": "Ca"}, "產出箱": {"en": "Output Box", "vn": "Thùng ra"}, "入庫次序": {"en": "Seq", "vn": "Thứ tự"}, "設備": {"en": "Machine", "vn": "Máy"}, "QMS判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS單號": {"en": "QMS No.", "vn": "Số QMS"}, "追溯項目": {"en": "Trace Item", "vn": "Mục truy xuất"}, "本鏈領用": {"en": "Drawn (chain)", "vn": "Lĩnh (chuỗi)"}, "NR 可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG 報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "OK 數": {"en": "OK Qty", "vn": "SL OK"}, "QMS 檢驗": {"en": "QMS Inspection", "vn": "Kiểm QMS"}, "QMS 判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS 量測": {"en": "QMS Measure", "vn": "Đo QMS"}, "QMS 單號": {"en": "QMS No.", "vn": "Số QMS"}, "篩選機種": {"en": "Filter Model", "vn": "Lọc model"}, "料號 / 機種": {"en": "PN / Model", "vn": "PN / Model"}, "各站階段料號（選填）": {"en": "Stage PN (optional)", "vn": "PN công đoạn (tùy chọn)"}, "產品 / 機種": {"en": "Product / Model", "vn": "Sản phẩm / Model"}, "生產指令單號（選填）": {"en": "Order No. (optional)", "vn": "Số lệnh SX (tùy chọn)"}, "班別（選填）": {"en": "Shift (optional)", "vn": "Ca (tùy chọn)"}, "OK 數量": {"en": "OK Qty", "vn": "SL OK"}, "掃描來源箱號 CID": {"en": "Scan Source Box ID", "vn": "Quét mã thùng nguồn"}, "本次領用數": {"en": "Draw Qty", "vn": "SL lĩnh"}, "OK（良品，轉下站）": {"en": "OK (good → next)", "vn": "OK (đạt → tiếp)"}, "NR（可重工）": {"en": "NR (rework)", "vn": "NR (sửa lại)"}, "NG（報廢）": {"en": "NG (scrap)", "vn": "NG (phế)"}, "產出去向": {"en": "Output To", "vn": "Đầu ra"}, "委外廠商": {"en": "Vendor", "vn": "NCC gia công"}, "出爐良品總數": {"en": "Total Good Qty", "vn": "Tổng SL đạt"}, "每箱裝入 pcs": {"en": "Per Box (pcs)", "vn": "Mỗi thùng (pcs)"}, "搜尋（箱號 / 批號 / 機種 / 作業員）": {"en": "Search (Box / Lot / Model / Operator)", "vn": "Tìm (thùng / lô / model / CN)"}, "機種 / 料號": {"en": "Model / Item", "vn": "Model / Item"}, "檢視": {"en": "View", "vn": "Xem"}, "或直接輸入批號": {"en": "or enter Lot", "vn": "hoặc nhập số lô"}, "起日（含）": {"en": "Date From", "vn": "Từ ngày"}, "迄日（含）": {"en": "Date To", "vn": "Đến ngày"}, "箱號 CID": {"en": "Box ID", "vn": "Mã thùng", "key": "箱號"}, "刪除": {"en": "Delete", "vn": "Xóa"}, "解析 BOM → 套用": {"en": "Parse BOM → Apply", "vn": "Phân tích BOM → Áp dụng"}, "載入 BM04 範例": {"en": "Load BM04 Example", "vn": "Tải mẫu BM04"}, "＋ 儲存產品": {"en": "＋ Save Product", "vn": "＋ Lưu sản phẩm"}, "產生箱號 + 標籤": {"en": "Generate Box ID + Label", "vn": "Tạo mã thùng + nhãn"}, "加入領料": {"en": "Add Draw", "vn": "Thêm lĩnh"}, "移除": {"en": "Remove", "vn": "Bỏ"}, "📷掃碼": {"en": "📷 Scan", "vn": "📷 Quét"}, "完工報工": {"en": "Finish & Report", "vn": "Báo công"}, "出爐換箱": {"en": "Out of Oven & Repack", "vn": "Ra lò & đổi thùng"}, "追溯": {"en": "Trace", "vn": "Truy xuất"}, "查詢": {"en": "Search", "vn": "Tìm"}, "查批號": {"en": "Search Lot", "vn": "Tìm lô"}, "分析": {"en": "Analyze", "vn": "Phân tích"}, "全部機種": {"en": "All Models", "vn": "Tất cả model"}, "全部": {"en": "All", "vn": "Tất cả"}, "委外": {"en": "Outsourced", "vn": "Gia công ngoài"}, "選現有批號": {"en": "Pick existing lot", "vn": "Chọn lô có sẵn"}, "或手動輸入新批號": {"en": "or type a lot", "vn": "hoặc tự nhập lô"}, "日期": {"en": "Date", "vn": "Ngày"}, "全部日期": {"en": "All dates", "vn": "Tất cả ngày"}, "搜尋（箱號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / lô / model / máy / CN)"}, "搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Job / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / Job / lô / model / máy / CN)"}, "全部工單": {"en": "All Jobs", "vn": "Tất cả Job"}, "工單號": {"en": "Job No.", "vn": "Số Job"}, "全部批號": {"en": "All Lots", "vn": "Tất cả lô"}, "② 依機種 / 工單 / 批號查詢": {"en": "② By Model / Job / Lot", "vn": "② Theo model / Job / lô"}, "③ 區間累計不良分析": {"en": "③ Period Defect Analysis", "vn": "③ Phân tích lỗi theo kỳ"}};
+const I18N={"出貨 OQC": {"en": "Shipment OQC", "vn": "OQC xuất hàng"}, "首站打單": {"en": "First Station", "vn": "Công đoạn đầu"}, "質控檢驗": {"en": "QC Inspection", "vn": "Kiểm tra QC"}, "清點移轉": {"en": "Transfer", "vn": "Kiểm đếm & chuyển"}, "過站打單": {"en": "Next Station", "vn": "Công đoạn tiếp"}, "接收點交": {"en": "Receive", "vn": "Nhận bàn giao"},"生產指令單": {"en": "Jobs", "vn": "Lệnh sản xuất"}, "不良 / 重工": {"en": "NR / Rework", "vn": "Hàng lỗi / Làm lại"}, "製程主檔": {"en": "Process Master", "vn": "DM công đoạn"}, "廠商主檔": {"en": "Vendors", "vn": "Nhà cung cấp"}, "設備主檔": {"en": "Equipment", "vn": "DM thiết bị"}, "模具/治夾具": {"en": "Molds & Jigs", "vn": "Khuôn / Đồ gá"}, "名單管理": {"en": "Users", "vn": "Người dùng"}, "總覽": {"en": "Dashboard", "vn": "Tổng quan"}, "產品 / BOM": {"en": "Products / BOM", "vn": "Sản phẩm / BOM"}, "建箱": {"en": "Create", "vn": "Tạo thùng"}, "過站報工": {"en": "Report", "vn": "Báo công"}, "混批換箱": {"en": "Repack", "vn": "Đổi thùng"}, "追溯查詢": {"en": "Trace", "vn": "Truy xuất"}, "全部箱號": {"en": "All Boxes", "vn": "Tất cả thùng"}, "總覽 Dashboard": {"en": "Dashboard", "vn": "Tổng quan", "key": "總覽"}, "建箱（首站入庫）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "建箱（首站）": {"en": "New Box (First Station)", "vn": "Tạo thùng (công đoạn đầu)"}, "過站報工（領料 / 出庫）": {"en": "Process Report (Draw / Out)", "vn": "Báo công (Lĩnh / Xuất)"}, "混批換箱（烤漆 / 粉烤）": {"en": "Repack (Painting)", "vn": "Đổi thùng (Sơn)"}, "追溯查詢頁": {"en": "Traceability", "vn": "Truy xuất"}, "產品 / 機種 BOM": {"en": "Products / Models BOM", "vn": "Sản phẩm / BOM", "key": "產品 / 機種 BOM"}, "產品/機種": {"en": "Products", "vn": "Sản phẩm"}, "在製批次": {"en": "WIP Batches", "vn": "Lô đang SX"}, "累計 NR 可重工": {"en": "Total NR (Rework)", "vn": "NR (Sửa lại)"}, "累計 NG 報廢": {"en": "Total NG (Scrap)", "vn": "NG (Phế)"}, "區間總投入": {"en": "Total Input", "vn": "Tổng đầu vào"}, "真實良率（加總）": {"en": "Actual Yield", "vn": "Tỷ lệ đạt thực"}, "NR 累計": {"en": "Total NR", "vn": "Tổng NR"}, "NG 累計": {"en": "Total NG", "vn": "Tổng NG"}, "目前在製批次": {"en": "Batches in Production", "vn": "Lô đang sản xuất"}, "各製程 產出 / 轉出 / 在手": {"en": "Output / Transfer / On-hand by Process", "vn": "Sản lượng theo công đoạn"}, "各製程 產出 / 轉出 / 結存": {"en": "Output / Transfer / Balance by Process", "vn": "Sản lượng theo công đoạn"}, "最近箱號": {"en": "Recent Boxes", "vn": "Thùng gần đây"}, "① 貼上 BOM 快速建立": {"en": "① Paste BOM to Create", "vn": "① Dán BOM để tạo nhanh"}, "② 確認 / 手動調整": {"en": "② Confirm / Adjust", "vn": "② Xác nhận / Điều chỉnh"}, "已建立產品 / 機種": {"en": "Created Products / Models", "vn": "Sản phẩm đã tạo"}, "建立新箱": {"en": "Create New Box", "vn": "Tạo thùng mới"}, "箱號標籤": {"en": "Box Label", "vn": "Nhãn thùng"}, "① 加入來源箱（可分次部分領用、可多箱）": {"en": "① Add Source Box (partial / multiple)", "vn": "① Thêm thùng nguồn (lĩnh từng phần / nhiều thùng)"}, "② 完工報工": {"en": "② Finish & Report →", "vn": "② Báo công →"}, "① 選擇進爐來源箱（全量領用，可多選）": {"en": "① Select Source Boxes into Oven (full draw)", "vn": "① Chọn thùng vào lò (lĩnh toàn bộ)"}, "② 出爐重新裝箱": {"en": "② Repack after Oven", "vn": "② Đóng thùng lại sau lò"}, "① 箱號直查": {"en": "① Search by Box ID", "vn": "① Tra theo mã thùng"}, "② 依機種 / 製程查詢": {"en": "② By Model / Process", "vn": "② Theo model / công đoạn"}, "③ 依批號查找": {"en": "③ By Lot", "vn": "③ Theo số lô"}, "④ 區間累計不良分析": {"en": "④ Period Defect Analysis", "vn": "④ Phân tích lỗi theo kỳ"}, "追溯履歷（依此箱的真實流轉路徑 · 製程順序橫排）": {"en": "Trace History (real path of this box · by process order)", "vn": "Lịch sử truy xuất (theo đường đi thực của thùng)"}, "機種/料號": {"en": "Model/Item", "vn": "Model/Item"}, "批號": {"en": "Lot", "vn": "Số lô"}, "目前製程站": {"en": "Current Process", "vn": "Công đoạn hiện tại"}, "在庫(結存)": {"en": "In Stock", "vn": "Tồn"}, "狀態": {"en": "Status", "vn": "Trạng thái"}, "箱號": {"en": "Box ID", "vn": "Mã thùng"}, "機種": {"en": "Model", "vn": "Model"}, "工序": {"en": "Process", "vn": "Công đoạn"}, "OK數": {"en": "OK Qty", "vn": "SL OK"}, "結存": {"en": "Balance", "vn": "Tồn"}, "作業員": {"en": "Operator", "vn": "Công nhân"}, "時間": {"en": "Time", "vn": "Thời gian"}, "製程站": {"en": "Process", "vn": "Công đoạn"}, "投入(領料)": {"en": "Input (Draw)", "vn": "Đầu vào"}, "OK產出": {"en": "OK Output", "vn": "SL OK"}, "已轉下站": {"en": "Transferred", "vn": "Đã chuyển"}, "結存(在庫)": {"en": "Balance", "vn": "Tồn"}, "在庫箱": {"en": "Boxes", "vn": "Số thùng"}, "NR可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "良率": {"en": "Yield", "vn": "Tỷ lệ đạt"}, "已領走": {"en": "Drawn", "vn": "Đã lĩnh"}, "來源": {"en": "Source", "vn": "Nguồn"}, "料號/機種": {"en": "PN/Model", "vn": "PN/Model"}, "品名": {"en": "Name", "vn": "Tên"}, "製程路線（含階段料號）": {"en": "Route (w/ Stage PN)", "vn": "Tuyến công đoạn"}, "來源箱": {"en": "Source Box", "vn": "Thùng nguồn"}, "本次領用": {"en": "Qty", "vn": "SL lĩnh"}, "新箱號": {"en": "New Box ID", "vn": "Mã thùng mới"}, "數量": {"en": "Qty", "vn": "Số lượng"}, "階段料號": {"en": "Stage PN", "vn": "PN công đoạn"}, "製程": {"en": "Process", "vn": "Công đoạn"}, "站": {"en": "Process", "vn": "Công đoạn"}, "投入": {"en": "Input", "vn": "Đầu vào"}, "不良率": {"en": "Defect %", "vn": "Tỷ lệ lỗi"}, "分布": {"en": "Distribution", "vn": "Phân bố"}, "最後報工": {"en": "Last Report", "vn": "Báo công cuối"}, "順序": {"en": "Seq", "vn": "Thứ tự"}, "領料": {"en": "Drawn", "vn": "Lĩnh"}, "班別": {"en": "Shift", "vn": "Ca"}, "產出箱": {"en": "Output Box", "vn": "Thùng ra"}, "入庫次序": {"en": "Seq", "vn": "Thứ tự"}, "設備": {"en": "Machine", "vn": "Máy"}, "QMS判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS單號": {"en": "QMS No.", "vn": "Số QMS"}, "追溯項目": {"en": "Trace Item", "vn": "Mục truy xuất"}, "本鏈領用": {"en": "Drawn (chain)", "vn": "Lĩnh (chuỗi)"}, "NR 可重工": {"en": "NR (Rework)", "vn": "NR (Sửa)"}, "NG 報廢": {"en": "NG (Scrap)", "vn": "NG (Phế)"}, "OK 數": {"en": "OK Qty", "vn": "SL OK"}, "QMS 檢驗": {"en": "QMS Inspection", "vn": "Kiểm QMS"}, "QMS 判定": {"en": "QMS Result", "vn": "KQ QMS"}, "QMS 量測": {"en": "QMS Measure", "vn": "Đo QMS"}, "QMS 單號": {"en": "QMS No.", "vn": "Số QMS"}, "篩選機種": {"en": "Filter Model", "vn": "Lọc model"}, "料號 / 機種": {"en": "PN / Model", "vn": "PN / Model"}, "各站階段料號（選填）": {"en": "Stage PN (optional)", "vn": "PN công đoạn (tùy chọn)"}, "產品 / 機種": {"en": "Product / Model", "vn": "Sản phẩm / Model"}, "生產指令單號（選填）": {"en": "Order No. (optional)", "vn": "Số lệnh SX (tùy chọn)"}, "班別（選填）": {"en": "Shift (optional)", "vn": "Ca (tùy chọn)"}, "OK 數量": {"en": "OK Qty", "vn": "SL OK"}, "掃描來源箱號 CID": {"en": "Scan Source Box ID", "vn": "Quét mã thùng nguồn"}, "本次領用數": {"en": "Draw Qty", "vn": "SL lĩnh"}, "OK（良品，轉下站）": {"en": "OK (good → next)", "vn": "OK (đạt → tiếp)"}, "NR（可重工）": {"en": "NR (rework)", "vn": "NR (sửa lại)"}, "NG（報廢）": {"en": "NG (scrap)", "vn": "NG (phế)"}, "產出去向": {"en": "Output To", "vn": "Đầu ra"}, "委外廠商": {"en": "Vendor", "vn": "NCC gia công"}, "出爐良品總數": {"en": "Total Good Qty", "vn": "Tổng SL đạt"}, "每箱裝入 pcs": {"en": "Per Box (pcs)", "vn": "Mỗi thùng (pcs)"}, "搜尋（箱號 / 批號 / 機種 / 作業員）": {"en": "Search (Box / Lot / Model / Operator)", "vn": "Tìm (thùng / lô / model / CN)"}, "機種 / 料號": {"en": "Model / Item", "vn": "Model / Item"}, "檢視": {"en": "View", "vn": "Xem"}, "或直接輸入批號": {"en": "or enter Lot", "vn": "hoặc nhập số lô"}, "起日（含）": {"en": "Date From", "vn": "Từ ngày"}, "迄日（含）": {"en": "Date To", "vn": "Đến ngày"}, "箱號 CID": {"en": "Box ID", "vn": "Mã thùng", "key": "箱號"}, "刪除": {"en": "Delete", "vn": "Xóa"}, "解析 BOM → 套用": {"en": "Parse BOM → Apply", "vn": "Phân tích BOM → Áp dụng"}, "載入 BM04 範例": {"en": "Load BM04 Example", "vn": "Tải mẫu BM04"}, "＋ 儲存產品": {"en": "＋ Save Product", "vn": "＋ Lưu sản phẩm"}, "產生箱號 + 標籤": {"en": "Generate Box ID + Label", "vn": "Tạo mã thùng + nhãn"}, "加入領料": {"en": "Add Draw", "vn": "Thêm lĩnh"}, "移除": {"en": "Remove", "vn": "Bỏ"}, "📷掃碼": {"en": "📷 Scan", "vn": "📷 Quét"}, "完工報工": {"en": "Finish & Report", "vn": "Báo công"}, "出爐換箱": {"en": "Out of Oven & Repack", "vn": "Ra lò & đổi thùng"}, "追溯": {"en": "Trace", "vn": "Truy xuất"}, "查詢": {"en": "Search", "vn": "Tìm"}, "查批號": {"en": "Search Lot", "vn": "Tìm lô"}, "分析": {"en": "Analyze", "vn": "Phân tích"}, "全部機種": {"en": "All Models", "vn": "Tất cả model"}, "全部": {"en": "All", "vn": "Tất cả"}, "委外": {"en": "Outsourced", "vn": "Gia công ngoài"}, "選現有批號": {"en": "Pick existing lot", "vn": "Chọn lô có sẵn"}, "或手動輸入新批號": {"en": "or type a lot", "vn": "hoặc tự nhập lô"}, "日期": {"en": "Date", "vn": "Ngày"}, "全部日期": {"en": "All dates", "vn": "Tất cả ngày"}, "搜尋（箱號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / lô / model / máy / CN)"}, "搜尋（箱號 / 工單號 / 批號 / 機種 / 機台 / 作業員）": {"en": "Search (Box / Job / Lot / Model / Machine / Operator)", "vn": "Tìm (thùng / Job / lô / model / máy / CN)"}, "全部工單": {"en": "All Jobs", "vn": "Tất cả Job"}, "工單號": {"en": "Job No.", "vn": "Số Job"}, "全部批號": {"en": "All Lots", "vn": "Tất cả lô"}, "② 依機種 / 工單 / 批號查詢": {"en": "② By Model / Job / Lot", "vn": "② Theo model / Job / lô"}, "③ 區間累計不良分析": {"en": "③ Period Defect Analysis", "vn": "③ Phân tích lỗi theo kỳ"}, "成品出貨": {"en": "Shipping", "vn": "Xuất thành phẩm"}, "銷貨單號": {"en": "Sales Doc No.", "vn": "Số phiếu bán hàng"}, "訂單號": {"en": "SO No.", "vn": "Số đơn hàng"}, "出貨日": {"en": "Ship Date", "vn": "Ngày xuất"}, "客戶": {"en": "Customer", "vn": "Khách hàng"}, "料號": {"en": "Part No.", "vn": "Mã hàng"}, "出貨紀錄": {"en": "Shipment Records", "vn": "Lịch sử xuất hàng"}, "① 登錄銷貨單": {"en": "① Register Sales Doc", "vn": "① Nhập phiếu bán hàng"}, "② 出貨單": {"en": "② Shipments", "vn": "② Phiếu xuất"}, "指定出貨 LOT": {"en": "Assign Lots", "vn": "Chỉ định lô xuất"}, "OQC 單號": {"en": "OQC No.", "vn": "Số OQC"}, "已出貨": {"en": "Shipped", "vn": "Đã xuất"}, "出貨單": {"en": "Shipment", "vn": "Phiếu xuất"}, "已全部出貨": {"en": "All Shipped", "vn": "Đã xuất hết"}};
 let LANG=(function(){try{return localStorage.getItem('mhr_lang')||'EN';}catch(e){return 'EN';}})();
 function secOf(zh){ const e=I18N[zh]; if(!e) return ''; return (LANG==='VN'?e.vn:e.en)||''; }
 function L(zh){ const sec=secOf(zh); return sec? zh+'<span class="sec">'+sec+'</span>' : zh; }
@@ -1636,6 +1695,14 @@ async function voidBox(cid){ if(wGuard('create','e',undefined,'作廢/恢復箱 
   const c=findC(cid); if(!c) return;
   if(c.voidAt){ if(!confirm('取消作廢箱號 '+cid+' ？\n\n恢復後會重新計入結存。')) return;
     c.voidAt=null; c.voidBy=''; c.voidNote=''; db.save(); toast('已恢復','ok'); render(); return; }
+  /* ★109-2 已經出過貨的箱不能作廢（使用者 260929 同意）。
+     【為什麼】作廢的箱會從全站結存消失 ⇒ 00／07 的「已出貨」跟著少掉，但 09 的出貨單還是「已出貨」、還指著這一箱
+       ⇒ 兩邊對不起來（260929 沙箱實測：作廢前已轉出 1 → 作廢後 0，出貨單仍是已出貨）。
+     【要作廢怎麼辦】照順序：先到 09 把出貨單作廢（庫存還回來），再回來作廢箱。
+     ⚠ 只擋「已出貨」的單：待指定 LOT 的還沒扣到這一箱、作廢的單已經還回來了。
+     ⚠ 下站已經領用的箱，這裡**沒有擋** —— 那是 V92 起就有的行為，要不要一起擋另案問使用者。 */
+  const shp=shipsOfBox(cid);
+  if(shp.length) return toast('箱號 '+cid+' 已經出貨 '+shp.reduce((a,x)=>a+x.t,0)+' pcs（出貨單 '+shp.map(x=>x.sp.shipNo).join('、')+'），不能作廢。要作廢請先到「09 成品出貨」把出貨單作廢（庫存會還回來），再回來作廢這一箱','err');
   const why=prompt('作廢箱號 '+cid+'\n\n記錄會保留（可追溯、可恢復），但不再計入結存與選單。\n請輸入作廢原因：','');
   if(why===null) return;
   c.voidAt=new Date().toISOString(); c.voidBy=((getSession()||{}).profile||{}).email||''; c.voidNote=why||'';
@@ -1776,6 +1843,7 @@ const PAGES=[
   {id:'rework',n:'06', label:'不良 / 重工', grp:'op'},
   {id:'trace', n:'07', label:'追溯查詢',   grp:'op'},
   {id:'all',   n:'08', label:'全部箱號',   grp:'op'},
+  {id:'ship',  n:'09', label:'成品出貨',   grp:'op'},   /* ★109 銷貨單 ↔ 生產 LOT */
   {id:'prod',  n:'⚙', label:'產品 / BOM',  grp:'set'},
   {id:'master',n:'⚙', label:'製程主檔',    grp:'set'},
   {id:'vendor',n:'⚙', label:'廠商主檔',  grp:'set'},
@@ -1842,6 +1910,9 @@ const PERM={
   rework:{sadmin:'v',admin:'vced',eng:'vce',sup:'vce',op:'v',qc:'vce',mc:'v',view:'v'},
   trace: {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
   all:   {sadmin:'v',admin:'v',eng:'v',sup:'v',op:'v',qc:'v',mc:'v',view:'v'},
+  /* ★109 出貨＝物控的具名動作（比照 03 清點移轉：物控／主管／管理可做，其他查看）。
+     OQC 補登另判＝同 Q 質控檢驗（canOqcFill）；作廢另判＝同待驗單作廢（主管／管理，canVoidShip）。 */
+  ship:  {sadmin:'v',admin:'vced',eng:'v',sup:'vce',op:'v',qc:'v',mc:'vce',view:'v'},
   /* ── 設定區分兩類（分界線＝改了會不會影響「在製品的流轉路徑」）──
      ① 工程專業：BOM／製程主檔 → 只有工程能改。改錯會讓在製箱跑錯下一站、階段料號錯 → 要工程把關 */
   prod:  {sadmin:'v',admin:'vced',eng:'vce',sup:'vced',op:'',qc:'',mc:'',view:'v'},
@@ -1927,6 +1998,16 @@ async function mhrAuthAfterToken(token,refresh,uid,mustChange){
      回的是同一種錯、分不出來；126 個授權者裡只有十來個有 SyncHub 帳號，
      若把沒過一律當密碼錯，其餘的人會直接被鎖在門外。日後 OMS 在 identity_access 加
      「有無 SyncHub 帳號」欄位就能收緊。 */
+/* ★★110-1（261007 急件①，使用者確認「三路發動」）SyncHub 初始密碼沒改過＝擋下，不放進 MHR。
+   【為什麼】261007 實測：拿別人的工號＋統一的初始密碼 oms12345 就能直接登入 MHR（V108 只跳紅字提醒、不擋）
+     ⇒ 誰知道同事工號就能冒用他的身分。
+   【做法】跟 QMS（V179-2）一樣，只改前端，共用的 EF qms-sso-login 一個字都不動（它本來就有回 must_change）。
+     ・登入：代驗回 must_change ⇒ 不放行、講清楚去 SyncHub 大廳設定新密碼，**也不拿同一組密碼改試 MHR 本箱**
+       （本箱也還是初始密碼的人會從那裡溜進來）。
+     ・重新整理：110-1 之前用初始密碼進來、還留在分頁裡的舊登入狀態，清掉回登入頁（見 showChangePwd）。
+   ⚠ EF 是 QMS／MHR 共用的：若哪天要改它的回傳（例如 must_change 時直接回 local），QMS 那邊會變成擋不住，
+     要改之前先跟 QMS 對話說。 */
+const SSO_MUST_CHANGE_MSG='這個帳號還在用 SyncHub 的初始密碼，不能直接登入。請先到 SyncHub 大廳（下方「回 SyncHub 信錦智匯」）登入並設定新密碼，設好後再用新密碼登入 MHR。';
 async function mhrSsoTryLogin(identifier,password){
   try{
     const r=await fetch(SB_URL+'/functions/v1/qms-sso-login',{method:'POST',
@@ -2173,6 +2254,10 @@ async function doLogin(){
   if((email||'').toLowerCase()!==ADMIN_EMAIL){
     const sso=await mhrSsoTryLogin(email,pwd);
     if(sso.mode==='sso'){
+      if(sso.must_change===true){   /* ★★110-1 初始密碼沒改＝擋下；不存登入狀態、不改試本箱密碼 */
+        btn.disabled=false; btn.textContent='登入 Login';
+        return lgErr(SSO_MUST_CHANGE_MSG);
+      }
       res=await mhrAuthAfterToken(sso.access_token,sso.refresh_token,sso.user_id,sso.must_change===true);
       viaSso=res.ok;
     }
@@ -2187,12 +2272,21 @@ async function doLogin(){
 }
 /* ★★108（0U）用 SyncHub 那一組密碼進來的人，密碼**根本不在 MHR 這一箱** ——
    在這裡改只會改到那個「代驗之後再也用不到」的本箱舊密碼，改完還以為改好了＝白忙一場。
-   強制改密的旗標是 SyncHub 端給的（EF 回的 must_change）⇒ **只提示、不擋著不給用**。
+   強制改密的旗標是 SyncHub 端給的（EF 回的 must_change）。
+   ★★110-1 起改成**擋下**（261007 急件①）：初始密碼沒改的人，登入當下在 doLogin 就擋掉了；
+     走到這裡的只剩「110-1 之前用初始密碼進來、還留在分頁裡的舊登入狀態」⇒ 清掉、回登入頁、講清楚去哪裡改。
+     改過密碼的 SyncHub 帳號（mustChange＝false）萬一走到這裡，照舊進系統＋提示去 SyncHub 改（不受影響）。
    ⚠ 兩個呼叫端（doLogin 首登、initMHR 重整）都會走到這裡，所以守在這一支就夠，不必各改一次。
    ⚠ 提示要在 bootApp() 之後才發得出來（登入畫面上沒有 toast 容器），所以排在後面一拍。 */
 function showChangePwd(){
   const s=getSession();
   if(s&&s.sso){
+    if(s.mustChange){
+      clearSessionStore();
+      const pc=$('#lg_panel_chg'), pl=$('#lg_panel_login'); if(pc) pc.style.display='none'; if(pl) pl.style.display='';
+      lgErr(SSO_MUST_CHANGE_MSG);
+      return;
+    }
     bootApp();
     setTimeout(()=>{ try{ toast('您的密碼由 SyncHub 統一管理（與 OMS／GHG 同一組），不是在 MHR 這裡改 —— 請到 SyncHub 大廳登入後修改，或洽管理員於 OMS 重設','err'); }catch(e){} },400);
     return;
@@ -2406,6 +2500,7 @@ function render(){ const v=$('#view');
   if(cur==='rework') return renderRework();
   if(cur==='trace') return renderTrace();
   if(cur==='all'){ renderAll(); return; }
+  if(cur==='ship') return renderShip();   /* ★109 */
 }
 
 /* ===== 站別產出帳：產出(OK) / 已轉下站 / 結存(在庫) / NR / NG ===== */
@@ -2479,7 +2574,7 @@ function viewDash(){
     window._wipWo=[...new Set(ms.reduce((a,m)=>a.concat(m.wos||[]),[]))].sort().map(w=>({v:w,t:w}));
     window._wipLot=ms.map(m=>({v:m.lot,t:m.lot})).sort((a,b)=>a.v.localeCompare(b.v)); }
   return `
-  <div class="page-h"><h2>${L('總覽')}</h2><p>線邊製程流轉 — 在製批次、各製程產出與結存（不含倉別/出貨/重工）</p></div>${''/* ★97-2 移除寫死的「大永 SDY」：本系統是集團平台、非單一廠專屬 */}
+  <div class="page-h"><h2>${L('總覽')}</h2><p>線邊製程流轉 — 在製批次、各製程產出與結存（不含倉別/重工）</p></div>${''/* ★97-2 移除寫死的「大永 SDY」：本系統是集團平台、非單一廠專屬 */}
   <div class="grid g5" style="margin-bottom:18px">${''/* ★97-2 五張 KPI 卡排成一行 */}
     <div class="kpi"><div class="v">${prodsVisible().length}</div><div class="l">${L('產品/機種')}</div></div>${''/* ★99-47-1 走既有的 prodsVisible()（1057 行，本來就吃廠區），不要另外寫一套 */}
     <div class="kpi"><div class="v" style="color:var(--gold)">${inProg.length}</div><div class="l">${L('在製批次')}</div></div>
@@ -2570,6 +2665,12 @@ function updateWip(){
   const wipOs=code=>{ const rs=(db.data.reports||[]).filter(r=>repScopeReadable(r)&&r.type==='handover'&&r.kind==='vendorReturn'&&r.fromStation===code   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
       &&(!pn||r.partNo===pn)&&(!wo||(r.orderNo||'')===wo)&&(!lot||(r.lot||'')===lot));
     return {n:rs.length,d:rs.reduce((a,r)=>a+(+r.diff||0),0)}; };
+  /* ★109-2 這一站被出貨扣掉的量（跟上面兩個欄位同一套篩選：廠區／正常箱／機種／工單／批號；只算已出貨的單）。
+     為什麼要自己數：選「全部機種」時沒有單一路線、也就沒有「末站」可言（同一站可能是 A 機種的末站、B 機種的中間站），
+     不能把整欄講成已出貨 ⇒ 改成直接數出貨扣掉多少（使用者 260929 實測：第一眼看的就是全部機種，找不到標示）。 */
+  const wipShipAt=code=>(db.data.shipments||[]).reduce((a,sp)=>sp.status!=='shipped'?a:a+(sp.draws||[]).reduce((b,d)=>{
+      const c=findC(d.cid);
+      return b+((c&&c.processCode===code&&boxScopeReadable(c)&&isNormalBox(c)&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot))?(+d.take||0):0); },0),0);
   el.innerHTML=`<div style="overflow-x:auto"><table class="hnw numtbl"><thead><tr><th>${L('製程站')}</th><th>${L('期初在手量')}</th><th>${L('委外帳差')}</th><th>${L('OK產出')}</th><th>${L('清點帳差')}</th>${''/* ★98-26 委外帳差擺在投入側（期初在手量旁），比照 07 放在接收後面 */}<th>${L('已轉下站')}</th>${''/* ★98-24 與 07 同步改名 */}<th>${L('期末在手量')}</th><th>${L('在庫箱')}</th><th>${L('NR可重工')}</th><th>${L('NG報廢')}</th><th>${L('良率')}</th><th>NR%</th><th>NG%</th></tr></thead><tbody>
     ${list.map(x=>{
       /* ★98-7 與 07 同一套語意：OK產出＝質控驗的量（把物控清點短少加回來）；
@@ -2582,7 +2683,11 @@ function updateWip(){
       <td>${oInfo.n?`<b style="color:${oInfo.d<0?'var(--red)':'#3355aa'}" title="委外回廠點收的短交／超收合計（${oInfo.n} 筆送貨單；負＝短少、正＝超收）">${oInfo.d>0?'+':''}${oInfo.d}</b>`:'<span class="muted" title="非委外站，或本站尚無委外回廠點收記錄">—</span>'}</td>${''/* ★98-26 委外帳差 */}
       <td><a class="lk" onclick="wipDetail('${x.s.code}','${pn}','out','${esc(wo)}','${esc(lot)}')">${okQc}</a></td>
       <td>${dInfo.n?(dInfo.d?`<b style="color:${dInfo.d<0?'var(--red)':'#3355aa'}" title="物控清點差異合計（${dInfo.n} 箱清點過）">${dInfo.d>0?'+':''}${dInfo.d}</b>`:'<span class="muted">0</span>'):'<span class="muted" title="本站尚無箱做過物控清點">—</span>'}</td>
-      <td>${x.moved?`<a class="lk muted" title="看已轉下站的箱" onclick="wipDetail('${x.s.code}','${pn}','moved','${esc(wo)}','${esc(lot)}')">${x.moved}</a>`:'<span class="muted" title="沒有轉出過（末站無下一站，不會再轉出）">—</span>'}</td>${''/* ★99-7 0→「—」：鏡射 07「已轉出」欄同一套 falsy 規則（不是末站特例，是通用的「沒發生過就顯示—」）。末站在資料層 moved 結構性恆為 0（末站清點只寫 stockin 不寫 received、且擋掉再領用），改成「—」不會遮蔽任何真數字；順帶消掉「點 0 開出空面板」的死連結。 */}
+      <td>${(()=>{ const lst=x.s.code===lastStation(pn);   /* ★109-1 末站的已轉下站＝已出貨 */
+        const shp=lst?x.moved:wipShipAt(x.s.code);   /* ★109-2 沒選機種時改成直接數：全是出貨＝已出貨、只有一部分＝含已出貨 N */
+        const tag=shp?(shp>=x.moved?'已出貨':'含已出貨 '+shp):'';
+        return x.moved?`<a class="lk muted" title="看${tag==='已出貨'?'已出貨':'已轉下站'}的箱" onclick="wipDetail('${x.s.code}','${pn}','moved','${esc(wo)}','${esc(lot)}')">${x.moved}</a>${tag?'<div class="small muted">'+tag+'</div>':''}`
+          :`<span class="muted" title="${lst?'還沒出貨（末站沒有下一站；這一欄是 09 成品出貨扣掉的量）':'沒有轉出過'}">—</span>`; })()}</td>${''/* ★99-7 0→「—」：鏡射 07「已轉出」欄同一套 falsy 規則（不是末站特例，是通用的「沒發生過就顯示—」）。末站在資料層 moved 結構性恆為 0（末站清點只寫 stockin 不寫 received、且擋掉再領用），改成「—」不會遮蔽任何真數字；順帶消掉「點 0 開出空面板」的死連結。 */}
       <td><a class="lk" onclick="wipDetail('${x.s.code}','${pn}','stock','${esc(wo)}','${esc(lot)}')"><b style="color:var(--teal)">${x.stock}</b></a>${(q=>q?`<div class="small" style="color:#b9760f;white-space:nowrap;cursor:pointer;text-decoration:underline" title="點入質控檢驗" onclick="event.stopPropagation();goQcInsp('${x.s.code}','${esc(wo)}','${esc(lot)}')">⏳待驗 ${q}</div>`:'')((db.data.pending||[]).filter(s=>pendScopeReadable(s)&&s.status==='pending'&&s.processCode===x.s.code&&(!pn||s.partNo===pn)&&(!wo||s.orderNo===wo)&&(!lot||s.lot===lot)).reduce((a,s)=>a+(+s.qtyProd||0),0))}</td>
       <td>${x.boxes}</td>
       <td>${x.nr?'<span class="pill" style="background:#fef0dd;color:#b9760f">'+x.nr+'</span>':'<span class="muted">0</span>'}</td>
@@ -2597,7 +2702,7 @@ function updateWip(){
     <div class="small" style="margin-top:8px;padding:6px 9px;border-left:4px solid ${pn?'var(--teal)':'#b9760f'};background:${pn?'#eaf5ef':'#fdf3e3'};color:#333">${pn
       ? `<b>由上到下＝該機種的製程先後</b>，站與站之間可以對照 —— <b>上站「已轉下站」＋本站「委外帳差」＝本站（OK產出＋NR＋NG＋⏳待驗）＋本站「期初在手量」</b>。`
       : `<b>多機種合計 ＝ 各製程站「各自」的總覽</b>（產出／在手／不良）。<b>站與站之間沒有流轉關係、數字不互相對應</b> —— 要看料怎麼流、跨站怎麼對帳請到「07 追溯查詢」。此模式依<b>期末在手量</b>由多到少排（＝哪一站堆料最多），<b>順序不代表製程先後</b>。`}</div>
-    <div class="small muted" style="margin-top:8px"><b>期初在手量</b>＝已點交到本站、尚未投產（首站原料不追蹤＝—）；<b>期末在手量</b>＝本站已產出、還沒點交移轉走的量（＝現在留在本站）；${''/* ★98-27 原本只有上方用舊詞「結存」帶過，這裡從來沒定義過 */}★<b>已轉下站＋期末在手量＝OK產出＋清點帳差</b>（OK產出＝<b>質控驗的量</b>，物控少點不會改到它；少掉的既不在已轉下站、也不在期末在手量）；已轉下站＝已點交移轉＋已領用（<b>沒有轉出過顯示「—」</b>；末站無下一站、恆為「—」，逐列驗時視同 0）；<b>⏳待驗</b>＝已打單質控未驗。良率＝OK÷(OK+NR+NG)。★<b>清點帳差</b>＝該站物控清點時實際記錄的差異合計（負＝短少、正＝超收；本站沒有箱清點過顯示「—」）；★<b>委外帳差</b>＝該站委外回廠點收的短交／超收合計（非委外站顯示「—」）。兩種帳差的認列單位與明細見 07 檢視「⚖ 帳差記錄」。</div>`;
+    <div class="small muted" style="margin-top:8px"><b>期初在手量</b>＝已點交到本站、尚未投產（首站原料不追蹤＝—）；<b>期末在手量</b>＝本站已產出、還沒點交移轉走的量（＝現在留在本站）；${''/* ★98-27 原本只有上方用舊詞「結存」帶過，這裡從來沒定義過 */}★<b>已轉下站＋期末在手量＝OK產出＋清點帳差</b>（OK產出＝<b>質控驗的量</b>，物控少點不會改到它；少掉的既不在已轉下站、也不在期末在手量）；已轉下站＝已點交移轉＋已領用（<b>沒有轉出過顯示「—」</b>；★末站沒有下一站，這一欄是<b>已出貨</b>＝09 成品出貨扣掉的量；選「全部機種」時，有出貨的站標「含已出貨」）；<b>⏳待驗</b>＝已打單質控未驗。良率＝OK÷(OK+NR+NG)。★<b>清點帳差</b>＝該站物控清點時實際記錄的差異合計（負＝短少、正＝超收；本站沒有箱清點過顯示「—」）；★<b>委外帳差</b>＝該站委外回廠點收的短交／超收合計（非委外站顯示「—」）。兩種帳差的認列單位與明細見 07 檢視「⚖ 帳差記錄」。</div>`;
   const d=$('#wip_detail'); if(d) d.innerHTML='';
 }
 function wipDetail(code,pn,kind,wo,lot){   /* ★97-2 展開的箱清單同步吃工單／批號篩選（不傳=全部，舊呼叫相容） */
@@ -2607,7 +2712,11 @@ function wipDetail(code,pn,kind,wo,lot){   /* ★97-2 展開的箱清單同步�
   let boxes=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&c.processCode===code&&(!pn||c.partNo===pn)&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot));   /* ★99-50 廠區過濾（頁面自己算的，99-47 盤基底函式時漏掉） */
   if(kind==='moved') boxes=boxes.filter(c=>drawnOut(c.cid)>0||(isReceived(c)&&remaining(c.cid)>0));   /* ★97 含已點交未領 */
   if(kind==='stock') boxes=boxes.filter(c=>remaining(c.cid)>0&&!isReceived(c));
-  const title={out:'OK產出',moved:'已轉下站',stock:'期末在手量'}[kind];
+  const dw=drawWord(code===lastStation(pn));   /* ★109-1 末站：已轉下站→已出貨 */
+  /* ★109-2 有出貨的箱多一欄「出貨單」（同 07 點末站的明細；使用者 260929 實測 00 點「1」只看得到箱、看不到是哪張出貨單）。
+     末站一律顯示（還沒出貨的列寫「—」）；全部機種時看這批箱有沒有被出貨扣過。 */
+  const showShip=code===lastStation(pn)||boxes.some(c=>shipsOfBox(c.cid).length);
+  const title={out:'OK產出',moved:dw.moved,stock:'期末在手量'}[kind];
   const el=$('#wip_detail');
   /* ★★99-31（backlog 0h）明細表欄位**鏡射上方那一列**，讓它自己勾稽得起來。
      【原病徵】壓鑄列「OK產出 112」，點開明細標題寫「共 1 箱」（箱數對），
@@ -2641,14 +2750,14 @@ function wipDetail(code,pn,kind,wo,lot){   /* ★97-2 展開的箱清單同步�
   const sg=v=>v?((v>0?'+':'')+v):'<span class="muted">—</span>';
   el.innerHTML=`<div class="note" style="margin-top:14px">${stN(code)} · ${title} · 共 ${boxes.length} 箱（點箱號可追溯）
       <span class="small muted">　欄位與上方那一列同名同義，逐箱加總＝該列的數字</span></div>
-    <div class="tblfit"><table><thead><tr><th class="fix stick">${L('箱號')}</th><th class="wrap">${L('批號')}</th><th class="num">${L('OK產出')}</th><th class="num">${L('清點帳差')}</th><th class="num">${L('已轉下站')}</th><th class="num">${L('期末在手量')}</th><th class="wrap">${L('來源')}</th><th class="fix">${L('時間')}</th></tr></thead><tbody>
+    <div class="tblfit"><table><thead><tr><th class="fix stick">${L('箱號')}</th><th class="wrap">${L('批號')}</th><th class="num">${L('OK產出')}</th><th class="num">${L('清點帳差')}</th><th class="num">${L(dw.moved)}</th><th class="num">${L('期末在手量')}</th>${showShip?`<th class="wrap">${L('出貨單')}</th>`:''}<th class="wrap">${L('來源')}</th><th class="fix">${L('時間')}</th></tr></thead><tbody>
     ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceBox('${c.cid}')">
       ${cidCell(c.cid)}<td class="mono small wrap">${esc(c.lot||'-')}</td>${''/* ★cidCell() 自己就回傳整個 <td class="fix stick">，不要再包一層 */}
-      ${hlCell(c.cid,'ok',`${okOut(c)}`,'num')}<td class="num small">${sg(dOf(c))}</td><td class="num muted">${movedOf(c)}</td>${hlCell(c.cid,'balance',`<b>${remHere(c)}</b>`,'num')}
+      ${hlCell(c.cid,'ok',`${okOut(c)}`,'num')}<td class="num small">${sg(dOf(c))}</td><td class="num muted">${movedOf(c)}</td>${hlCell(c.cid,'balance',`<b>${remHere(c)}</b>`,'num')}${showShip?`<td class="small wrap">${shipsOfBoxHTML(c.cid)}</td>`:''}
       <td class="small muted wrap">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')||'首站'}</td>
-      <td class="small muted fix">${esc(localDT(c.createdAt))}</td></tr>`).join('')||'<tr><td colspan=8 class="empty">無</td></tr>'}
+      <td class="small muted fix">${esc(localDT(c.createdAt))}</td></tr>`).join('')||`<tr><td colspan=${showShip?9:8} class="empty">無</td></tr>`}
     </tbody>${boxes.length?`<tfoot><tr style="background:var(--light);font-weight:700">
-      <td class="fix stick">合計</td><td></td><td class="num">${T.ok}</td><td class="num">${sg(T.diff)}</td><td class="num">${T.moved}</td><td class="num">${T.rem}</td><td></td><td></td></tr></tfoot>`:''}
+      <td class="fix stick">合計</td><td></td><td class="num">${T.ok}</td><td class="num">${sg(T.diff)}</td><td class="num">${T.moved}</td><td class="num">${T.rem}</td>${showShip?'<td></td>':''}<td></td><td></td></tr></tfoot>`:''}
     </table></div>`;
 }
 
@@ -5575,7 +5684,7 @@ function renderQcInsp(){
   /* ★97 篩選連動（通則：多項篩選必連動）：站別選項＝符合其餘條件(狀態/工單/批號/日期)的站；現選站失效→自動清 */
   const stPool=(db.data.pending||[]).filter(p=>pendScopeReadable(p)&&(!fs||p.status===fs)&&(!qwo||String(p.orderNo||'').toLowerCase().includes(qwo))&&(!qlt||String(p.lot||'').toLowerCase().includes(qlt))&&(!qdt||prodDayOf(p.createdAt)===qdt));   /* ★99-47 廠區過濾 */
   const stAvail=[...new Set(stPool.map(p=>p.processCode))];
-  if(st&&!stAvail.includes(st)){ st=''; window._qiSt=''; }
+  if(st&&st!=='__ship'&&!stAvail.includes(st)){ st=''; window._qiSt=''; }   /* ★110 「🚚 出貨 OQC」不是生產站別，不在 stAvail 裡 */
   /* ★97-7 工單/批號候選清單（交集收斂）＝符合「其餘條件」的待驗單，供組合框下拉用 */
   const _qBase=(db.data.pending||[]).filter(p=>pendScopeReadable(p)&&(!fs||p.status===fs)&&(!st||p.processCode===st)
     &&(!qdt||prodDayOf(p.createdAt)===qdt));   /* ★99-47 廠區過濾 */
@@ -5589,10 +5698,41 @@ function renderQcInsp(){
   let list=_qf(qcSlips(st,fs));   /* ★篩選＝工單/批號/日期（與 04 同一組，使用者定案） */
   const _qiHid=_qf(qcSlips(st,fs,1)).length-list.length;
   const _qiHidNote=_qiHid?`<div class="small" style="margin-top:4px;color:#b9760f">🏭 另有 <b>${_qiHid}</b> 張待驗單不在你目前的廠區範圍內，沒有列出。<span class="muted">若那是你們廠自己的單，多半是它的工單還沒進工單主檔——請找系統管理員。</span></div>`:'';
-  const stOpts='<option value="">（全部站別）</option>'+stAvail.map(c=>`<option value="${esc(c)}"${c===st?' selected':''}>${stN(c)} (${esc(c)})</option>`).join('');
+  /* ★★110 出貨 OQC 也進待驗（使用者 260929 選「建議版」）：
+     生產是「打單 → 待驗 → 質控在這裡驗」，出貨比照 ——「09 登錄銷貨單 → 這張單同時出現在這裡 → 質控在這裡填 QMS 的 OQC 單號＋判定」。
+     ・扣庫存的時間點**不變**（09 確認出貨當下就扣）：若等 OQC 合格才扣，貨已出門、質控還沒登的空窗庫存會多算＝當初做 09 要解的問題。
+     ・09 的「補 OQC」保留：兩個入口、同一筆資料、同一支 shipOqcSave、同一份 shipOqcFormHTML。
+     ・狀態對照：⏳待質控＝還沒登 OQC（待指定 LOT、已出貨都算）／✅已驗＝已登 OQC／🚫作廢＝出貨單作廢。
+     ・站別選「🚚 出貨 OQC」＝只看出貨單；選生產站別、或打了工單篩選＝只看生產待驗單（出貨單沒有站別、也沒有工單）。
+       批號比對出貨單扣過的 LOT；日期比對出貨日（沒填就用登錄日）。
+     ・廠區：跟 09 同一支 shipScopeReadable（fail-closed），被擋掉幾張照實寫出來。 */
+  const _shOk=sp=>(fs==='pending'?(sp.status!=='void'&&!sp.oqcNo):fs==='done'?(sp.status!=='void'&&!!sp.oqcNo):fs==='void'?sp.status==='void':true)
+    &&(!qlt||(sp.draws||[]).some(d=>String(d.lot||'').toLowerCase().includes(qlt)))
+    &&(!qdt||(sp.shipDate||prodDayOf(sp.createdAt))===qdt);
+  const _showShip=(!st||st==='__ship')&&!qwo;
+  const _shAll=_showShip?shipList().filter(_shOk):[];
+  const shList=_shAll.filter(shipScopeReadable).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));
+  const _shHid=_shAll.length-shList.length;
+  const _shHidNote=_shHid?`<div class="small" style="margin-top:4px;color:#b9760f">🏭 另有 <b>${_shHid}</b> 張出貨單不在你目前的廠區範圍內，沒有列出。</div>`:'';
+  const shipBlock=!_showShip?'':(shList.length
+    ?`<div style="margin-bottom:12px"><div class="small" style="margin-bottom:4px"><b>🚚 ${L('出貨 OQC')}</b>　${shList.length} 張 <span class="muted">${canOqcFill()?'（09 登錄的銷貨單；點整列登 OQC）':'（09 登錄的銷貨單；登 OQC 限質控職能＋系統管理）'}</span></div>
+      <div class="tblfit"><table><thead><tr><th>${L('銷貨單號')}</th><th>${L('客戶')}</th><th class="wrap">${L('機種 / 料號')}</th><th style="text-align:right">數量</th><th class="wrap">出自哪些 LOT</th><th>${L('出貨日')}</th><th>狀態</th><th>OQC</th><th></th></tr></thead><tbody>
+      ${shList.slice(0,40).map(x=>{ const byLot={}; (x.draws||[]).forEach(d=>{ byLot[d.lot||'—']=(byLot[d.lot||'—']||0)+(+d.take||0); });
+        const click=x.status!=='void'&&canOqcFill();
+        return `<tr${click?` style="cursor:pointer${window._qiShip===x.shipId?';background:#eef6f8':''}" onclick="window._qiShip='${esc(x.shipId)}';window._qiPick=null;render()"`:(x.status==='void'?' style="color:#999;text-decoration:line-through"':'')}>
+          <td class="mono small"><b>${esc(x.shipNo)}</b>${x.soNo?`<div class="small muted">SO ${esc(x.soNo)}</div>`:''}</td>
+          <td class="small">${esc(x.customer||'—')}</td><td class="wrap">${pnCell(x.partNo)}</td><td style="text-align:right"><b>${x.qty}</b></td>
+          <td class="mono small wrap">${Object.keys(byLot).map(k=>esc(k)+' × '+byLot[k]).join('<br>')||'<span class="muted">還沒指定</span>'}</td>
+          <td class="small">${esc(x.shipDate||'')}</td><td>${shipStPill(x)}</td><td>${x.status==='void'?'':shipOqcPill(x)}</td>
+          <td style="white-space:nowrap">${click?`<button class="btn sm" onclick="event.stopPropagation();window._qiShip='${esc(x.shipId)}';window._qiPick=null;render()">${x.oqcNo?'改 OQC':'登 OQC'}</button>`:''}</td></tr>`; }).join('')}
+      </tbody></table></div>${shList.length>40?'<div class="small muted">僅列最近 40 張，請用狀態／批號／日期縮小範圍</div>':''}${_shHidNote}</div>`
+    :(st==='__ship'?'<div class="empty">此篩選沒有出貨單</div>':'')+_shHidNote);
+  const stOpts='<option value="">（全部站別）</option>'+`<option value="__ship"${st==='__ship'?' selected':''}>🚚 出貨 OQC</option>`   /* ★110 */
+    +stAvail.map(c=>`<option value="${esc(c)}"${c===st?' selected':''}>${stN(c)} (${esc(c)})</option>`).join('');
   const pick=window._qiPick?findP(window._qiPick):null;
+  const shPick=window._qiShip?shList.find(x=>x.shipId===window._qiShip):null;   /* ★110 只認目前清單裡看得到的（篩選換掉就收起來） */
   $('#view').innerHTML=`
-  <div class="page-h"><h2>${L('質控檢驗（待驗單 → 驗收產箱）')}</h2><p>質控從待驗單清單選單 → 輸 <b>QMS 檢驗單號</b>＋<b>OK / NR / NG</b>（合計必須＝生產數，多、少都擋）→ <b>產正式箱＋印標籤</b>。${''/* ★99-10 刪「操作人＝XXX（登入者）」：右上角常駐已經寫著登入者 */}${canQcInsp()?'':'<b style="color:var(--red)">您的角色為唯讀（僅質控職能＋系統管理可輸入）。</b>'}</p></div>
+  <div class="page-h"><h2>${L('質控檢驗（待驗單 → 驗收產箱）')}</h2><p>質控從待驗單清單選單 → 輸 <b>QMS 檢驗單號</b>＋<b>OK / NR / NG</b>（合計必須＝生產數，多、少都擋）→ <b>產正式箱＋印標籤</b>。🚚 <b>出貨單的 OQC</b> 也在這裡登（09 登錄銷貨單後就會出現在待驗單區）。${''/* ★99-10 刪「操作人＝XXX（登入者）」：右上角常駐已經寫著登入者 */}${canQcInsp()?'':'<b style="color:var(--red)">您的角色為唯讀（僅質控職能＋系統管理可輸入）。</b>'}</p></div>
   <div class="card"><h3>① ${L('待驗單區')}</h3>
     <div class="grid g3" style="margin-bottom:6px">
       <div><label>站別</label><select onchange="window._qiSt=this.value;window._qiPick=null;render()">${stOpts}</select></div>
@@ -5604,18 +5744,18 @@ function renderQcInsp(){
       <div><label>工單 <span class="vi">（可打字篩選）</span></label>${comboHTML('qi_wo',_qWoItems,Lt('全部工單'),'',"window._qiWo=this.value;window._qiPick=null;render()",window._qiWo||'')}</div>
       <div><label>批號 <span class="vi">（可打字篩選）</span></label>${comboHTML('qi_lot',_qLotItems,Lt('全部批號'),'',"window._qiLot=this.value;window._qiPick=null;render()",window._qiLot||'')}</div>${''/* ★97-7 改組合框；用 onchange 不用 oninput——這裡的 handler 會整頁 render，每打一字重繪會失焦 */}
       <div><label>日期</label><input type="date" value="${esc(window._qiDate||'')}" onchange="window._qiDate=this.value;window._qiPick=null;render()"></div>
-      <div style="align-self:flex-end"><button class="btn ghost sm" onclick="window._qiSt='';window._qiFs='pending';window._qiWo='';window._qiLot='';window._qiDate='';window._qiPick=null;render()" title="清空全部篩選重篩">清除</button></div>
+      <div style="align-self:flex-end"><button class="btn ghost sm" onclick="window._qiSt='';window._qiFs='pending';window._qiWo='';window._qiLot='';window._qiDate='';window._qiPick=null;window._qiShip=null;render()" title="清空全部篩選重篩">清除</button></div>
     </div>
-    ${list.length?`<div class="tblfit"><table><thead><tr><th>待驗單號</th><th>站別</th><th>料號</th><th>批號</th><th>工單</th><th style="text-align:right">生產數</th><th>打單時間</th><th>狀態</th><th></th></tr></thead><tbody>${
+    ${shipBlock}${st==='__ship'?'':list.length?`<div class="tblfit"><table><thead><tr><th>待驗單號</th><th>站別</th><th>料號</th><th>批號</th><th>工單</th><th style="text-align:right">生產數</th><th>打單時間</th><th>狀態</th><th></th></tr></thead><tbody>${
       list.slice(0,80).map(p=>{ const clickable=p.status==='pending'&&canQcInsp();   /* ★整列可點＝選單（窄螢幕按鈕被橫捲推出去也點得到） */
-        const trAttr=clickable?` style="cursor:pointer${window._qiPick===p.pid?';background:#eef6f8':''}" onclick="window._qiPick='${esc(p.pid)}';render()"`
+        const trAttr=clickable?` style="cursor:pointer${window._qiPick===p.pid?';background:#eef6f8':''}" onclick="window._qiPick='${esc(p.pid)}';window._qiShip=null;render()"`
           :(window._qiPick===p.pid?' style="background:#eef6f8"':(p.status==='void'?' style="background:#f7f7f7;color:#999;text-decoration:line-through"':''));
         return `<tr${trAttr}>
         <td style="white-space:normal"><span class="badge">${esc(p.pid)}</span>${p.rush?' <span class="pill ng" style="font-size:10px">🔥急</span>':''} ${bfTag(p.backfill,p.entryAt)}${srcCidsHTML(p,2)}${p.status==='done'?`<div class="small" style="font-size:10px;color:#1f8a4c">✅OK ${p.ok||0}／NR ${p.nr||0}／NG ${p.ng||0}${p.qmsNo?'｜QMS '+esc(p.qmsNo):''}${p.qc?'｜'+esc(p.qc):''}</div>`:''}</td><td>${stN(p.processCode)}${p.mix?' <span class="pill" style="background:#fef0dd;color:#b9760f;font-size:10px">混批</span>':''}</td><td class="mono small">${esc(p.partNo||'')}</td>
         <td class="mono small">${esc(p.lot||'')}</td><td class="mono small">${esc(p.orderNo||'')}</td>
         <td style="text-align:right"><b>${p.qtyProd}</b></td><td class="small muted">${esc(localDT(p.createdAt).slice(5))}</td>
         <td>${pendStatusPill(p)}</td>
-        <td style="white-space:nowrap">${p.status==='pending'?`${canQcInsp()?`<button class="btn sm" onclick="event.stopPropagation();window._qiPick='${esc(p.pid)}';render()">${L('選單')}</button> `:''}${canVoidPending()?`<button class="btn ghost sm" onclick="event.stopPropagation();voidPending('${esc(p.pid)}')">${L('作廢')}</button>`:''}`
+        <td style="white-space:nowrap">${p.status==='pending'?`${canQcInsp()?`<button class="btn sm" onclick="event.stopPropagation();window._qiPick='${esc(p.pid)}';window._qiShip=null;render()">${L('選單')}</button> `:''}${canVoidPending()?`<button class="btn ghost sm" onclick="event.stopPropagation();voidPending('${esc(p.pid)}')">${L('作廢')}</button>`:''}`
           :p.status==='void'?(isAdminNow()?`<button class="btn ghost sm" onclick="voidPending('${esc(p.pid)}')">↩ ${L('恢復')}</button>`:'')
           :`<button class="btn ghost sm" onclick="event.stopPropagation();qcViewDone('${esc(p.pid)}')">🔍 ${L('檢驗記錄')}</button>`}</td></tr>`; }).join('')}</tbody></table></div>
       ${_qiHidNote}
@@ -5624,9 +5764,19 @@ function renderQcInsp(){
     :('<div class="empty">此篩選沒有待驗單</div>'+_qiHidNote)}
   </div>
   ${(pick&&pick.status==='pending'&&canQcInsp())?qcFormHTML(pick):''}
+  ${(shPick&&shPick.status!=='void'&&canOqcFill())?qcShipFormHTML(shPick):''}
   <div id="qi_result" style="margin-top:12px"></div>`;
-  if(pick&&pick.status==='pending'&&canQcInsp()){ const f=$('#qi_form'); if(f) setTimeout(()=>f.scrollIntoView({behavior:'smooth',block:'start'}),50); }   /* ★選單後自動捲到檢驗表單（窄螢幕表單在清單下方看不到） */
+  if(pick&&pick.status==='pending'&&canQcInsp()){ const f=$('#qi_form'); if(f) setTimeout(()=>f.scrollIntoView({behavior:'smooth',block:'start'}),50); }
+  if(shPick&&shPick.status!=='void'&&canOqcFill()){ const f=$('#qi_shform'); if(f) setTimeout(()=>f.scrollIntoView({behavior:'smooth',block:'start'}),50); }   /* ★110 同上，出貨 OQC 表單 */   /* ★選單後自動捲到檢驗表單（窄螢幕表單在清單下方看不到） */
 }
+/* ★110 Q 質控檢驗的出貨 OQC 表單：外框比照生產的「② 檢驗結果」，裡面的欄位與 09 共用 shipOqcFormHTML */
+function qcShipFormHTML(sp){
+  const byLot={}; (sp.draws||[]).forEach(d=>{ byLot[d.lot||'—']=(byLot[d.lot||'—']||0)+(+d.take||0); });
+  return `<div class="card" id="qi_shform" style="border:2px solid var(--teal)"><h3>② ${L('出貨 OQC')} — <span class="mono">${esc(sp.shipNo)}</span></h3>
+    <div class="step">${esc(sp.customer||'（未填客戶）')}｜${pnCell(sp.partNo)}｜<b>${sp.qty}</b> pcs${sp.shipDate?'｜出貨日 '+esc(sp.shipDate):''}${sp.soNo?'｜SO '+esc(sp.soNo):''}｜${shipStPill(sp)}
+      <br>${Object.keys(byLot).length?'出自 LOT：'+Object.keys(byLot).map(k=>'<span class="mono">'+esc(k)+'</span> × '+byLot[k]).join('、'):'<span class="muted">還沒指定 LOT（09 確認出貨時才扣庫存；OQC 可以先登）</span>'}</div>
+    ${shipOqcFormHTML(sp)}
+    <div style="margin-top:8px"><button class="btn ghost sm" onclick="window._qiShip=null;render()">收起</button></div></div>`; }
 function qcFormHTML(p){
   const hasDraws=(p.draws||[]).length>0;
   const appendable=hasDraws?db.data.containers.filter(c=>isNormalBox(c)&&c.partNo===p.partNo&&c.processCode===p.processCode&&drawnOut(c.cid)===0&&c.cid!==p.pid):[];
@@ -6131,6 +6281,7 @@ function allSyncOpts(){
   const setOf=(skip,noKw,f)=>new Set(allCascadeBase(skip,noKw).map(f));
   const dOf=c=>prodDayOf(c.createdAt);
   hideSel('a_pn',  setOf('pn',false,c=>c.partNo),      setOf('pn',true,c=>c.partNo));
+  { const e=$('#a_st'); if(e&&document.activeElement!==e) stSelOrder(e,$('#a_pn')?$('#a_pn').value:''); }   /* ★109-2 選了機種就照製程順序排（與 07 共用） */
   hideSel('a_st',  setOf('st',false,c=>c.processCode), setOf('st',true,c=>c.processCode));
   hideSel('a_date',setOf('dt',false,dOf),              setOf('dt',true,dOf));
   if(document.activeElement!==$('#a_wo')) comboFill('a_wo',[...new Set(allCascadeBase('wo').map(c=>c.orderNo).filter(Boolean))].sort().map(w=>({v:w,t:w})));
@@ -6169,6 +6320,10 @@ function renderAllTable(){
      08 結存＝箱身剩餘量（實體）；01/07 在庫＝站別在手（已點交走的算下站）→ 這裡直接標示組成 */
   const remAtStation=live.reduce((a,c)=>a+(isReceived(c)?0:remaining(c.cid)),0);
   const remHanded=remTot-remAtStation;
+  /* ★109-2 末站成品另外列（使用者 260929 實測 08：選 BM04＋組立，上面寫「未投產合計 87（在本站＝待轉出 87）」，那 87 其實是成品在庫）。
+     總數 remTot 一個字都不動，只是把「在本站」拆成 待轉出／成品在庫 兩塊。 */
+  const remFin=live.reduce((a,c)=>a+((isFinished(c)&&!isReceived(c))?remaining(c.cid):0),0), remWait=remAtStation-remFin;
+  const remParts=[(remWait||!(remFin||remHanded))?'在本站＝<b>待轉出</b> '+remWait:'', remFin?'末站＝<b>成品在庫</b> '+remFin:'', remHanded?'已轉出＝下站<b>待投產</b> '+remHanded:''].filter(Boolean).join('｜');
   const TH=(k,label)=>`<th style="cursor:pointer;user-select:none" onclick="aSortBy('${k}')">${label}${aArr(k)}</th>`;
   el.innerHTML=`<style>
     /* 84-7 欄簡化（使用者定案欄序：箱號→工單號→批號→製程→數量群→狀態→作業員→時間；機種=批號首段可讀、料號滑過箱號看）
@@ -6217,7 +6372,7 @@ function renderAllTable(){
     #a_table th:nth-child(5),#a_table td:nth-child(5),#a_table th:nth-child(6),#a_table td:nth-child(6),#a_table th:nth-child(7),#a_table td:nth-child(7),#a_table th:nth-child(8),#a_table td:nth-child(8){text-align:right}
     #a_table td:nth-child(11){white-space:nowrap;font-size:10px}
     #a_table .stg{font-size:8.5px;color:var(--muted);font-family:Consolas,monospace}
-  </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ 產出合計 ${tot} ｜ 未投產合計 <b>${remTot}</b><span class="small muted">（在本站＝<b>待轉出</b> ${remAtStation}${remHanded?'｜已轉出＝下站<b>待投產</b> '+remHanded:''}）</span>　<span class="muted small">欄名與 07 追溯一致：已轉出＝整箱點交走（0＝還在本站）；已投產＝下站領去做掉；未投產＝還沒被做掉——在本站就是該站的<b>待轉出</b>、已轉出到下站就是下站的<b>待投產</b></span></div>
+  </style><div class="step">共 <b>${rows.length}</b> 箱（全系統 ${db.data.containers.filter(isNormalBox).length} 箱）｜ 產出合計 ${tot} ｜ 未投產合計 <b>${remTot}</b><span class="small muted">（${remParts}）</span>　<span class="muted small">欄名與 07 追溯一致：已轉出＝整箱點交走（0＝還在本站）；已投產＝下站領去做掉；未投產＝還沒被做掉——在本站就是該站的<b>待轉出</b>、已轉出到下站就是下站的<b>待投產</b>；★末站成品：已投產＝<b>已出貨</b>、未投產＝<b>成品在庫</b></span></div>
     ${rows.length?`<div class="tblwrap"><table class="compact" style="width:100%"><thead><tr>${TH('cid',L('箱號'))}${TH('wo','工單號')}${TH('lot',L('批號'))}${TH('proc',L('製程'))}${TH('ok',L('產出數'))}${TH('out',L('已轉出'))}${TH('drawn',L('已投產'))}${TH('bal','未投產<div class="vi" style="font-size:9.5px;font-weight:400;white-space:nowrap">在本站＝待轉出｜已轉出＝待投產</div>')}${TH('st',L('目前位置'))}${TH('op',L('作業員'))}${TH('time',L('時間'))}<th style="white-space:nowrap">操作</th></tr></thead><tbody>
     ${rows.map(c=>{ const p=prodOf(c.partNo)||{}; const sq=batchSeq(c);
       const tip='機種 '+(p.model||c.partNo)+'｜料號 '+c.partNo+(p.name?'｜'+p.name:'')+(sq.n>0&&sq.m>1?'｜第'+sq.n+'/'+sq.m+'次入庫':'');   /* ★96-4 tooltip 補入庫次序（原③表的 Seq 欄資訊） */
@@ -6233,10 +6388,10 @@ function renderAllTable(){
       <td>${woCell(c.orderNo,c.partNo)}</td>
       <td class="mono small">${esc(c.lot||'-').replace(/_/g,'_<wbr>')}${c.stagePartNo?`<div class="stg">${esc(c.stagePartNo)}</div>`:''}</td>
       <td><span class="pill ${isOS(c.partNo,c.processCode)?'os':(isFinished(c)?'pk':'dc')}">${stN(c.processCode)}</span></td>
-      ${hlCell(c.cid,'ok',`${c.qty}`)}<td>${isReceived(c)?`<b style="color:#3355aa">${+c.qty||0}</b>`:'<span class="muted">0</span>'}</td><td class="muted">${drawnOut(c.cid)}</td>${hlCell(c.cid,'balance',`<b style="color:var(--teal)">${remaining(c.cid)}</b>`)}
+      ${hlCell(c.cid,'ok',`${c.qty}`)}<td>${isReceived(c)?`<b style="color:#3355aa">${+c.qty||0}</b>`:'<span class="muted">0</span>'}</td><td class="muted">${drawnOut(c.cid)}${isFinished(c)&&drawnOut(c.cid)>0?'<div class="small">已出貨</div>':''}</td>${hlCell(c.cid,'balance',`<b style="color:var(--teal)">${remaining(c.cid)}</b>${isFinished(c)&&remaining(c.cid)>0&&!isReceived(c)?'<div class="small">成品在庫</div>':''}`)}
       <td class="small">${c.voidAt?`<span class="pill ng" title="${esc(c.voidNote||'')} ${esc(c.voidBy||'')}">已作廢</span>`
         :(needStockin(c)?'<span class="pill" style="background:#fef0dd;color:#b9760f">待物控接收</span>'
-        :(remaining(c.cid)<=0?'<span class="muted">已領用完</span>'
+        :(remaining(c.cid)<=0?'<span class="muted">'+drawWord(isFinished(c)).done+'</span>'   /* ★109-1 末站＝已全部出貨 */
         :(isReceived(c)?`<span class="pill" style="background:#e8eef7;color:#3355aa" title="整箱已轉出到 ${esc(stN(c.received.station))}，等該站投產">在 ${esc(stN(c.received.station))}</span>`
         :`<span class="pill ok">在 ${esc(stN(c.processCode))}</span>`)))}</td>${''/* ★97 狀態與 07 對齊：待物控接收／在站在庫／已點交→下站（待投產）／已領用完 */}
       <td class="small muted">${esc(c.operator||'-')}</td><td class="small muted" title="${esc(localDT(c.createdAt))}">${esc(localDT(c.createdAt).slice(5))}</td>
@@ -6302,6 +6457,7 @@ function traceSync(src,noQuery){
        提前算結果完全相同，也不會遞迴。 */
   const stEl=$('#q_st');
   if(stEl&&document.activeElement!==stEl){
+    stSelOrder(stEl,pn);   /* ★109-2 選了機種就照製程順序排（與 08 共用） */
     const allow=new Set(base('st').reduce((a,m)=>a.concat(m.sts||[]),[]));
     [...stEl.options].forEach(o=>{ if(!o.value) return; o.hidden=!allow.has(o.value); });
     if(stEl.value&&!allow.has(stEl.value)){ stEl.value=''; st=''; }   /* ★同步清掉區域變數，下面三個候選才會用放寬後的條件重算 */
@@ -6342,7 +6498,7 @@ function renderTrace(){
       <div style="flex:1.1;min-width:160px"><label>${L('工單號')} <span class="vi">（可打字篩選）</span></label>${comboHTML('q_wo',window._trWo,Lt('全部工單'),"traceSync('wo')")}</div>
       <div style="flex:1.9;min-width:250px"><label>${L('批號')} <span class="vi" style="white-space:nowrap">（可打字篩選．不含已作廢批）</span></label>${comboHTML('q_lot',window._trLot,Lt('全部批號'),"traceSync('lot')")}</div>${''/* ★97 標註不含全作廢批；欄寬加大讓提示不折行 */}
       <div style="flex:0 0 118px;min-width:118px"><label>${L('製程站')}</label><select id="q_st" onchange="traceSync('st')">${stOpts}</select></div>${''/* ★98-15 改走 traceSync：收斂其餘三欄的候選，再由 traceAutoQuery 重查 */}
-      <div style="min-width:170px"><label>${L('檢視')}</label><select id="q_view" onchange="traceSync('',true);doQuery()"><option value="flow">流轉順序檢視（依製程）</option><option value="box">箱號檢視</option><option value="rep">報工檢視（OK/NR/NG/良率）</option><option value="mov">箱號移轉記錄（依製程時序）</option><option value="diff">⚖ 帳差記錄（盤虧認列）</option></select></div>
+      <div style="min-width:170px"><label>${L('檢視')}</label><select id="q_view" onchange="traceSync('',true);doQuery()"><option value="flow">流轉順序檢視（依製程）</option><option value="box">箱號檢視</option><option value="rep">報工檢視（OK/NR/NG/良率）</option><option value="mov">箱號移轉記錄（依製程時序）</option><option value="diff">⚖ 帳差記錄（盤虧認列）</option><option value="ship">🚚 出貨記錄（銷貨單↔LOT）</option></select></div>
       <button class="btn" onclick="doQuery()">${L('查詢')}</button>
       <button class="btn ghost" onclick="traceQueryClear()" title="清空機種/工單/批號/製程站，重新查別的">清除</button></div>
     <div id="q_out" style="margin-top:14px"></div></div>
@@ -6517,12 +6673,12 @@ function doQuery(){
           <td><b>${y}</b></td>
           <td>${waitQc?`<a class="lk" style="color:#b9760f;font-weight:700" title="點入質控檢驗（自動篩本站待質控單）" onclick="goQcInsp('${c}','${esc(wo||'')}','${esc(lot||'')}')">${waitQc}</a>`:'<span class="muted">—</span>'}</td>
           <td>${hasStk?(diffQ?`<b style="color:${diffQ<0?'var(--red)':'#3355aa'}" title="物控清點差異合計（${stkBoxes.length} 箱清點過）">${diffQ>0?'+':''}${diffQ}</b>`:'<span class="muted">0</span>'):'<span class="muted" title="本站尚無箱做過物控清點">—</span>'}</td>
-          <td>${movedOut?`<a class="lk muted" title="看已轉出的箱" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','moved')">${movedOut}</a>`:'<span class="muted">—</span>'}</td>
+          <td>${movedOut?`<a class="lk muted" title="看${last?'已出貨':'已轉出'}的箱" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','moved')">${movedOut}</a>${last?'<div class="small muted">已出貨</div>':''}`:'<span class="muted">—</span>'}</td>
           ${''/* ★99-21（0f）末站用詞（使用者 260814 於 99-20 回歸提出）：waitOut＝x.stock 沒有末站特判，
                  組立（末站）成品入庫後仍被標成「待轉出」、tooltip 還寫「在本站等點交」⇒ 現場會問「要點交去哪」。
                  ★算式完全不動（末站 moved 結構性恆為 0，待轉出＝OK 本來就成立），只改標籤與說明。
                  用詞對齊 00 總覽的「期末在手量」——同一個數字兩頁講法不一致是 98-27 只整理了 00 沒整理 07。 */}
-          <td>${waitOut?`<a class="lk" style="color:var(--teal);font-weight:700" title="${last?'看本站的成品箱（已驗產箱、已入庫；末站不轉出）':'看待轉出的箱（在本站等點交）'}" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','stock')">${waitOut}</a>${last?'<br><span class="small muted">成品在庫</span>':''}`:'<span class="muted">—</span>'}</td>
+          <td>${waitOut?`<a class="lk" style="color:var(--teal);font-weight:700" title="${last?'看本站的成品箱（已驗產箱、已入庫、還沒出貨）':'看待轉出的箱（在本站等點交）'}" onclick="flowStock('${c}','${pn}','${esc(wo||'')}','${esc(lot||'')}','stock')">${waitOut}</a>${last?'<br><span class="small muted">成品在庫</span>':''}`:'<span class="muted">—</span>'}</td>
           <td style="background:#eaf5ef"><b style="color:var(--teal);font-size:1.05em">${wip}</b></td></tr>`; }).join(''); })()}
       </tbody></table>
       <div class="small muted" style="margin-top:8px">由上到下＝製程先後。勾稽關係：<b>接收＋委外帳差＝已投產＋待投產</b>（★<b>委外帳差</b>＝該站<b>委外回廠點收</b>的短交／超收合計，負＝短少、正＝超收；料是全數轉出去給廠商的，短少是回廠點收才發現的，所以<b>接收＝上站的已轉出</b>，兩邊對得起來；非委外站顯示「—」；明細與扣款依據見檢視「⚖ 帳差記錄」）；<b>已投產＝已驗＋待質控</b>；<b>已驗＝OK＋NR＋NG</b>（良率＝OK÷已驗）——這是<b>質控當時驗的量</b>，物控少點不會改到它；★<b>清點帳差</b>＝該站<b>物控清點時實際記錄的差異合計</b>（負＝短少、正＝超收；只在「質控產箱→物控清點」發生；本站沒有箱清點過顯示「—」；認列單位與明細見檢視「⚖ 帳差記錄」）；★<b>已轉出＋待轉出＝OK＋清點帳差</b>（少掉的既不在已轉出、也不在待轉出）；★<b>製程存量＝待投產＋待質控＋待轉出</b>（該站現場實際有多少料）。首站無上一站、原料不追蹤，<b>接收與待投產留空</b>（該站的投入看「已投產」）。點 OK／NR／NG 可展開箱號。</div>
@@ -6532,6 +6688,29 @@ function doQuery(){
   /* ★98-1 帳差記錄（盤虧認列）——使用者定調：責任單位＝最後認盤虧的單位，做庫存部門領用讓料帳合一。
      資料源＝物控清點事件（reports type:'handover' 且 diff≠0），一筆就是一次清點差異。
      MHR 只出數量與憑證欄位，不算錢；匯出 CSV 給各部門做領用沖銷。 */
+  /* ★★109 🚚 出貨記錄：依機種／工單／批號查「這批料最後出給誰」。
+     ・批號有指定時，數量只算**從這個批號扣的部分**（一張銷貨單可能跨好幾個 LOT）。
+     ・工單是透過「扣到的箱」回查（出貨單本身不記工單，一張單可能混好幾張工單的料）。 */
+  if(view==='ship'){
+    const rows=(db.data.shipments||[]).filter(sp=>sp.status==='shipped'&&shipScopeReadable(sp)&&(!pn||sp.partNo===pn)
+      &&(!wo||(sp.draws||[]).some(d=>{ const b=findC(d.cid); return b&&b.orderNo===wo; }))
+      &&(!lot||(sp.draws||[]).some(d=>d.lot===lot)))
+      .slice().sort((a,b)=>String(b.shippedAt||'').localeCompare(String(a.shippedAt||'')));
+    if(SHIP_TABLE_MISSING){ out.innerHTML='<div class="empty">出貨表還沒建立（請先跑 109 建表 SQL）</div>'; return; }
+    if(!rows.length){ out.innerHTML='<div class="empty">此條件沒有出貨紀錄</div>'; return; }
+    const part=sp=>(sp.draws||[]).filter(d=>(!lot||d.lot===lot)&&(!wo||((findC(d.cid)||{}).orderNo===wo)));
+    const tot=rows.reduce((a,sp)=>a+part(sp).reduce((x,d)=>x+(+d.take||0),0),0);
+    out.innerHTML=`<div class="step">共 <b>${rows.length}</b> 張出貨單｜${lot?'本批':'合計'}出貨 <b>${tot}</b> pcs${woTag}</div>
+      <div class="tblfit"><table><thead><tr><th>${L('出貨日')}</th><th>${L('銷貨單號')}</th><th>${L('客戶')}</th><th class="wrap">${L('機種 / 料號')}</th>
+        <th style="text-align:right">${lot?'本批出貨':'出貨數量'}</th><th class="wrap">出自哪些 LOT</th><th>OQC</th></tr></thead><tbody>
+      ${rows.map(sp=>{ const ds=part(sp); const q=ds.reduce((a,d)=>a+(+d.take||0),0);
+        const byLot={}; ds.forEach(d=>{ byLot[d.lot||'—']=(byLot[d.lot||'—']||0)+(+d.take||0); });
+        return `<tr><td class="small">${esc(sp.shipDate||prodDayOf(sp.shippedAt)||'')}</td><td class="mono small"><b>${esc(sp.shipNo)}</b>${sp.soNo?`<div class="small muted">SO ${esc(sp.soNo)}</div>`:''}</td>
+          <td class="small">${esc(sp.customer||'—')}</td><td class="wrap">${pnCell(sp.partNo)}</td><td style="text-align:right"><b>${q}</b></td>
+          <td class="wrap mono small">${Object.keys(byLot).map(k=>esc(k)+' × '+byLot[k]).join('<br>')}</td>
+          <td>${shipOqcPill(sp)}</td></tr>`; }).join('')}</tbody></table></div>`;
+    return;
+  }
   if(view==='diff'){
     const d1=(($('#q_d1')||{}).value)||'', d2=(($('#q_d2')||{}).value)||'';
     const rows=(db.data.reports||[]).filter(r=>repScopeReadable(r)&&r.type==='handover'&&(+r.diff||0)!==0)
@@ -6666,9 +6845,16 @@ function doQuery(){
         ev.push({at:c.createdAt,st:src.processCode,kind:'被領用',cid:s.cid,qty:s.take,who:c.operator||'',
           note:`${stN(src.processCode)} → ${stN(c.processCode)} 投產，產出 ${c.cid}`}); });
     });
+    /* ★109 箱的一生最後一站：出貨。一張出貨單扣了幾箱就記幾筆（跟「被領用」一樣逐箱記）。
+       過濾規則跟上面箱的迴圈一致：看得到這箱＋符合機種／工單／批號＋站別。 */
+    (db.data.shipments||[]).forEach(sp=>{ if(sp.status!=='shipped') return;
+      (sp.draws||[]).forEach(d=>{ const b=boxOf[d.cid]; if(!b||!boxScopeReadable(b)||!hit(b)) return;
+        if(st&&b.processCode!==st) return;
+        ev.push({at:sp.shippedAt||sp.createdAt,st:b.processCode,kind:'🚚出貨',cid:d.cid,qty:d.take,who:sp.shippedBy||'',
+          note:`銷貨單 ${sp.shipNo}${sp.customer?' → '+sp.customer:''}${sp.oqcNo?'｜OQC '+sp.oqcNo:'｜OQC 未補'}`}); }); });
     ev.sort((a,b)=>String(b.at||'').localeCompare(String(a.at||'')));
     if(!ev.length){ out.innerHTML='<div class="empty">此條件無移轉記錄</div>'; return; }
-    const kc={'打單':'#b9760f','質控產箱':'#1f8a4c','🅐物控接收':'#3355aa','🅑點交下站':'#1c7a86','🅑委外轉出':'#b9760f','被領用':'#777'};
+    const kc={'打單':'#b9760f','質控產箱':'#1f8a4c','🅐物控接收':'#3355aa','🅑點交下站':'#1c7a86','🅑委外轉出':'#b9760f','被領用':'#777','🚚出貨':'#1a4f8a'};
     out.innerHTML=`<div class="step">共 <b>${ev.length}</b> 筆移轉事件（新到舊）${st?'｜製程站 '+stN(st):''}　<span class="small muted">箱的一生：打單 → 質控產箱 → 🅐物控接收 → 🅑點交下站 → 被下站領用</span></div>
       <div style="overflow-x:auto"><table class="compact"><thead><tr><th>${L('時間')}</th><th>${L('製程站')}</th><th>${L('事件')}</th><th>${L('箱號')}</th><th style="text-align:right">${L('數量')}</th><th>${L('人員')}</th><th>${L('說明')}</th></tr></thead><tbody>
       ${ev.slice(0,300).map(e=>`<tr>
@@ -6789,6 +6975,7 @@ function allFilterClear(){
 function traceLot(lot,hl){ if(hl&&hl.cids) setHLCells(hl.cids,hl.focus);
   go('all'); setTimeout(()=>{ const e=$('#a_lot'); if(e) e.value=lot; if(typeof renderAllTable==='function') renderAllTable(); applyHL(); },80); }
 function flowDetail(code,pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（流轉檢視展開的箱清單同步過濾） */
+  const fdw=drawWord(code===lastStation(pn));   /* ★109-1 末站：已投產→已出貨、未投產→成品在庫、已領用完→已全部出貨 */
   const boxes=db.data.containers.filter(c=>boxScopeReadable(c)&&isNormalBox(c)&&c.processCode===code&&c.partNo===pn&&(!wo||c.orderNo===wo)&&(!lot||c.lot===lot)).slice().sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt)));
   const el=$('#flow_detail'); if(!el) return;
   /* ★97 清單加「目前位置」欄（使用者實測抓到顯示矛盾：已點交走的箱列在本站、結存看起來像本站在手）
@@ -6799,12 +6986,12 @@ function flowDetail(code,pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（
   el.innerHTML=`<div class="note" style="margin-top:14px">${stN(code)} 產出 · 共 ${boxes.length} 箱｜OK 合計 <b>${boxes.reduce((a,c)=>a+(+c.qty||0),0)}</b>
     ｜本站待轉出 <b style="color:var(--teal)">${atSt}</b>${handed?`｜已點交在下站 <b style="color:#3355aa">${handed}</b>`:''}${waitIn?`｜待物控接收 <b style="color:#b9760f">${waitIn}</b>`:''}
     <span class="small muted">（本清單＝本站<b>產出</b>的箱；<b>已轉出</b>＝整箱點交走的量（0＝東西還在本站）、<b>已投產</b>＝下站已領去做掉的量、<b>未投產</b>＝還沒被做掉的量）</span></div>
-    <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('入庫次序')}</th><th>${L('產出數')}</th><th>${L('已轉出')}</th><th>${L('已投產')}</th><th>${L('未投產')}</th><th>${L('目前位置')}</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
+    <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('入庫次序')}</th><th>${L('產出數')}</th><th>${L('已轉出')}</th><th>${L(fdw.drawn)}</th><th>${L(fdw.left)}</th><th>${L('目前位置')}</th><th>${L('來源')}</th><th>${L('時間')}</th></tr></thead><tbody>
     ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')">
       <td><span class="badge">${esc(c.cid)}</span></td><td class="mono small">${esc(c.lot||'-')}</td>
       <td class="small muted">${seqTag(c)||'<span class="muted">單次</span>'}</td>
       ${hlCell(c.cid,'ok',`${c.qty}`)}<td>${isReceived(c)?`<b style="color:#3355aa">${+c.qty||0}</b>`:'<span class="muted">0</span>'}</td>${''/* ★97 已轉出＝整箱點交走的量（點交=整箱），0＝東西還在本站 */}<td class="muted">${drawnOut(c.cid)}</td>${hlCell(c.cid,'balance',`<b>${remaining(c.cid)}</b>`)}
-      <td class="small">${remaining(c.cid)<=0?'<span class="muted">已領用完</span>':(needStockin(c)?'<span class="pill" style="background:#fef0dd;color:#b9760f">待物控接收</span>':(isReceived(c)?`<span class="pill" style="background:#e8eef7;color:#3355aa">在 ${stN(c.received.station)}</span>`:`<span class="pill ok">在 ${stN(c.processCode)}</span>`))}</td>
+      <td class="small">${remaining(c.cid)<=0?'<span class="muted">'+fdw.done+'</span>':(needStockin(c)?'<span class="pill" style="background:#fef0dd;color:#b9760f">待物控接收</span>':(isReceived(c)?`<span class="pill" style="background:#e8eef7;color:#3355aa">在 ${stN(c.received.station)}</span>`:`<span class="pill ok">在 ${stN(c.processCode)}</span>`))}</td>
       <td class="small muted">${(c.sources||[]).map(s=>s.cid+'領'+s.take).join(' + ')||'首站'}</td>
       <td class="small muted">${esc(localDT(c.createdAt))}</td></tr>`).join('')||'<tr><td colspan=9 class="empty">無</td></tr>'}
     </tbody></table>`;
@@ -6818,13 +7005,14 @@ function flowStock(code,pn,wo,lot,kind){
   const sum=boxes.reduce((a,c)=>{ const rem=remaining(c.cid); const hand=(isReceived(c)&&rem>0)?rem:0;
     return a+(kind==='stock'?rem:(drawnOut(c.cid)+hand)); },0);
   const last=code===lastStation(pn);   /* ★99-21（0f）末站特判：pn 為空（全部機種）時 lastStation 回 null ⇒ 恆 false，退回原用詞，不亂猜 */
-  el.innerHTML=`<div class="note" style="margin-top:14px;border-color:${kind==='stock'?'var(--teal)':'#3355aa'}">${stN(code)} · <b>${kind==='stock'?(last?'成品在庫':'待轉出'):'已轉出'}</b> ${sum} pcs／${boxes.length} 箱　<span class="small muted">${kind==='stock'?(last?'（已驗產箱、已入庫；末站不轉出）':'（已驗產箱、還在本站等點交下站）'):'（已點交移轉走 或 已被下站領用投產）'}（點箱號可追溯）</span></div>
-    <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('產出數')}</th><th>${L('已投產')}</th><th>${L('未投產')}</th><th>${L('目前位置')}</th><th>${L('時間')}</th></tr></thead><tbody>
+  const dw=drawWord(last);   /* ★109-1 末站的已轉出＝已出貨（使用者 260929 實測：「寫已投產 怪怪的」） */
+  el.innerHTML=`<div class="note" style="margin-top:14px;border-color:${kind==='stock'?'var(--teal)':'#3355aa'}">${stN(code)} · <b>${kind==='stock'?(last?'成品在庫':'待轉出'):(last?'已出貨':'已轉出')}</b> ${sum} pcs／${boxes.length} 箱　<span class="small muted">${kind==='stock'?(last?'（已驗產箱、已入庫、還沒出貨）':'（已驗產箱、還在本站等點交下站）'):(last?'（依 09 成品出貨的銷貨單扣掉的量）':'（已點交移轉走 或 已被下站領用投產）')}（點箱號可追溯）</span></div>
+    <table><thead><tr><th>${L('箱號')}</th><th>${L('批號')}</th><th>${L('產出數')}</th><th>${L(dw.drawn)}</th><th>${L(dw.left)}</th>${last?`<th>${L('出貨單')}</th>`:''}<th>${L('目前位置')}</th><th>${L('時間')}</th></tr></thead><tbody>
     ${boxes.map(c=>`<tr style="cursor:pointer" onclick="traceFromQuery('${c.cid}')">
       <td><span class="badge">${esc(c.cid)}</span></td><td class="mono small">${esc(c.lot||'-')}</td>
-      <td><b>${c.qty}</b></td><td class="muted">${drawnOut(c.cid)}</td><td><b>${remaining(c.cid)}</b></td>
-      <td class="small">${remaining(c.cid)<=0?'<span class="muted">已領用完</span>':(needStockin(c)?'<span class="pill" style="background:#fef0dd;color:#b9760f">待物控接收</span>':(isReceived(c)?`<span class="pill" style="background:#e8eef7;color:#3355aa">在 ${stN(c.received.station)}</span>`:`<span class="pill ok">在 ${stN(c.processCode)}</span>`))}</td>
-      <td class="small muted">${esc(localDT(c.createdAt))}</td></tr>`).join('')||'<tr><td colspan=7 class="empty">無</td></tr>'}
+      <td><b>${c.qty}</b></td><td class="muted">${drawnOut(c.cid)}</td><td><b>${remaining(c.cid)}</b></td>${last?`<td class="small">${shipsOfBoxHTML(c.cid)}</td>`:''}
+      <td class="small">${remaining(c.cid)<=0?'<span class="muted">'+dw.done+'</span>':(needStockin(c)?'<span class="pill" style="background:#fef0dd;color:#b9760f">待物控接收</span>':(isReceived(c)?`<span class="pill" style="background:#e8eef7;color:#3355aa">在 ${stN(c.received.station)}</span>`:`<span class="pill ok">在 ${stN(c.processCode)}</span>`))}</td>
+      <td class="small muted">${esc(localDT(c.createdAt))}</td></tr>`).join('')||`<tr><td colspan=${last?8:7} class="empty">無</td></tr>`}
     </tbody></table>`;
 }
 /* ★97 NR/NG 也可展開（使用者圈點：OK產出點得開、不良看不到是哪箱）：列該站不良箱＋會判處置狀態 */
@@ -6957,7 +7145,7 @@ function doTrace(){
     <div class="note" data-hl="cid:${cid}">查詢 <b>${esc(cid)}</b>（機種 ${esc(c.partNo)}${pnNm(c.partNo)?' — '+esc(pnNm(c.partNo)):''}）→ 沿來源往回追到原始壓鑄箱：<b>${roots.join(' / ')||esc(cid)}</b>${hasBranch?'　<span style="color:#b9760f">⑂ 此鏈有混批/分箱分支，分支站列出多個來源箱</span>':''}</div>
     ${''/* ★96-6 ⑦矩陣不撐滿：width:auto＝欄寬跟內容走、留白留在表格右側（原 width:100% 一兩站時剩餘寬全灌進站欄）；站多塞不下照舊橫捲 */}
     <div style="overflow-x:auto"><table class="trace-matrix" style="width:auto"><thead><tr>${th}</tr></thead><tbody>${bodyRows}</tbody></table></div>
-    <div class="small muted" style="margin-top:10px">🔗 此表是「這一箱」的真實流轉路徑（沿來源箱反查）。正常一站一箱；若上游為混批/分箱(多來源)，該站才列出多個來源箱＝真實分支。NR/NG/良率為該批該站累計。${QMS_MOCK_ON?'QMS 各列為品質檢驗（示意），正式版由 QMS 提供。':''}</div></div>`;
+    <div class="small muted" style="margin-top:10px">🔗 此表是「這一箱」的真實流轉路徑（沿來源箱反查）。正常一站一箱；若上游為混批/分箱(多來源)，該站才列出多個來源箱＝真實分支。NR/NG/良率為該批該站累計。${QMS_MOCK_ON?'QMS 各列為品質檢驗（示意），正式版由 QMS 提供。':''}</div></div>`+shipLotCardHTML(c);   /* ★109 本批 LOT 入出庫帳 */
   applyHL();
 }
 function traceStationBoxes(pn,code,cids){
@@ -6970,6 +7158,303 @@ function traceStationBoxes(pn,code,cids){
       ${q?`<td class="small" style="color:${q.within?'#1f8a4c':'#b9760f'}">${q.result}</td><td class="mono small">${esc(q.reportNo)}</td>`:''}</tr>`; }).join('')}
     </tbody></table>`;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   ★★★109 成品出貨（09）—— 銷貨單 ↔ 生產 LOT（使用者 260929 定案）
+   【為什麼要做】MHR 原本做到成品就停了 ⇒ 末站成品一直累積，有出貨沒扣就跟實際對不上。
+   【定案規則】
+   ・可出貨成品＝末站＋良品＋**已經 03 物控接收（入成品倉）**＋還有結存（使用者選 B）
+   ・OQC 以 **QMS 為準**，QMS 的 OQC 表單本身就有「客戶／SO／出貨數量／目的地」⇒ **一張出貨單驗一張**，
+     **不是**以 LOT 為單位（使用者 260929 更正）。QMS 不記 LOT ⇒ 把 OQC 跟 LOT 串起來就是 MHR 的工作。
+   ・OQC 可以**事後補**（乙案）：先登錄出貨扣庫存，沒補的標紅「OQC 未補」（比照 Q 頁 QMS 單號可回填）
+   ・QMS 單號**兩種輸入都保留**：現在手工輸入（oqcSrc='manual'），日後直接從 QMS 挑（'qms'，預留）
+   ・同一個 LOT 可能分好幾批入庫 ⇒ 扣的是**箱**，LOT 內依入庫時間**先進先出**
+   ・一張銷貨單可以跨多個 LOT；指定合計必須**剛好等於**銷貨單數量
+   【狀態】open 待指定 LOT（還沒扣）→ shipped 已出貨（已扣）→ void 作廢（庫存還回去、紀錄留著）
+   【樞紐】drawnOut() 把 shipped 的 draws 算進「被領走」⇒ 全站成品數字自動跟著扣（見 drawnOut 的註解）
+   ═══════════════════════════════════════════════════════════════════════════════ */
+let SHIP_TABLE_MISSING=false;   /* dbCloudLoad 看到 404/PGRST205 時設 true＝109 建表 SQL 還沒跑 */
+function shipList(){ return db.data.shipments||(db.data.shipments=[]); }
+/* 出貨單自己有 site 欄（多廠區鐵則：交易表一開始就要有）。語意比照 ordScopeReadable：
+   '*'＝各廠皆可見；有值＝照 siteReadable；空＝只有不限廠區的人看得到（fail-closed）。 */
+function shipScopeReadable(sp){ if(!sp) return true; const st=sp.site||'';
+  if(st==='*') return true; if(st) return siteReadable(st); return !userSiteShorts(); }
+/* 入庫判定＝needStockin 的反面：97 前的舊箱（pid 空）視同已入庫＝零遷移（同 needStockin 的規則） */
+function isStockedIn(c){ return !!c && (!!c.stockin || !c.pid); }
+function stockinAt(c){ return (c&&c.stockin&&c.stockin.at)||(c&&c.createdAt)||''; }
+/* ★可出貨的成品箱（使用者選 B）：末站＋良品＋已入成品倉＋看得到＋還有結存 */
+function canShipBox(c){ return !!(c&&isFinished(c)&&isNormalBox(c)&&isStockedIn(c)&&boxScopeReadable(c)&&remaining(c.cid)>0); }
+/* 某料號可出貨的 LOT，每個 LOT 再依入庫日拆成「入庫批」（使用者 260929：同一個 LOT 可能分批入庫）。
+   LOT 依最早入庫時間排（先進先出看起來也是由上而下）。 */
+function shipLotsOf(pn){ const by={};
+  db.data.containers.forEach(c=>{ if(c.partNo!==pn||!canShipBox(c)) return; (by[c.lot||'']||(by[c.lot||'']=[])).push(c); });
+  return Object.keys(by).map(lot=>{
+    const boxes=by[lot].slice().sort((a,b)=>String(stockinAt(a)).localeCompare(String(stockinAt(b)))||String(a.cid).localeCompare(String(b.cid)));
+    const bt={}; boxes.forEach(c=>{ const d=prodDayOf(stockinAt(c))||'—'; (bt[d]||(bt[d]=[])).push(c); });
+    return { lot, boxes, first:stockinAt(boxes[0]), avail:boxes.reduce((a,c)=>a+remaining(c.cid),0),
+      batches:Object.keys(bt).sort().map(d=>({day:d,boxes:bt[d],qty:bt[d].reduce((a,c)=>a+remaining(c.cid),0)})) };
+  }).sort((a,b)=>String(a.first).localeCompare(String(b.first))); }
+/* LOT 內先進先出配箱。回 null＝不夠扣（呼叫端要擋）。 */
+function shipAllocLot(pn,lot,qty){ const L=shipLotsOf(pn).find(x=>x.lot===lot); if(!L) return null;
+  let need=+qty||0; const draws=[];
+  for(const c of L.boxes){ if(need<=0) break; const r=remaining(c.cid); if(r<=0) continue;
+    const t=Math.min(r,need); draws.push({cid:c.cid,take:t,lot:c.lot||''}); need-=t; }
+  return need>0?null:draws; }
+/* LOT 字串拿來當 DOM id：LOT 裡有 _ 和 - 都還好，但保險起見一律編碼（同一個 LOT 每次算出來都一樣＝對得回去） */
+function shipLotKey(lot){ return 'sha_'+encodeURIComponent(lot||'').replace(/%/g,'_'); }
+function shipNewId(){ return 'SH'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase(); }
+/* ★★109-1 末站的「被領走」只可能是出貨 —— canShipBox 限末站；末站沒有下一站，生產上不會有人向它領料。
+   109 實測使用者抓到：末站出貨後，00／07／08 還在講「已轉下站／已投產／已領用完」（原話「寫已投產 怪怪的」），
+   全站掃出 6 處。⇒ **用詞收斂到這一支**，六處一起換，不要一頁一頁補（[[centralize-shared-rule-not-per-page]]）。
+   ⚠ 只換「被領走那一側」的字。投入側的「已投產」（本站向上一站領料）在末站照樣成立，不要動。
+   ⚠ 算式一個字都沒改：已轉下站＋期末在手＝OK 產出＋清點帳差，出貨後照樣成立（實測 1＋87＝88）。 */
+function drawWord(last){ return last
+  ? {moved:'已出貨', drawn:'已出貨', left:'成品在庫', done:'已全部出貨'}
+  : {moved:'已轉下站', drawn:'已投產', left:'未投產', done:'已領用完'}; }
+/* 某一箱被哪幾張出貨單扣過（明細的「出貨單」欄用；只算已出貨的，作廢的不算） */
+function shipsOfBox(cid){ const out=[];
+  (db.data.shipments||[]).forEach(sp=>{ if(sp.status!=='shipped') return;
+    const t=(sp.draws||[]).filter(d=>d.cid===cid).reduce((a,d)=>a+(+d.take||0),0); if(t>0) out.push({sp,t}); });
+  return out; }
+function shipsOfBoxHTML(cid){ const l=shipsOfBox(cid);
+  return l.length?l.map(x=>'<span class="mono">'+esc(x.sp.shipNo)+'</span> × '+x.t+(x.sp.customer?' <span class="muted">→ '+esc(x.sp.customer)+'</span>':'')).join('<br>'):'<span class="muted">—</span>'; }
+function canShip(){ return can('ship','e'); }
+function canOqcFill(){ return can('qcinsp','e'); }   /* 同 Q 質控檢驗：質控職能＋系統管理 */
+function canVoidShip(){ return canVoidPending(); }   /* 同待驗單作廢：主管／系統管理 */
+/* ★110 出貨單狀態膠囊（09 清單與 Q 質控檢驗共用） */
+function shipStPill(x){ return x.status==='open'?'<span class="pill" style="font-size:11px;background:#b9760f22;color:#b9760f">待指定 LOT</span>'
+  :x.status==='shipped'?'<span class="pill ok" style="font-size:11px">已出貨</span>':'<span class="pill" style="font-size:11px;background:#eee;color:#888">已作廢</span>'; }
+/* ★110 OQC 登錄表單：09 出貨單明細與 Q 質控檢驗**共用這一份** —— 兩個入口、同一筆資料、同一支 shipOqcSave
+   （欄位 id 也一樣是 sho_no_／sho_res_，兩頁不會同時在畫面上，不會撞）。 */
+function shipOqcFormHTML(sp){
+  return `<b>OQC 出貨檢驗</b> <span class="small muted">（以 QMS 為準；一張出貨單一張 OQC 報告；可以事後補；09 與 Q 質控檢驗都能登）</span>
+      <div class="row" style="gap:8px;align-items:flex-end;margin-top:6px;flex-wrap:wrap">
+        <div style="min-width:180px"><label>${L('OQC 單號')}（QMS）</label><input id="sho_no_${esc(sp.shipId)}" value="${esc(sp.oqcNo||'')}" placeholder="手工輸入 QMS 單號"></div>
+        <div><label>判定</label><select id="sho_res_${esc(sp.shipId)}" style="width:auto"><option value="">—</option>
+          <option${sp.oqcResult==='合格'?' selected':''}>合格</option><option${sp.oqcResult==='不合格'?' selected':''}>不合格</option></select></div>
+        <button class="btn sm" onclick="shipOqcSave('${esc(sp.shipId)}')">儲存 OQC</button>
+        <button class="btn ghost sm" onclick="shipOqcFromQms('${esc(sp.shipId)}')" title="日後直接從 QMS 的 OQC 報告挑選（預留）">從 QMS 挑…</button></div>
+      ${sp.oqcBy?`<div class="small muted" style="margin-top:4px">上次登錄：${esc(sp.oqcBy)}　${esc(localDT(sp.oqcAt))}</div>`:''}`; }
+function shipOqcPill(sp){
+  /* ★110 還沒出貨的單（待指定 LOT）沒登 OQC 是正常的（OQC 可以先登）⇒ 不標紅，只標「待 OQC」；已出貨還沒登才是紅的「OQC 未補」 */
+  if(!sp.oqcNo&&sp.status==='open') return '<span class="pill" style="font-size:11px;background:#b9760f22;color:#b9760f" title="還沒出貨；OQC 可以先登（Q 質控檢驗或 09）">待 OQC</span>';
+  if(!sp.oqcNo) return '<span class="pill ng" style="font-size:11px" title="出貨已經扣庫存，但 QMS 的 OQC 單號還沒補上">OQC 未補</span>';
+  const bad=sp.oqcResult==='不合格';
+  return `<span class="pill ${bad?'ng':'ok'}" style="font-size:11px">${esc(sp.oqcResult||'—')}</span> <span class="mono small">${esc(sp.oqcNo)}</span>${sp.oqcSrc==='qms'?' <span class="small muted">(QMS)</span>':''}`; }
+
+/* ═══ ★109 ERP 預留接口 ═══
+   ERP 目前**只開放工單一張 View（DTO_JOBS_V）**，沒有出貨 ⇒ 要走 SYM03 申請，
+   規格見 109_MHR_260929_ERP出貨資料表需求規格.md（建議 View 名 DTO_SHIPS_V）。
+   View 開好後：本機橋樑 erp_bridge.ps1 比照 /jobs 加 /ships，這一支照規格把欄位對上即可，
+   匯入進來一律是 open（待指定 LOT）—— **ERP 知道出了什麼料，但不知道是哪個生產 LOT，那是 MHR 要補的**。 */
+function erpShipMakeRec(j){ j=j||{};
+  return { shipId:shipNewId(), site:siteShortOfCode(j.orgId||'')||oneSite()||'',
+    shipNo:j.shipNo||'', soNo:j.soNo||'', shipDate:String(j.shipDate||'').slice(0,10), customer:j.customerName||'',
+    partNo:erpResolvePartNo(j.itemNo)||j.itemNo||'', qty:+j.shippedQty||0, status:'open', draws:[], source:'erp',
+    erp:j, createdBy:sessionName(), createdAt:nowISO() }; }
+
+/* ═══ ★109 從 QMS 挑 OQC（預留，使用者 260929：「以後希望直接連上 QMS 資料上去點選」）═══
+   QMS 與 MHR 在同一個 Supabase 專案；QMS 的檢驗記錄在 fai_records
+   （form_no／site_code／partno／date／overall；OQC 表單另有 客戶／SO No.／出貨數量／目的地 存在 header）。
+   日後接法：依料號＋廠區＋日期（＋SO No. 對 soNo）查 OQC 類記錄 → 列出來點選 → 帶回單號與判定，oqcSrc='qms'。
+   **現在不接**：要先確認 MHR 使用者讀得到 fai_records（QMS 的 RLS），而且使用者定調「以後」。 */
+function shipOqcFromQms(id){ toast('從 QMS 挑 OQC 報告：預留功能，還沒接通 —— 目前請手工輸入 QMS 單號','info'); }
+
+/* ── 動作 ── */
+function shipAdd(){
+  if(SHIP_TABLE_MISSING) return toast('出貨表還沒建立 —— 請先到 Supabase 跑 109 建表 SQL','err');
+  if(!canShip()) return toast('僅物控／主管／系統管理可以登錄出貨','err');
+  const site=oneSite();
+  if(!site) return toast('請先用右上角「🏭 廠區檢視」切到要出貨的廠區（出貨單要知道是哪個廠的）','err');
+  if(wGuard('ship','c',site,'登錄銷貨單')) return;
+  const v=id=>((($('#'+id)||{}).value)||'').trim();
+  const shipNo=v('sh_no'), pn=comboResolve('sh_pn',window._shPn||[]), qty=+v('sh_qty')||0;
+  if(!shipNo) return toast('請輸入銷貨單號','err');
+  if(!pn) return toast('請從清單挑料號（打的字對不到唯一一筆）','err');
+  if(!(qty>0)) return toast('數量要大於 0','err');
+  const dup=shipList().find(x=>x.status!=='void'&&x.site===site&&x.shipNo===shipNo&&x.partNo===pn);
+  if(dup&&!confirm('銷貨單 '+shipNo+' 的 '+pn+' 已經登錄過一筆（'+dup.qty+' pcs，'+(dup.status==='shipped'?'已出貨':'待指定 LOT')+'）。\n\n確定要再登錄一筆？')) return;
+  const rec={shipId:shipNewId(),site,shipNo,soNo:v('sh_so'),shipDate:v('sh_date'),customer:v('sh_cust'),
+    partNo:pn,qty,status:'open',draws:[],source:'mhr',createdBy:sessionName(),createdAt:nowISO()};
+  shipList().push(rec); db.save();
+  ['sh_no','sh_so','sh_cust','sh_qty','sh_pn'].forEach(id=>{ const e=$('#'+id); if(e) e.value=''; });
+  window._shPick=rec.shipId; toast('已登錄銷貨單 '+shipNo+' —— 接著在下方指定出貨 LOT','ok'); render(); }
+/* Excel 匯入：從 Excel 直接複製貼上（欄與欄之間是 Tab），逗號分隔也收。
+   欄序：銷貨單號｜出貨日｜客戶｜料號｜數量｜訂單號(選填)。第一列是標題就自動跳過。
+   匯入的一律是 open（待指定 LOT）—— 銷貨單不知道是哪個生產 LOT，那一步一定要人指定。 */
+function shipImport(){
+  if(SHIP_TABLE_MISSING) return toast('出貨表還沒建立 —— 請先到 Supabase 跑 109 建表 SQL','err');
+  if(!canShip()) return toast('僅物控／主管／系統管理可以匯入出貨','err');
+  const site=oneSite(); if(!site) return toast('請先用右上角「🏭 廠區檢視」切到要出貨的廠區','err');
+  if(wGuard('ship','c',site,'匯入銷貨單')) return;
+  const raw=((($('#sh_imp')||{}).value)||'').trim(); if(!raw) return toast('請先貼上資料','err');
+  const pvis=prodsVisible(); const okRows=[], bad=[];
+  raw.split(/\r?\n/).forEach((line,i)=>{ if(!line.trim()) return;
+    const c=line.split(line.indexOf('\t')>=0?'\t':',').map(x=>x.trim());
+    if(i===0&&/銷貨|單號|ship/i.test(c[0]||'')) return;   /* 標題列 */
+    const [shipNo,shipDate,customer,pnRaw,qtyRaw,soNo]=c; const qty=+String(qtyRaw||'').replace(/,/g,'');
+    const p=pvis.find(x=>x.partNo===pnRaw)||pvis.find(x=>(x.model||'')===pnRaw);
+    if(!shipNo||!p||!(qty>0)){ bad.push('第 '+(i+1)+' 列：'+(!shipNo?'沒有銷貨單號':!p?'料號「'+(pnRaw||'')+'」不在本廠產品主檔':'數量不對')); return; }
+    okRows.push({shipId:shipNewId(),site,shipNo,soNo:soNo||'',shipDate:(shipDate||'').replace(/\//g,'-').slice(0,10),customer:customer||'',
+      partNo:p.partNo,qty,status:'open',draws:[],source:'import',createdBy:sessionName(),createdAt:nowISO()}); });
+  if(!okRows.length) return toast('沒有可匯入的列'+(bad.length?'：'+bad.slice(0,3).join('；'):''),'err');
+  if(!confirm('即將匯入 '+okRows.length+' 筆銷貨單（都是「待指定 LOT」）'+(bad.length?'\n\n另有 '+bad.length+' 列不會匯入：\n'+bad.slice(0,8).join('\n'):'')+'\n\n確定？')) return;
+  okRows.forEach(r=>shipList().push(r)); db.save();
+  const e=$('#sh_imp'); if(e) e.value='';
+  toast('已匯入 '+okRows.length+' 筆，請逐筆指定出貨 LOT'+(bad.length?'（'+bad.length+' 列略過）':''),'ok'); render(); }
+function shipPick(id){ window._shPick=(window._shPick===id)?null:id; render(); }
+/* 指定 LOT → 確認出貨（扣庫存） */
+function shipConfirm(id){
+  const sp=shipList().find(x=>x.shipId===id);
+  if(!sp||sp.status!=='open') return toast('這張出貨單不是「待指定 LOT」狀態','err');
+  if(!canShip()) return toast('僅物控／主管／系統管理可以出貨','err');
+  if(!shipScopeReadable(sp)) return toast('🏭 這張出貨單不在你目前的廠區範圍內','err');
+  if(wGuard('ship','e',sp.site,'出貨 '+sp.shipNo)) return;
+  let draws=[], tot=0;
+  for(const L of shipLotsOf(sp.partNo)){
+    const q=+((($('#'+shipLotKey(L.lot))||{}).value)||0); if(!(q>0)) continue;
+    if(q>L.avail) return toast('LOT '+(L.lot||'（無批號）')+' 只剩 '+L.avail+'，不能出 '+q,'err');
+    const d=shipAllocLot(sp.partNo,L.lot,q); if(!d) return toast('LOT '+L.lot+' 扣不到 '+q+'（庫存剛被別人用掉？請重新整理）','err');
+    draws=draws.concat(d); tot+=q; }
+  if(!tot) return toast('請至少指定一個 LOT 的出貨數量','err');
+  if(tot!==+sp.qty) return toast('指定合計 '+tot+' ≠ 銷貨單數量 '+sp.qty+'（要剛好相等）','err');
+  sp.draws=draws; sp.status='shipped'; sp.shippedBy=sessionName(); sp.shippedAt=nowISO();
+  db.save(); window._shPick=null;
+  toast('已出貨：'+sp.shipNo+' 扣除 '+tot+' pcs（'+draws.length+' 箱）'+(sp.oqcNo?'':'　⚠ OQC 單號還沒補'),'ok'); render(); }
+/* OQC 補登（手工；從 QMS 挑見 shipOqcFromQms，預留） */
+function shipOqcSave(id){
+  const sp=shipList().find(x=>x.shipId===id); if(!sp||sp.status==='void') return toast('找不到出貨單或已作廢','err');
+  if(!canOqcFill()) return toast('僅質控職能＋系統管理可以登錄 OQC（同 Q 質控檢驗）','err');
+  if(!shipScopeReadable(sp)) return toast('🏭 這張出貨單不在你目前的廠區範圍內','err');
+  if(wGuard('qcinsp','e',sp.site,'OQC 補登 '+sp.shipNo)) return;
+  const no=((($('#sho_no_'+id)||{}).value)||'').trim(), res=((($('#sho_res_'+id)||{}).value)||'').trim();
+  if(!no) return toast('請輸入 QMS 的 OQC 檢驗單號','err');
+  if(res!=='合格'&&res!=='不合格') return toast('請選判定：合格／不合格','err');
+  const dup=shipList().find(x=>x.shipId!==id&&x.status!=='void'&&String(x.oqcNo||'').trim()===no);
+  if(dup&&!confirm('QMS 單號 '+no+' 已經掛在銷貨單 '+dup.shipNo+'（'+dup.partNo+'）上了。\n\n一張 OQC 報告通常只對一次出貨 —— 確定要再用？')) return;
+  sp.oqcNo=no; sp.oqcResult=res; sp.oqcSrc='manual'; sp.oqcBy=sessionName(); sp.oqcAt=nowISO();
+  window._qiShip=null;   /* ★110 Q 頁登完就收起表單（比照生產：驗收完那張單就離開待驗） */
+  db.save(); toast('已登錄 OQC：'+no+'（'+res+'）','ok'); render(); }
+function shipVoid(id){
+  const sp=shipList().find(x=>x.shipId===id); if(!sp||sp.status==='void') return;
+  if(!canVoidShip()) return toast('僅主管／系統管理可以作廢出貨單','err');
+  if(!shipScopeReadable(sp)) return toast('🏭 這張出貨單不在你目前的廠區範圍內','err');
+  if(wGuard('ship','d',sp.site,'作廢出貨單 '+sp.shipNo)) return;
+  const had=sp.status==='shipped';
+  const note=prompt('作廢銷貨單 '+sp.shipNo+'（'+sp.partNo+' '+sp.qty+' pcs）'+(had?'\n⚠ 已扣的庫存會還回原本的箱子':'')+'\n\n請輸入作廢原因：');
+  if(!note||!note.trim()) return;
+  /* ⚠ **只改狀態，不從清單拿掉**（這張表沒有刪除權限，拿掉會造成重整後又冒回來）。
+     draws 留著當歷史；drawnOut 只算 shipped ⇒ 庫存自動還回去。 */
+  sp.status='void'; sp.voidAt=nowISO(); sp.voidBy=sessionName(); sp.voidNote=note.trim();
+  if(window._shPick===id) window._shPick=null;
+  db.save(); toast('已作廢 '+sp.shipNo+(had?'，庫存已還回':''),'ok'); render(); }
+
+/* ── 07 ① 箱號直查下面：本批 LOT 入出庫帳 ── */
+function shipLotLedger(pn,lot){ const ev=[];
+  const day={}; db.data.containers.forEach(c=>{ if(c.partNo!==pn||(c.lot||'')!==(lot||'')||!isFinished(c)||!isNormalBox(c)||!isStockedIn(c)) return;
+    const d=prodDayOf(stockinAt(c))||'—'; (day[d]||(day[d]={at:stockinAt(c),qty:0,n:0})); day[d].qty+=(+c.qty||0); day[d].n++;
+    if(String(stockinAt(c))<String(day[d].at)) day[d].at=stockinAt(c); });
+  Object.keys(day).forEach(d=>ev.push({at:day[d].at,kind:'in',qty:day[d].qty,n:day[d].n,d}));
+  (db.data.shipments||[]).forEach(sp=>{ if(sp.status!=='shipped'||!shipScopeReadable(sp)) return;
+    const q=(sp.draws||[]).filter(x=>(x.lot||'')===(lot||'')&&((findC(x.cid)||{}).partNo===pn)).reduce((a,x)=>a+(+x.take||0),0);
+    if(q>0) ev.push({at:sp.shippedAt||sp.createdAt,kind:'out',qty:q,sp}); });
+  return ev.sort((a,b)=>String(a.at).localeCompare(String(b.at))); }
+function shipLotCardHTML(c){
+  if(!c||!c.lot) return '';
+  const ev=shipLotLedger(c.partNo,c.lot); if(!ev.length) return '';
+  let bal=0;
+  const rows=ev.map(e=>{ bal+=(e.kind==='in'?e.qty:-e.qty);
+    return e.kind==='in'
+      ? `<tr><td class="small">${esc(e.d)}</td><td><span class="pill ok" style="font-size:11px">入庫</span></td><td class="small muted">${e.n} 箱</td><td style="text-align:right">+${e.qty}</td><td style="text-align:right"><b>${bal}</b></td></tr>`
+      : `<tr><td class="small">${esc(e.sp.shipDate||prodDayOf(e.at))}</td><td><span class="pill" style="font-size:11px;background:#1a4f8a22;color:#1a4f8a">🚚 出貨</span></td>
+          <td class="small">銷貨單 <b class="mono">${esc(e.sp.shipNo)}</b>${e.sp.customer?' → '+esc(e.sp.customer):''}｜${shipOqcPill(e.sp)}</td>
+          <td style="text-align:right">−${e.qty}</td><td style="text-align:right"><b>${bal}</b></td></tr>`; }).join('');
+  return `<div class="card" style="margin-top:12px"><h3>🚚 本批入出庫帳　<span class="mono small" style="font-weight:400">${esc(c.lot)}</span></h3>
+    <div class="small muted" style="margin:-4px 0 8px">同一個 LOT 可能分好幾批做完入庫、分好幾張銷貨單出貨；這張表把它們依時間排在一起，最後一欄是當時的成品結存。</div>
+    <div class="tblfit"><table><thead><tr><th>日期</th><th>事件</th><th class="wrap">說明</th><th style="text-align:right">數量</th><th style="text-align:right">結存</th></tr></thead><tbody>${rows}</tbody></table></div></div>`; }
+
+/* ── 09 頁 ── */
+function renderShip(){
+  const pvis=prodsVisible(); window._shPn=comboItemsProd(pvis);
+  const fs=window._shFs||'open'; const fq=(window._shQ||'').trim().toLowerCase();
+  const mine=shipList().filter(shipScopeReadable);
+  const cnt={open:0,shipped:0,void:0,noqc:0};
+  mine.forEach(x=>{ cnt[x.status]=(cnt[x.status]||0)+1; if(x.status==='shipped'&&!x.oqcNo) cnt.noqc++; });
+  const list=mine.filter(x=>(fs==='all'||(fs==='noqc'?(x.status==='shipped'&&!x.oqcNo):x.status===fs))
+      &&(!fq||[x.shipNo,x.soNo,x.customer,x.partNo,(prodOf(x.partNo)||{}).model].concat((x.draws||[]).map(d=>d.lot)).join(' ').toLowerCase().includes(fq)))
+    .slice().sort((a,b)=>String(b.shippedAt||b.createdAt||'').localeCompare(String(a.shippedAt||a.createdAt||'')));
+  const pick=window._shPick?shipList().find(x=>x.shipId===window._shPick):null;
+  const cs=canShip(), cq=canOqcFill(), cv=canVoidShip();
+  const site=oneSite();
+  $('#view').innerHTML=`
+  <div class="page-h"><h2>${L('成品出貨')}</h2><p>銷貨單進來 → <b>指定用哪個生產 LOT 的成品出貨</b> → 按銷貨單扣成品 → 07 追溯查得到「這批 LOT 何時出給哪個客戶」。可出貨的成品＝<b>末站良品、已經 03 物控接收入成品倉</b>的箱。OQC 以 QMS 為準、一張出貨單一張，可以事後補；質控也可以在「<b>Q 質控檢驗</b>」的待驗單區登（🚚 出貨 OQC）。</p></div>
+  ${SHIP_TABLE_MISSING?`<div class="note" style="border-color:var(--red);background:var(--redbg);margin-bottom:12px">⚠ <b>出貨表還沒建立</b> —— 請系統管理員先到 Supabase 跑 <span class="mono">109_MHR_260929_成品出貨建表.sql</span>。建好之前這一頁只能看、不能登錄（其他頁面不受影響）。</div>`:''}
+  ${cs?`<div class="card"><h3>${L('① 登錄銷貨單')}${site?` <span class="small muted" style="font-weight:400">廠區：${esc(site)}</span>`:' <span class="small" style="color:var(--red);font-weight:400">請先用右上角「🏭 廠區檢視」切到要出貨的廠區</span>'}</h3>
+    <div class="row" style="flex-wrap:wrap;gap:8px;align-items:flex-end">
+      <div style="min-width:150px"><label>${L('銷貨單號')}＊</label><input id="sh_no" placeholder="例 SO-2609-0012"></div>
+      <div style="min-width:120px"><label>${L('出貨日')}</label><input id="sh_date" type="date" value="${esc(todayProdDay())}"></div>
+      <div style="min-width:140px"><label>${L('客戶')}</label><input id="sh_cust"></div>
+      <div style="flex:1;min-width:200px"><label>${L('料號')}＊</label>${comboHTML('sh_pn',window._shPn,Lt('選料號'),'','','')}</div>
+      <div style="min-width:90px"><label>數量＊</label><input id="sh_qty" type="number" min="1"></div>
+      <div style="min-width:130px"><label>${L('訂單號')} <span class="vi">（選填）</span></label><input id="sh_so" placeholder="SO No."></div>
+      <button class="btn navy" onclick="shipAdd()">＋ 登錄</button></div>
+    <details style="margin-top:10px"><summary class="small" style="cursor:pointer;color:var(--teal)">📋 從 Excel 貼上多筆（大永銷貨單／ERP 匯出檔）</summary>
+      <div class="small muted" style="margin:6px 0">欄序：<b>銷貨單號｜出貨日｜客戶｜料號｜數量｜訂單號(選填)</b>。從 Excel 選好直接複製貼上即可，第一列是標題會自動跳過。匯入的都是「待指定 LOT」。</div>
+      <textarea id="sh_imp" rows="4" style="width:100%;font-family:monospace;font-size:12px" placeholder="SO-2609-0012&#9;2026-09-29&#9;客戶A&#9;GAA.BM04A14.A12&#9;300"></textarea>
+      <button class="btn ghost sm" style="margin-top:6px" onclick="shipImport()">匯入</button>
+      <span class="small muted">　ERP 出貨資料表開好之後會改成直接抓（規格已備，見 109 需求規格書）</span></details></div>`:''}
+  <div class="card"><h3>${L('② 出貨單')}</h3>
+    <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+      <div><label>狀態</label><select style="width:auto" onchange="window._shFs=this.value;window._shPick=null;render()">
+        ${[['open','待指定 LOT',cnt.open],['shipped','已出貨',cnt.shipped],['noqc','已出貨・OQC 未補',cnt.noqc],['void','已作廢',cnt.void],['all','全部',mine.length]]
+          .map(([v,t,n])=>`<option value="${v}"${fs===v?' selected':''}>${t}（${n||0}）</option>`).join('')}</select></div>
+      <div style="flex:1;min-width:200px"><label>搜尋 <span class="vi">（銷貨單號／客戶／料號／LOT）</span></label><input value="${esc(window._shQ||'')}" onchange="window._shQ=this.value;render()"></div>
+      <button class="btn ghost sm" onclick="window._shFs='open';window._shQ='';window._shPick=null;render()">清除</button></div>
+    ${cnt.noqc&&fs!=='noqc'?`<div class="small" style="color:var(--red);margin-top:6px">⚠ 有 <b>${cnt.noqc}</b> 張已出貨的單還沒補 OQC 單號 <a class="lk" onclick="window._shFs='noqc';render()">→ 看這幾張</a></div>`:''}
+    ${list.length?`<div class="tblfit" style="margin-top:8px"><table><thead><tr><th>${L('銷貨單號')}</th><th>${L('出貨日')}</th><th>${L('客戶')}</th><th class="wrap">${L('機種 / 料號')}</th>
+      <th style="text-align:right">數量</th><th>狀態</th><th class="wrap">出自哪些 LOT</th><th>OQC</th><th></th></tr></thead><tbody>
+      ${list.map(x=>{ const byLot={}; (x.draws||[]).forEach(d=>{ byLot[d.lot||'—']=(byLot[d.lot||'—']||0)+(+d.take||0); });
+        const st=shipStPill(x);   /* ★110 與 Q 質控檢驗共用 */
+        const src=x.source==='import'?' <span class="small muted">匯入</span>':x.source==='erp'?' <span class="small muted">ERP</span>':'';
+        const acts=[];
+        if(x.status==='open'&&cs) acts.push(`<button class="btn sm" onclick="shipPick('${esc(x.shipId)}')">${window._shPick===x.shipId?'收起':'指定 LOT'}</button>`);
+        if(x.status!=='void'&&cq) acts.push(`<button class="btn ghost sm" onclick="shipPick('${esc(x.shipId)}')">${x.oqcNo?'改 OQC':'補 OQC'}</button>`);
+        if(x.status!=='void'&&cv) acts.push(`<button class="btn ghost sm" onclick="shipVoid('${esc(x.shipId)}')">作廢</button>`);
+        return `<tr${x.status==='void'?' style="color:#999;text-decoration:line-through"':''}${window._shPick===x.shipId?' style="background:#eef6f8"':''}>
+          <td class="mono small"><b>${esc(x.shipNo)}</b>${src}${x.soNo?`<div class="small muted">SO ${esc(x.soNo)}</div>`:''}</td>
+          <td class="small">${esc(x.shipDate||'')}</td><td class="small">${esc(x.customer||'—')}</td><td class="wrap">${pnCell(x.partNo)}</td>
+          <td style="text-align:right"><b>${x.qty}</b></td><td>${st}</td>
+          <td class="wrap mono small">${Object.keys(byLot).map(k=>esc(k)+' × '+byLot[k]).join('<br>')||'<span class="muted">—</span>'}</td>
+          <td>${x.status==='void'?(x.voidNote?`<span class="small">${esc(x.voidNote)}</span>`:''):shipOqcPill(x)}</td>
+          <td style="white-space:nowrap">${acts.join(' ')}</td></tr>`; }).join('')}</tbody></table></div>`
+      :`<div class="empty" style="margin-top:8px">沒有符合的出貨單</div>`}
+  </div>
+  ${pick&&pick.status!=='void'&&shipScopeReadable(pick)?shipPanelHTML(pick,cs,cq):''}`;
+}
+function shipPanelHTML(sp,cs,cq){
+  const lots=sp.status==='open'?shipLotsOf(sp.partNo):[];
+  const avail=lots.reduce((a,L)=>a+L.avail,0);
+  /* 先進先出預填：由最早入庫的 LOT 開始填，填滿銷貨單數量為止（使用者可以改） */
+  let left=+sp.qty||0; const pre={}; lots.forEach(L=>{ const t=Math.min(L.avail,Math.max(left,0)); pre[L.lot]=t; left-=t; });
+  const lotHTML=sp.status!=='open'?'':(!lots.length
+    ?`<div class="note" style="border-color:var(--red);background:var(--redbg)">料號 ${esc(sp.partNo)} 目前<b>沒有可出貨的成品</b>。可出貨＝末站良品、而且已經在 <b>03 清點移轉</b>做過 🅐物控接收。如果貨已經做完，請先去 03 接收入庫。</div>`
+    :`<div class="small muted" style="margin-bottom:6px">可出貨合計 <b>${avail}</b> pcs（${lots.length} 個 LOT）｜已依<b>入庫先後</b>預填，可以自己改；合計要剛好等於 <b>${sp.qty}</b></div>
+      ${avail<+sp.qty?`<div class="small" style="color:var(--red);margin-bottom:6px">⚠ 可出貨只有 ${avail}，不夠這張銷貨單的 ${sp.qty} —— 還有貨沒做 03 物控接收？</div>`:''}
+      <div class="tblfit"><table><thead><tr><th class="wrap">LOT</th><th class="wrap">入庫批（先進先出）</th><th style="text-align:right">可出</th><th style="text-align:right">本次出貨</th></tr></thead><tbody>
+      ${lots.map(L=>`<tr><td class="mono small"><b>${esc(L.lot||'（無批號）')}</b></td>
+        <td class="small">${L.batches.map(b=>esc(b.day)+' 入庫 '+b.qty+'（'+b.boxes.length+' 箱）').join('<br>')}</td>
+        <td style="text-align:right">${L.avail}</td>
+        <td style="text-align:right"><input id="${shipLotKey(L.lot)}" type="number" min="0" max="${L.avail}" value="${pre[L.lot]||''}" style="width:90px;text-align:right" oninput="shipSumHint('${esc(sp.shipId)}')"></td></tr>`).join('')}
+      </tbody></table></div>
+      <div style="margin-top:8px"><span id="sh_sum" class="small"></span></div>
+      <div style="margin-top:8px"><button class="btn green" onclick="shipConfirm('${esc(sp.shipId)}')"${cs?'':' disabled'}>確認出貨（扣庫存）</button></div>`);
+  const oqcHTML=cq?`<div style="margin-top:14px;padding-top:12px;border-top:1px solid #eee">${shipOqcFormHTML(sp)}</div>`:'';   /* ★110 改用共用表單（Q 質控檢驗也用這一份） */
+  return `<div class="card" style="border:2px solid var(--teal)"><h3>${sp.status==='open'?L('指定出貨 LOT'):'出貨單明細'}　<span class="mono">${esc(sp.shipNo)}</span></h3>
+    <div class="step">${esc(sp.customer||'（未填客戶）')}｜${pnCell(sp.partNo)}｜<b>${sp.qty}</b> pcs${sp.shipDate?'｜出貨日 '+esc(sp.shipDate):''}${sp.soNo?'｜SO '+esc(sp.soNo):''}</div>
+    ${lotHTML}${oqcHTML}</div>`; }
+function shipSumHint(id){ const sp=shipList().find(x=>x.shipId===id); const el=$('#sh_sum'); if(!sp||!el) return;
+  const tot=shipLotsOf(sp.partNo).reduce((a,L)=>a+(+((($('#'+shipLotKey(L.lot))||{}).value)||0)),0);
+  el.innerHTML=tot===+sp.qty?`合計 <b style="color:#1f8a4c">${tot}</b> ✓`:`合計 <b style="color:var(--red)">${tot}</b> ／ 銷貨單 ${sp.qty}（要剛好相等）`; }
 
 /* ---------- 示範資料（含部分領用 / 接力併箱 / OK·NR·NG / 到成品） ---------- */
 /* ═════ ★★★99-49 完整備份（方案 A）══════════════════════════════
