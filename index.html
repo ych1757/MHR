@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v111</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
+<title>MHR 製造履歷系統 — 正式版 v112-3</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -350,7 +350,10 @@
   #login-screen{position:fixed;inset:0;z-index:300;overflow:auto;padding:20px;
     background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 55%,#0e1c33 100%);
     display:flex;align-items:center;justify-content:center}
-  .lgcard{background:#fff;border-radius:14px;padding:32px 30px;width:100%;max-width:392px;box-shadow:0 18px 50px rgba(0,0,0,.38)}
+  /* ★112-1 margin:auto＝畫面放得下時照舊置中；紅字＋指路連結讓卡片比畫面還高時改成從頂端排起、可以往下捲。
+     原本只靠外層 align-items:center：卡片一超高，上緣（商標那一段）會被切到畫面外而且捲不回來
+     （261012 正式網域實測：1280×720 下卡片 747 高、上緣 -13）。 */
+  .lgcard{background:#fff;border-radius:14px;padding:32px 30px;width:100%;max-width:392px;box-shadow:0 18px 50px rgba(0,0,0,.38);margin:auto}
   /* 登入頁品牌區：結構比照 QMS —— ① 公司 LOGO ② 系統代號＋中文名 ③ 英文副標 */
   .lgbrand{text-align:center;margin-bottom:20px}
   .lgbrand img{max-width:200px;height:auto;display:block;margin:0 auto}
@@ -362,6 +365,11 @@
 .lgver{font-size:11px;color:#aaa;margin-top:3px;letter-spacing:.3px}
   #login-screen label{margin-top:12px}
   .lgerr{background:var(--redbg);border-left:4px solid var(--red);color:var(--red);padding:9px 12px;border-radius:6px;font-size:13px;margin-bottom:6px}
+  /* ★112 被擋下時的指路連結：直達 SyncHub 大廳的「登入／改密碼」頁（OMS V299-4 的 ?pwd=1 入口）。
+     只在「初始密碼沒改」與「集團內部人員沒用 SyncHub 密碼」的紅字底下出現；頁尾一般的「回 SyncHub」不帶參數、不動。 */
+  .lgguide{margin:0 0 8px}
+  .lgguide a{display:block;text-align:center;background:var(--navy);color:#fff;border-radius:7px;padding:9px 12px;font-size:13px;font-weight:700;text-decoration:none}
+  .lgguide a:hover{filter:brightness(1.15)}
   .lghint{font-size:11.5px;color:var(--muted);margin-top:10px;line-height:1.65}
   /* 管理員捷徑：只帶入 email，密碼照樣要打（比照 QMS 的 ADMIN_EMAIL 寫死做法） */
   .lgadmin{margin-top:10px;text-align:center}
@@ -381,18 +389,19 @@
       <img src="data:image/jpeg;base64,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" alt="Syncmold 信錦集團">
       <div class="lgtitle">MHR 製造履歷系統</div>
       <div class="lgsub">Manufacturing History Record</div>
-      <div class="lgver">系統版本 v111</div>
+      <div class="lgver">系統版本 v112-3</div>
     </div>
 
     <div id="lg_panel_login">
       <div id="lg_err" class="lgerr" style="display:none"></div>
+      <div id="lg_guide" class="lgguide" style="display:none"><a href="https://synchub.syncmold.com.tw/?pwd=1" onmousedown="event.preventDefault()">🔑 到 SyncHub 設定新密碼</a></div><!-- ★112 onmousedown 擋掉預設行為＝按連結時不搶走輸入欄的游標；否則工號欄一失焦就清紅字，連結會在滑鼠底下消失、按不到 -->
       <label>工號 / Email</label>
       <input id="lg_email" type="text" autocomplete="username" placeholder="工號 或 your.name@company.com" onblur="checkEmpId()" oninput="var h=document.getElementById('lg_idhint');if(h)h.style.display='none';lgErr('')" onkeydown="if(event.key==='Enter'){event.preventDefault();checkEmpId();var p=document.getElementById('lg_pwd');if(p)p.focus();}">
       <div id="lg_idhint" class="small" style="display:none;margin:4px 0 -4px;font-weight:600"></div>
       <label>密碼 Password</label>
       <input id="lg_pwd" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
       <button class="btn lg" id="lg_btn" onclick="doLogin()" style="width:100%;justify-content:center;margin-top:16px">登入 Login</button>
-      <div class="lghint"><b>集團內部</b>可直接打工號；<b>外部廠商</b>請用 Email。<br>已有 QMS 帳號者，用<b>原本的密碼</b>登入即可。</div>
+      <div class="lghint"><b>集團內部</b>：工號＋<b>SyncHub 密碼</b>（與 OMS／GHG 同一組）。<br><b>大永／外部廠商</b>：Email＋<b>原本的密碼</b>。</div>
       <div class="lgadmin"><a onclick="fillAdmin()">🔑 管理員登入</a></div>
     </div>
 
@@ -414,7 +423,7 @@
   <aside class="side">
     <div class="brand">
       <h1>MHR</h1>
-      <div class="sub">製造履歷系統 <span class="tag">v111</span></div>
+      <div class="sub">製造履歷系統 <span class="tag">v112-3</span></div>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -1977,7 +1986,8 @@ async function mhrAuthLogin(email,password){
       headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({email,password})});
     const d=await r.json().catch(()=>({}));
     if(!r.ok){ const raw=((d.error_description||d.msg||d.error||'')+'').toLowerCase();
-      return {ok:false,msg: raw.indexOf('not confirmed')>=0 ? '帳號尚未啟用，請聯絡管理員' : '帳號或密碼錯誤'}; }
+      if(raw.indexOf('not confirmed')>=0) return {ok:false,msg:'帳號尚未啟用，請聯絡管理員'};
+      return {ok:false,badCred:true,msg:'帳號或密碼錯誤'}; }   /* ★112 badCred＝帳密被拒（不是網路錯、也不是帳號未啟用）*/
     const token=d.access_token, refresh=d.refresh_token, uid=d.user&&d.user.id;
     const meta=(d.user&&d.user.user_metadata)||{};
     return await mhrAuthAfterToken(token,refresh,uid,meta.must_change===true);
@@ -2025,7 +2035,8 @@ async function mhrAuthAfterToken(token,refresh,uid,mustChange){
    【過渡期會有「兩組密碼都能用」，這是刻意的】Supabase 為防帳號探測，「查無此帳號」與「密碼錯」
      回的是同一種錯、分不出來；126 個授權者裡只有十來個有 SyncHub 帳號，
      若把沒過一律當密碼錯，其餘的人會直接被鎖在門外。日後 OMS 在 identity_access 加
-     「有無 SyncHub 帳號」欄位就能收緊。 */
+     「有無 SyncHub 帳號」欄位就能收緊。
+   ★★112（261011）起上面兩段只對**自建帳號**成立；集團內部人員的規則見下方 112 的註解。 */
 /* ★★110-1（261007 急件①，使用者確認「三路發動」）SyncHub 初始密碼沒改過＝擋下，不放進 MHR。
    【為什麼】261007 實測：拿別人的工號＋統一的初始密碼 oms12345 就能直接登入 MHR（V108 只跳紅字提醒、不擋）
      ⇒ 誰知道同事工號就能冒用他的身分。
@@ -2035,17 +2046,111 @@ async function mhrAuthAfterToken(token,refresh,uid,mustChange){
      ・重新整理：110-1 之前用初始密碼進來、還留在分頁裡的舊登入狀態，清掉回登入頁（見 showChangePwd）。
    ⚠ EF 是 QMS／MHR 共用的：若哪天要改它的回傳（例如 must_change 時直接回 local），QMS 那邊會變成擋不住，
      要改之前先跟 QMS 對話說。 */
-const SSO_MUST_CHANGE_MSG='這個帳號還在用 SyncHub 的初始密碼，不能直接登入。請先到 SyncHub 大廳（下方「回 SyncHub 信錦智匯」）登入並設定新密碼，設好後再用新密碼登入 MHR。';
+const SSO_MUST_CHANGE_MSG='這個帳號還在用 SyncHub 的初始密碼，不能直接登入。請按下方「到 SyncHub 設定新密碼」，到 SyncHub 大廳用工號＋初始密碼登入、設定新密碼後再回來登入 MHR。';
+/* ═══ ★★★112（261011 急件②，使用者確認）集團內部人員只收 SyncHub 密碼，MHR 本箱密碼這條路關掉 ═══
+   做法比照 QMS V180（兩系統共用同一箱帳密、同一支代驗，講的話要一樣）。
+   【誰算內部】OMS 員工名單上有、而且 OMS 已授權 MHR 的人（代驗 EF 會去試 SyncHub 密碼的同一批人）；
+     保險那一道看的是 mhr_profiles 的 source 是 oms（名單頁來源欄顯示「OMS 名單」）。管理員虛擬帳號除外。
+   【誰不受影響】自建帳號（大永／委外廠商，source 是 mhr）—— 他們不在 OMS、沒有 SyncHub 帳號，
+     照舊用 Email＋MHR 這一箱的密碼；代驗服務壞掉也照樣進得來
+     （使用者 261011 原話：「大永並不是 OMS 人員，應該是走自建帳密的路線」）。管理員虛擬帳號也照舊（本來就不進代驗）。
+   【三道】
+     ① 登入：代驗沒放行、而這個人是內部人員 ⇒ 到此為止，**不再試本箱密碼**，訊息分清楚原因
+        （驗證服務連不上／查不到 SyncHub 帳號／密碼不正確）。不試本箱＝不會透露「本箱舊密碼對不對」。
+        OMS 有這個人但未授權 MHR／已停用 ⇒ 照舊試本箱（不動到早期自建的帳號），本箱也被拒才講 OMS 那一句。
+        OMS 一時查不到 ⇒ 照舊試本箱，由 ② 把關。
+     ② 保險：本箱密碼驗過了、但 profile 是 OMS 來源 ⇒ 不放行、不存登入狀態。
+     ③ 重新整理：112 之前用本箱密碼進來、還留在分頁裡的內部人員登入狀態 ⇒ 清掉，回登入頁（dropLocalInternalSession）。
+   【代驗壞掉時】108 的規則是「一律退回本箱密碼、絕不鎖人」。112 起只對自建帳號成立；
+     內部人員這時進不來（使用者 261011 已知這個代價），但要講實話：是驗證服務連不上，不是他密碼打錯。
+     ⇒ mhrSsoTryLogin 多回一個 down:true，區分「代驗有回答」與「代驗沒回答」。
+   ⚠ 前端擋只是把路牌換掉；真正關掉是 QMS／MHR 兩邊都上線後，把內部人員的本箱密碼換成亂碼（兩系統共用同一箱帳密）。
+     那一步的名單**不可以包含自建帳號**，否則大永會被鎖在門外。
+   ⚠ 共用的 EF qms-sso-login 這一版一樣一個字都不動。 */
+/* ═══ ★★★112-2（261012，使用者：「可以，開始做 112-2」）接上備援通道 ═══
+   OMS 與 QMS 的單一入口＋備援都完成了，MHR 沿用 QMS V181 那支新後端 `qms-sso-login-v2`（同一箱、兩系統共用，不另外寫）。
+   【備援是什麼】本人用工號＋SyncHub 密碼登入成功時，後端記下密碼的加鹽雜湊（算不回密碼、只有後端讀得到）；
+     只有 SyncHub／OMS **沒回應**時後端才拿它比對，比對過了照樣簽通行證。畫面跟平常一樣、不提示。
+     SyncHub 明確回答「密碼錯」不走備援。備援開不開給 MHR 由後端的 FALLBACK_SYSTEMS 決定（前端不用管）。
+   【前端四處】
+     ① mhrSsoTryLogin 改指 v2；後端回 reason:'down'（連不上而且備援也沒過）一樣算 down。
+     ② 打工號而 OMS 連不上（empResolve 回 net:true）⇒ 把工號直接交給後端，不要停在「查無工號」。
+        原本打工號要先向 OMS 查 Email，OMS 一斷就到不了後端，備援等於沒接。
+     ③ 連不上時的紅字不講成「帳號或密碼錯誤」（打 Email 的補一句；工號欄下方也不顯示「查無此工號」）。
+     ④ 名單管理頁：顯示已有備份人數＋「作廢內部人員本箱密碼」（給 QMS 那顆工具動不到、只有 MHR 帳號的內部人員）。
+   【自建帳號（大永／委外）】後端對不在 OMS 名單上的人一律回 local；OMS 連不上時回 reason:'down'，
+     前端照 112 的流程仍會試本箱、來源自建就放行 ⇒ 不受影響。作廢工具也只挑來源是 OMS 的帳號。 */
+const SSO_DOWN_HINT='（若您是集團內部人員：SyncHub 驗證服務暫時連不上，請稍後再試）';
+const SSO_WRONG_PWD_MSG='登入失敗：SyncHub 密碼不正確，或尚未加入 MHR 名單。集團內部人員請用 SyncHub 密碼（與 OMS 同一組），MHR 原本的密碼已停用。還沒設定過請按下方連結；忘記密碼請洽管理員。';
+const SSO_ONLY_MSG='集團內部人員請用 SyncHub 密碼登入（與 OMS 同一組），MHR 原本的密碼已停用。還沒設定過請按下方連結；忘記密碼請洽管理員。';
+const SSO_NO_ACCOUNT_MSG='查不到您的 SyncHub 帳號，請洽 DTO 開通（OMS「系統資料授權」頁）。集團內部人員只收 SyncHub 密碼。';
+const SSO_DOWN_MSG='SyncHub 驗證服務暫時連不上，請稍後再試；持續發生請通知 DTO。（集團內部人員只收 SyncHub 密碼）';
+const OMS_NOT_AUTHED_MSG='此帳號未授權 MHR —— 請洽管理員於 OMS「系統資料授權」頁勾選 MHR';
+const OMS_INACTIVE_MSG='此帳號在 OMS 已停用，請洽管理員。';
+function isOmsAccount(p){ return !!p && p.source==='oms' && String(p.email||'').toLowerCase()!==ADMIN_EMAIL; }
+/* OMS 員工名單查一個人（打工號用工號查、打 Email 用 Email 查）：ilike＋放寬 limit＋前端精確比對（門禁鐵則第 ⑥ 條）。
+   **不加 active 條件** —— 要分得出「已停用」。回 {ok:true,row}／{ok:false,reason}，reason＝none（名單上沒有）或 net（查不到）。 */
+async function omsFindPerson(key,byEmp){
+  const want=String(key||'').trim().toLowerCase(); if(!want) return {ok:false,reason:'none'};
+  try{
+    const url=OMS_SB_URL+'/rest/v1/identity_access?select=emp_id,email,active,systems&'+(byEmp?'emp_id':'email')+'=ilike.'+encodeURIComponent(want)+'&limit=20';
+    const r=await fetch(url,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
+    if(!r.ok) return {ok:false,reason:'net'};
+    const d=await r.json();
+    if(!Array.isArray(d)) return {ok:false,reason:'net'};
+    const hit=d.find(x=>String((x&&(byEmp?x.emp_id:x.email))||'').trim().toLowerCase()===want);
+    return hit?{ok:true,row:hit}:{ok:false,reason:'none'};
+  }catch(e){ return {ok:false,reason:'net'}; }
+}
+/* 這個工號有沒有 SyncHub 帳號（讀 OMS 的帳號名冊 oms_roster）。true／false／null＝查不到，查不到時不可以當成沒有。 */
+async function omsHasSyncHubAccount(empId){
+  const want=String(empId||'').trim().toLowerCase(); if(!want) return false;
+  try{
+    const r=await fetch(OMS_SB_URL+'/rest/v1/oms_roster?select=emp_id,active&emp_id=ilike.'+encodeURIComponent(want)+'&limit=20',
+      {headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
+    if(!r.ok) return null;
+    const d=await r.json();
+    if(!Array.isArray(d)) return null;
+    return d.some(x=>String((x&&x.emp_id)||'').trim().toLowerCase()===want && x.active!==false);
+  }catch(e){ return null; }
+}
+/* 登入用：代驗沒放行時，判斷這個人是不是內部人員、該給什麼訊息。
+   {internal:true,msg,guide} ＝內部人員，到此為止不再試本箱（guide＝要不要打開指路連結）
+   {internal:false,hint}     ＝不歸 SyncHub 管，照舊試本箱；hint＝本箱也被拒時要講的 OMS 那一句（沒有就空）
+   {internal:null}           ＝OMS 查不到、無法判斷 ⇒ 照舊試本箱，由保險那一道把關 */
+async function ssoExplainLocal(email,empId,ssoDown){
+  const f=await omsFindPerson(empId||email,!!empId);
+  if(!f.ok) return {internal:(f.reason==='net')?null:false};
+  const row=f.row;
+  if(row.active===false) return {internal:false,hint:OMS_INACTIVE_MSG};
+  const sys=Array.isArray(row.systems)?row.systems.map(x=>String(x).toUpperCase()):[];
+  if(sys.indexOf('MHR')<0) return {internal:false,hint:OMS_NOT_AUTHED_MSG};
+  if(ssoDown) return {internal:true,msg:SSO_DOWN_MSG};
+  const has=await omsHasSyncHubAccount(row.emp_id);
+  if(has===false) return {internal:true,msg:SSO_NO_ACCOUNT_MSG};
+  return {internal:true,msg:SSO_WRONG_PWD_MSG,guide:true};   /* 有帳號（或名冊一時查不到）⇒ 當成密碼不正確 */
+}
+/* 重新整理時：112 之前用本箱密碼進來、還留在分頁裡的內部人員登入狀態 ⇒ 清掉、回登入頁。
+   代驗進來的（sso）、管理員虛擬帳號（adm）、自建帳號都不動。回 true＝已清掉，呼叫端不要再進系統。 */
+function dropLocalInternalSession(s){
+  if(!s || s.sso || s.adm || !isOmsAccount(s.profile)) return false;
+  clearSessionStore();
+  try{ preloadOms(); }catch(e){}
+  lgErrGuide(SSO_ONLY_MSG);
+  return true;
+}
 async function mhrSsoTryLogin(identifier,password){
   try{
-    const r=await fetch(SB_URL+'/functions/v1/qms-sso-login',{method:'POST',
+    const r=await fetch(SB_URL+'/functions/v1/qms-sso-login-v2',{method:'POST',
       headers:{apikey:SB_KEY,'Content-Type':'application/json'},   /* ⚠ 不要帶 Authorization */
       body:JSON.stringify({identifier,password,system:'MHR'})});
-    if(!r.ok) return {mode:'local'};                    /* 含 404＝EF 還沒部署 ⇒ 完全照舊 */
-    const d=await r.json().catch(()=>({}));
+    if(!r.ok) return {mode:'local',down:true};          /* 含 404＝EF 還沒部署 */
+    const d=await r.json().catch(()=>null);
     if(d&&d.mode==='sso'&&d.access_token) return d;
-    return {mode:'local'};
-  }catch(e){ try{ console.warn('SyncHub 代驗無法連線，改用 MHR 密碼：',e); }catch(_){} return {mode:'local'}; }
+    if(d&&d.reason==='down') return {mode:'local',down:true};   /* ★112-2 後端明講：SyncHub／OMS 連不上（或太忙），備援也沒過 */
+    if(d&&d.mode==='local') return {mode:'local'};      /* 代驗有回答：不歸它管（自建／供應商），或 SyncHub 密碼不對 */
+    return {mode:'local',down:true};                    /* 回了看不懂的東西＝當成代驗沒回答 */
+  }catch(e){ try{ console.warn('SyncHub 代驗無法連線：',e); }catch(_){} return {mode:'local',down:true}; }
 }
 async function mhrAuthChangePassword(newPwd){
   const s=getSession(); if(!s||!s.token) return {ok:false,msg:'尚未登入'};
@@ -2199,7 +2304,10 @@ function scopeText(p){
    ★ 只是自動填入，密碼照樣要驗 —— 不是後門，也不會略過任何檢查。 */
 const ADMIN_EMAIL='admin@id.syncmold.com.tw';
 function fillAdmin(){ const e=$('#lg_email'); if(e) e.value=ADMIN_EMAIL; lgErr(''); const p=$('#lg_pwd'); if(p) p.focus(); }
-function lgErr(msg,id){ const e=$('#'+(id||'lg_err')); if(!e) return; if(!msg){ e.style.display='none'; return; } e.textContent=msg; e.style.display='block'; }
+function lgErr(msg,id){ if(!id) lgGuide(false); const e=$('#'+(id||'lg_err')); if(!e) return; if(!msg){ e.style.display='none'; return; } e.textContent=msg; e.style.display='block'; }
+/* ★112 指路連結（#lg_guide）跟著登入頁的紅字走：一般的 lgErr 一律把它收起來，只有 lgErrGuide 會打開。 */
+function lgGuide(on){ const g=$('#lg_guide'); if(g) g.style.display=on?'block':'none'; }
+function lgErrGuide(msg){ lgErr(msg); lgGuide(true); }
 /* ★88-3 OMS 名單預載快取（登入頁載入時抓一次）→ 工號/Email 即時驗證秒回、doLogin 免等（解決慢半拍） */
 let _omsById=null, _omsByMail=null;
 async function preloadOms(){
@@ -2215,9 +2323,13 @@ async function preloadOms(){
   }catch(e){}
 }
 /* 工號→{email,name}：先查快取，miss 才單筆 fetch（快取未載好時 fallback） */
-async function empLookup(emp){
+async function empLookup(emp){ const r=await empResolve(emp); return r.ok?{email:r.email,name:r.name}:null; }
+/* ★★112-2 同一件事，但分得出「OMS 明確回答沒有這個工號」（net:false）與「OMS 連不上」（net:true）。
+   備援通道靠這個分別：連不上時不可以講成「查無工號」，而是把工號直接交給後端。
+   回 {ok:true,email,name}／{ok:false,net}。empLookup 改成包這一支（查詢只寫一份）。 */
+async function empResolve(emp){
   const k=String(emp).trim().toLowerCase();
-  if(_omsById && _omsById[k]) return _omsById[k];
+  if(_omsById && _omsById[k]) return {ok:true,email:_omsById[k].email,name:_omsById[k].name};
   try{
     /* ★★108（0U）`eq.` 是**大小寫敏感**的 —— 260924 實查 OMS：工號一律存大寫（SS085、SV1085…），
        所以現場打小寫 `ss085` 會回「查無工號」而根本進不到密碼那一步。
@@ -2229,11 +2341,12 @@ async function empLookup(emp){
          ・最後在前端逐筆做**精確**比對，才不會拿到別人的 email。 */
     const url=OMS_SB_URL+'/rest/v1/identity_access?select=emp_id,email,name&emp_id=ilike.'+encodeURIComponent(emp)+'&active=eq.true&limit=20';
     const r=await fetch(url,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
-    if(!r.ok) return null;
+    if(!r.ok) return {ok:false,net:true};
     const d=await r.json();
-    const hit=(Array.isArray(d)?d:[]).find(x=>String((x&&x.emp_id)||'').trim().toLowerCase()===k);
-    return (hit&&hit.email)?{email:String(hit.email).trim(),name:String(hit.name||'').trim()}:null;
-  }catch(e){ return null; }
+    if(!Array.isArray(d)) return {ok:false,net:true};
+    const hit=d.find(x=>String((x&&x.emp_id)||'').trim().toLowerCase()===k);
+    return (hit&&hit.email)?{ok:true,email:String(hit.email).trim(),name:String(hit.name||'').trim()}:{ok:false,net:false};
+  }catch(e){ return {ok:false,net:true}; }
 }
 /* email→{name}：集團內部才有；外部廠商不在名單＝null。快取已載＝權威 */
 async function emailLookup(mail){
@@ -2256,10 +2369,12 @@ async function checkEmpId(){
   if(!raw){ h.style.display='none'; h.textContent=''; return; }
   const isEmail=raw.indexOf('@')>=0;
   const seq=++_idSeq; h.style.display=''; h.style.color='#9FB4CC'; h.textContent='查詢中…';
-  const hit=isEmail? await emailLookup(raw) : await empLookup(raw);
+  let hit=null, net=false;
+  if(isEmail) hit=await emailLookup(raw);
+  else { const rr=await empResolve(raw); if(rr.ok) hit={email:rr.email,name:rr.name}; else net=(rr.net===true); }
   if(seq!==_idSeq) return;   // 防競態：期間又改了輸入就不覆蓋
   if(hit){ h.style.color='#2E8B57'; h.textContent='✓ '+(hit.name||'已找到')+(hit.email?' · '+hit.email:''); }
-  else if(isEmail){ h.style.display='none'; h.textContent=''; }
+  else if(isEmail||net){ h.style.display='none'; h.textContent=''; }   /* ★112-2 OMS 連不上時安靜，不講「查無此工號」 */
   else{ h.style.color='#C0392B'; h.textContent='✗ 查無此工號，請確認或改用 Email'; }
 }
 async function doLogin(){
@@ -2267,34 +2382,67 @@ async function doLogin(){
   if(!raw||!pwd) return lgErr('請輸入 工號/Email 與密碼');
   const btn=$('#lg_btn'); btn.disabled=true; lgErr('');
   let email=raw; const byEmp=raw.indexOf('@')<0;
+  let ssoPre=null;   /* ★112-2 打工號而 OMS 連不上時，已經先問過後端的答案（下面不重問第二次）*/
   if(byEmp){   // 無 @ ＝當工號，翻譯成 email
     btn.textContent='查詢工號…';
-    const hit=await empLookup(raw);
-    if(!hit){ btn.disabled=false; btn.textContent='登入 Login'; return lgErr('查無工號「'+raw+'」，請確認工號、或改用 Email 登入'); }
-    email=hit.email;
+    const hit=await empResolve(raw);
+    if(!hit.ok && hit.net){
+      /* ★★112-2 OMS 連不上、查不到這個工號對應的 Email ⇒ 把工號直接交給後端（它連不上 OMS 時會拿備份認人）。
+         後端放行＝回 mode:'sso' 並帶回這個人的 Email，接回原本的流程；
+         沒放行就到此為止：打工號的一定是集團內部人員，沒有本箱密碼可退。 */
+      btn.textContent='登入中…';
+      ssoPre=await mhrSsoTryLogin(raw,pwd);
+      if(!(ssoPre.mode==='sso' && ssoPre.email)){
+        btn.disabled=false; btn.textContent='登入 Login';
+        return ssoPre.down? lgErr(SSO_DOWN_MSG) : lgErrGuide(SSO_WRONG_PWD_MSG);
+      }
+      email=String(ssoPre.email).trim();
+    }
+    else if(!hit.ok){ btn.disabled=false; btn.textContent='登入 Login'; return lgErr('查無工號「'+raw+'」，請確認工號、或改用 Email 登入'); }
+    else email=hit.email;
   }
   btn.textContent='登入中…';
   /* ★★108（0U）先試 SyncHub 代驗，不歸它管或沒過就照原本的 MHR 密碼驗（見 mhrSsoTryLogin 的註解）。
      ⚠ **管理員虛擬帳號不進代驗** —— 兩箱的 admin 密碼各自獨立（EF 端也會再擋一次，這裡是第一道）。
      ⚠ 代驗拿到 token 後**還是要跑完整四道檢查**（mhrAuthAfterToken）；
        檢查沒過就**不算代驗成功**，訊息照原本的走、也不再退回密碼（退回也是同一個結果）。 */
-  let res=null, viaSso=false;
+  let res=null, viaSso=false, ssoDown=false, omsHint='';
+  const isAdminLogin=(email||'').toLowerCase()===ADMIN_EMAIL;   /* ★112 管理員虛擬帳號：以「登入時打的帳號」為準，不靠資料表欄位 */
   if((email||'').toLowerCase()!==ADMIN_EMAIL){
-    const sso=await mhrSsoTryLogin(email,pwd);
+    const sso=ssoPre || await mhrSsoTryLogin(email,pwd);
+    ssoDown=sso.down===true;   /* ★112 代驗沒回答（EF 壞了／連不上）*/
     if(sso.mode==='sso'){
       if(sso.must_change===true){   /* ★★110-1 初始密碼沒改＝擋下；不存登入狀態、不改試本箱密碼 */
         btn.disabled=false; btn.textContent='登入 Login';
-        return lgErr(SSO_MUST_CHANGE_MSG);
+        return lgErrGuide(SSO_MUST_CHANGE_MSG);
       }
       res=await mhrAuthAfterToken(sso.access_token,sso.refresh_token,sso.user_id,sso.must_change===true);
       viaSso=res.ok;
     }
+    /* ★★112 ①：代驗沒放行，而這個人是集團內部人員 ⇒ 到此為止，不再試 MHR 本箱密碼（見上方 112 註解）。 */
+    if(!res){
+      const ex=await ssoExplainLocal(email, byEmp?raw:'', ssoDown);
+      if(ex.internal===true){
+        btn.disabled=false; btn.textContent='登入 Login';
+        return ex.guide? lgErrGuide(ex.msg) : lgErr(ex.msg);
+      }
+      omsHint=ex.hint||'';
+    }
   }
   if(!res) res=await mhrAuthLogin(email,pwd);
   btn.disabled=false; btn.textContent='登入 Login';
+  /* ★112 本箱密碼被拒時，先講查得到的確切原因：OMS 有這個人但未授權 MHR／已停用；
+     或代驗沒回答（打工號的一定是內部人員，他打的若是 SyncHub 密碼，本箱當然不認）。
+     只有 badCred（帳密被拒）才換話；網路錯誤、帳號未啟用、停用／無權限照原本的訊息講。 */
+  if(!res.ok && res.badCred===true && omsHint) return lgErr(omsHint);
+  if(!res.ok && res.badCred===true && ssoDown && byEmp) return lgErr(SSO_DOWN_MSG);
+  if(!res.ok && res.badCred===true && ssoDown) return lgErr(res.msg+SSO_DOWN_HINT);   /* ★112-2 打 Email 的：可能是沒有備份的內部人員，補一句，不讓他以為是自己打錯 */
   /* ★108（0U）只有「可能是工號或密碼錯」才印籠統訊息；明確原因（停用／無權限／授權被取消）照實講。 */
   if(!res.ok) return lgErr((byEmp && !res.definite)? '登入失敗：密碼錯誤，或此工號尚未開通 MHR（請洽管理員加入名單）' : res.msg);
-  setSession({token:res.token,refresh:res.refresh,uid:res.uid,profile:res.profile,mustChange:res.mustChange,sso:viaSso});
+  /* ★★112 ② 保險：不是代驗進來的、身分卻是集團內部人員（OMS 來源）⇒ 不放行，通行證不存、直接丟掉。
+     OMS 一時查不到時會走到這裡；本箱密碼就算對了，內部人員也只收 SyncHub 那一組。 */
+  if(!viaSso && !isAdminLogin && isOmsAccount(res.profile)) return ssoDown? lgErr(SSO_DOWN_MSG) : lgErrGuide(SSO_ONLY_MSG);
+  setSession({token:res.token,refresh:res.refresh,uid:res.uid,profile:res.profile,mustChange:res.mustChange,sso:viaSso,adm:isAdminLogin});
   if(res.mustChange){ showChangePwd(); return; }
   bootApp();
 }
@@ -2312,11 +2460,11 @@ function showChangePwd(){
     if(s.mustChange){
       clearSessionStore();
       const pc=$('#lg_panel_chg'), pl=$('#lg_panel_login'); if(pc) pc.style.display='none'; if(pl) pl.style.display='';
-      lgErr(SSO_MUST_CHANGE_MSG);
+      lgErrGuide(SSO_MUST_CHANGE_MSG);
       return;
     }
     bootApp();
-    setTimeout(()=>{ try{ toast('您的密碼由 SyncHub 統一管理（與 OMS／GHG 同一組），不是在 MHR 這裡改 —— 請到 SyncHub 大廳登入後修改，或洽管理員於 OMS 重設','err'); }catch(e){} },400);
+    setTimeout(()=>{ try{ toast('您的密碼由 SyncHub 統一管理（與 OMS／GHG 同一組），不是在 MHR 這裡改 —— 請到 SyncHub 大廳登入後修改，或洽管理員到 OMS「系統資料授權」頁重設','err'); }catch(e){} },400);
     return;
   }
   $('#lg_panel_login').style.display='none'; $('#lg_panel_chg').style.display=''; lgErr('','cg_err'); const e=$('#cg_p1'); if(e) e.focus(); }
@@ -2948,6 +3096,14 @@ function permColor(p){ if(!p) return '#FBEDED'; if(p.indexOf('d')>=0) return '#C
    兩種模式都呼叫同一個 EF 的 create，由後端自己判斷「開通 or 建帳號」。
    =================================================================== */
 const DEFAULT_PWD='qms12345';   // 與 QMS 一致：重設密碼是全域的，預設密碼必須統一
+/* ★112 給「不會有人用到的本箱密碼」用的亂碼（固定前綴＋24 碼，確保同時有英文與數字；不顯示、不儲存）。
+   拿不到安全亂數就回空字串，由呼叫端擋下（不退而求其次用猜得到的亂數）。 */
+function randomPwd(){
+  const c=(typeof crypto!=='undefined'&&crypto&&crypto.getRandomValues)?crypto:null; if(!c) return '';
+  const cs='ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789', a=new Uint8Array(24); c.getRandomValues(a);
+  let s=''; for(let i=0;i<a.length;i++) s+=cs[a[i]%cs.length];
+  return 'Zx7'+s;
+}
 window._permTab=window._permTab||'oms';
 window._editUser=null;
 
@@ -2968,6 +3124,7 @@ async function reloadPerm(){
   try{
     await loadMhrOrg();
     await loadMhrUsers();
+    _ssoBk=undefined;   /* ★112-2 備份人數跟著名單一起重讀 */
     fetchOmsUsers();                                  /* OMS 那份自己會 render＋更新狀態，不 await 免得互相拖慢 */
     toast('名單已重新載入（MHR '+MHR_USERS.length+' 筆）','ok');
   }catch(e){
@@ -3575,7 +3732,7 @@ function renderPermPage(){
       <td>${p.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}${(_rv&&p.active!==false)?'<br><span class="small" style="color:var(--red)">登入已擋</span>':''}</td>
       <td style="white-space:nowrap">${canEditUsers()?`
         <button class="btn ghost sm" onclick="editUser('${esc(p.email)}')">編輯</button>
-        <button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>
+        ${isOmsAccount(p)?`<button class="btn ghost sm" title="集團內部人員的密碼由 SyncHub 統一管理：請到 OMS「系統資料授權」頁按「重設密碼」" onclick="resetPwd('${esc(p.email)}')">🔑 OMS 重設</button>`:`<button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>`}
         ${(isMe||!can('perm','d'))?'':`<button class="btn gray sm" onclick="revokeUser('${esc(p.email)}')">移除</button>`}`
         :'<span class="muted small" title="「誰能進 MHR」由系統管理員設定；你可以看、不能改。要異動請洽系統管理員">唯讀</span>'}
       </td></tr>`;
@@ -3597,7 +3754,7 @@ function renderPermPage(){
   const eu=window._editUser;
   const form = eu ? `<div class="card" style="border:2px solid var(--teal)">
       <h3>${eu.isNew?'＋ 加入 MHR':'編輯'}：${esc(eu.email)}</h3>
-      ${eu.isNew?`<div class="note">此人若<b>已有帳號</b>（例如已有 QMS 帳號）→ 只會<b>開通 MHR</b>，密碼沿用原本的、不會變更。<br>若是<b>全新的人</b> → 會建立帳號，預設密碼 <code>${DEFAULT_PWD}</code>，首次登入強制更換。</div>`:''}
+      ${eu.isNew?(eu.source==='oms'?`<div class="note">這位是<b>集團內部人員</b>：登入用<b>工號＋SyncHub 密碼</b>（與 OMS／GHG 同一組），MHR 這裡不另設密碼。<br>還沒登入過 SyncHub 的人，請他先到 SyncHub 大廳設定新密碼。</div>`:`<div class="note">此人若<b>已有帳號</b>（例如已有 QMS 帳號）→ 只會<b>開通 MHR</b>，密碼沿用原本的、不會變更。<br>若是<b>全新的人</b> → 會建立帳號，預設密碼 <code>${DEFAULT_PWD}</code>，首次登入強制更換。</div>`):''}
       ${eu.isNew?`<div class="grid g2"><div><label>Email</label><input id="u_email" value="${esc(eu.email||'')}" ${eu.fromOms?'readonly':''}></div>
         <div><label>姓名</label><input id="u_name" value="${esc(eu.name||'')}"></div></div>`
         :`<input type="hidden" id="u_email" value="${esc(eu.email)}"><div><label>姓名</label><input id="u_name" value="${esc(eu.name||'')}"></div>`}
@@ -3678,6 +3835,7 @@ function renderPermPage(){
       #usr_tbl .btn.sm{padding:2px 6px;font-size:11px;white-space:nowrap}
     </style><div style="overflow-x:auto"><table id="usr_tbl"><thead><tr>${[['site','廠區'],['name','姓名'],['email','Email'],['role','角色'],['scope','可看範圍'],['src','來源'],['st','狀態']].map(([k,t])=>`<th style="cursor:pointer;white-space:nowrap" onclick="sortUsers('${k}')">${t}${_usrt.key===k?(_usrt.dir>0?' ▲':' ▼'):''}</th>`).join('')}<th></th></tr></thead><tbody>${rows}</tbody></table></div>`:`<div class="empty">${MHR_USERS_STATUS==='載入中…'?'載入中…':'尚無名單'}</div>`}
     <div class="small muted" style="margin-top:8px">⚠ 「移除」只收回 <b>MHR 權限</b>，<b>不會刪掉帳號</b>——帳密與 QMS 共用，刪帳號會連 QMS 一起刪。</div>
+    ${ssoBackupLine()}
   </div>
 
   <div class="card"><h3>角色 × 頁面 授權矩陣 <span class="vi">（唯讀參考：各角色每頁能做什麼）</span></h3>
@@ -3727,7 +3885,10 @@ function permMatrixBody(){
 /* 開啟編輯/新增表單 */
 function editUser(email,isNew){
   if(isNew){
-    const o=OMS_USERS.find(u=>u.email===email);
+    /* ★★112-3（261012 正式資料實測抓到，V111 就有）email 是空字串＝「② 自建帳號 → ＋ 開始新增」，不可以拿去比對 OMS 名單：
+       OMS 名單裡管理員虛擬帳號那一列的 Email 就是空字串 ⇒ 會被當成「從 OMS 帶入」，
+       Email 欄變成唯讀又是空的、姓名還帶成那一列的名字 ⇒ 自建帳號（大永／委外）根本新增不了。 */
+    const o=email? OMS_USERS.find(u=>u.email===email) : null;
     window._editUser={email:email||'',name:o?(o.name||''):'',isNew:true,fromOms:!!o,
       account_type:'site',mhr_role:'view',mhr_roles:['view'],site_codes:[],bu_codes:[],
       source:o?'oms':'mhr'};
@@ -3763,7 +3924,12 @@ async function saveUser(){
       if(old && [].concat(old.site_codes||[]).some(c=>_my.indexOf(c)<0)) return toast('🏭 這個帳號原本的範圍超出你目前的廠區，不能修改','err');
     } }
   const payload=Object.assign({email,name},sc,{source:eu.source||'mhr'});
-  if(eu.isNew) payload.password=DEFAULT_PWD;
+  /* ★★112（急件②）新開的集團內部人員不再給大家都知道的預設密碼：他登入走 SyncHub 代驗，MHR 這一箱的密碼用不到
+     ⇒ 給一組沒人知道的亂碼（email 已存在＝只開通，後端本來就不碰密碼）。自建帳號照舊給預設密碼＋首次強制改。 */
+  if(eu.isNew){
+    payload.password=(payload.source==='oms')? randomPwd() : DEFAULT_PWD;
+    if(!payload.password) return toast('這個瀏覽器無法產生安全的隨機密碼，請改用新版 Chrome 或 Edge 再試','err');
+  }
   toast('處理中…');
   const r=await mhrAdmin(eu.isNew?'create':'update',payload);
   if(!r.ok) return toast(r.error||'失敗','err');
@@ -3771,12 +3937,129 @@ async function saveUser(){
   window._editUser=null;
   await loadMhrUsers(); render();
 }
+/* ═══ ★★112-2 備援通道的備份人數＋作廢內部人員本箱密碼（名單管理頁，只有系統管理員看得到）═══
+   【內部人員帳號】＝來源是 OMS、啟用中、能進 MHR 的帳號（管理員虛擬帳號除外）。自建帳號（大永／委外）不在裡面。
+   【備份人數】分母＝其中 OMS 仍授權 MHR 的人；分子＝後端已經有備份、而且備份上記著 MHR 的人。
+     資料來自資料庫函式 sso_backup_overview()（只回誰有備份與日期，不回雜湊；要管理員才叫得動）。
+     ⚠ 讀不到要講「讀不到」，不可以顯示成 0 位。
+   【作廢】把內部人員在這一箱的密碼換成沒人知道的亂碼（不顯示、不儲存）。之後繞過登入頁直接拿舊密碼向後端要通行證也過不了。
+     QMS 那顆工具只處理 QMS 名單上的人；只有 MHR 帳號的內部人員要靠這一顆。兩邊重疊的人重複換亂碼沒有副作用。
+     安全閥：只有系統管理員能按／查不到 SyncHub 帳號的人跳過並列出（換了他就完全進不來）／
+       OMS 名單或帳號名冊讀不到、讀到 0 筆就整個不做／拿不到安全亂數就不做／要打一句確認字／可以重複按。
+     ⚠ 換了就回不到原本的密碼。 */
+function internalAccounts(){ return (MHR_USERS||[]).filter(p=>isOmsAccount(p) && p.active!==false && p.can_access_mhr!==false && p.email); }
+/* OMS（公開金鑰）整張讀完：唯一排序＋分頁＋去重（單次最多 1000 筆、沒排序翻頁會漏會重）。HTTP 錯就丟出去，不回空陣列。 */
+async function omsFetchAll(path,key){
+  const out=[], seen=new Set(), PAGE=1000;
+  for(let off=0; off<20000; off+=PAGE){
+    const r=await fetch(OMS_SB_URL+'/rest/v1/'+path+'&order='+key+'.asc&limit='+PAGE+'&offset='+off,
+      {headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(!Array.isArray(d)) throw new Error('回傳格式不對');
+    /* ★112-3 回來的資料缺了排序鍵就丟出去：否則去重時每一筆的鍵都是 undefined，整張表會被併成一筆而且不報錯
+       （實測腳本的假名冊沒有 id 欄才發現；真實的 oms_roster 有 id，但欄位哪天改名就會靜悄悄地只剩一個人）。 */
+    d.forEach(x=>{ if(x==null||x[key]==null||x[key]==='') throw new Error('回傳的資料缺少「'+key+'」欄'); const id=String(x[key]); if(!seen.has(id)){ seen.add(id); out.push(x); } });
+    if(d.length<PAGE) break;
+  }
+  return out;
+}
+let _ssoBk;   /* undefined＝還沒讀；{loading:true}＝讀取中；{emails:Set}＝讀到了；{err:'原因'}＝讀不到 */
+async function refreshSsoBackupStat(){
+  const s=getSession();
+  try{
+    if(!s||!s.token) throw new Error('尚未登入');
+    const r=await fetch(SB_URL+'/rest/v1/rpc/sso_backup_overview',{method:'POST',
+      headers:{apikey:SB_KEY,Authorization:'Bearer '+s.token,'Content-Type':'application/json'},body:'{}'});
+    if(!r.ok) throw new Error((r.status===401||r.status===403)?'這個帳號沒有權限看':'HTTP '+r.status);
+    const d=await r.json();
+    if(!d||!Array.isArray(d.backups)) throw new Error('回傳格式不對');
+    _ssoBk={emails:new Set(d.backups
+      .filter(b=>Array.isArray(b&&b.systems) && b.systems.map(x=>String(x).toUpperCase()).indexOf('MHR')>=0)
+      .map(b=>String(b.email||'').trim().toLowerCase()))};
+  }catch(e){ _ssoBk={err:String((e&&e.message)||e)}; }
+  if(cur==='perm') render();
+}
+function ssoBackupLine(){
+  if(!canEditUsers()) return '';
+  if(_ssoBk===undefined){ _ssoBk={loading:true}; refreshSsoBackupStat(); }
+  let t, warn=false;
+  if(_ssoBk.loading) t='🛟 備援通道：讀取備份人數中…';
+  else if(_ssoBk.err!==undefined){ t='⚠ 備援通道：讀不到備份人數（'+esc(_ssoBk.err)+'）'; warn=true; }
+  else{
+    const tg=internalAccounts().filter(p=>!omsRevoked(p));
+    const have=tg.filter(p=>_ssoBk.emails.has(String(p.email).trim().toLowerCase())).length;
+    t='🛟 備援通道：已有備份 '+have+'／'+tg.length+' 位內部人員（用工號＋SyncHub 密碼登入成功一次就會有）';
+  }
+  return `<div class="small" style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span id="sso_backup_stat" class="${warn?'':'muted'}"${warn?' style="color:var(--gold);font-weight:700"':''}>${t}</span>
+      <button class="btn ghost sm" title="把內部人員在 MHR／QMS 這一箱的舊密碼換成沒人知道的亂碼，之後只能用工號＋SyncHub 密碼登入（大永等自建帳號、管理員帳號不動）" onclick="voidInternalLocalPwd()">作廢內部人員本箱密碼</button>
+      <span id="void_pwd_status" class="small">${esc(window._voidPwdMsg||'')}</span></div>`;
+}
+const VOID_PWD_PHRASE='我確定要作廢';
+async function voidInternalLocalPwd(){
+  const say=(t)=>{ window._voidPwdMsg=t; const e=$('#void_pwd_status'); if(e) e.textContent=t; };
+  if(!canEditUsers()){ toast('🔒 只有系統管理員能作廢本箱密碼','err'); return {ok:false,reason:'perm'}; }
+  if(wGuard('perm','e',undefined,'作廢本箱密碼')) return {ok:false,reason:'perm'};
+  const targets=internalAccounts();
+  if(!targets.length){ say('沒有內部人員帳號可以作廢'); return {ok:true,done:0,skipped:[],failed:[]}; }
+  say('⏳ 讀取 OMS 名單與 SyncHub 帳號名冊…');
+  let roster, people;
+  try{
+    roster=await omsFetchAll('oms_roster?select=id,emp_id,active','id');
+    if(!roster.length) throw new Error('帳號名冊讀到 0 筆');
+    people=await omsFetchAll('identity_access?select=emp_id,email,active,systems','emp_id');
+    if(!people.length) throw new Error('OMS 名單讀到 0 筆');
+  }catch(e){ say('❌ 讀不到 OMS 名單／SyncHub 帳號名冊（'+String((e&&e.message)||e)+'）——沒有動任何密碼'); return {ok:false,reason:'roster'}; }
+  const hasAcc=new Set(roster.filter(r=>r.emp_id&&r.active!==false).map(r=>String(r.emp_id).trim().toLowerCase()));
+  const empByMail={}; people.forEach(p=>{ if(p.email&&p.emp_id) empByMail[String(p.email).trim().toLowerCase()]=String(p.emp_id).trim().toLowerCase(); });
+  /* ★112-3 OMS 現在仍授權 MHR 的人（作廢之後還要靠 SyncHub 密碼登入 MHR 的那一批；跟名單頁「已有備份 ○／○」的分母同一批） */
+  const authed=new Set(people.filter(p=>p.email && p.active!==false && Array.isArray(p.systems)
+    && p.systems.map(x=>String(x).toUpperCase()).indexOf('MHR')>=0).map(p=>String(p.email).trim().toLowerCase()));
+  const ready=[], skipped=[];
+  targets.forEach(p=>{ const emp=empByMail[String(p.email).trim().toLowerCase()]||''; ((emp&&hasAcc.has(emp))?ready:skipped).push(p); });
+  const label=p=>(p.name||p.email)+'（'+p.email+'）';
+  if(!ready.length){ say('沒有可以作廢的帳號（'+skipped.length+' 位查不到 SyncHub 帳號，已跳過）'); return {ok:true,done:0,skipped:skipped.map(label),failed:[]}; }
+  if(!randomPwd()){ say('❌ 這個瀏覽器無法產生安全的隨機密碼——沒有動任何密碼'); return {ok:false,reason:'crypto'}; }
+  /* 作廢之後就沒有「退版讓舊密碼暫時能用」這條路 ⇒ 按之前要看得到這批人有幾位已經有備援（當下重讀，不用舊數字）。 */
+  await refreshSsoBackupStat();
+  const bkOk=!!(_ssoBk && _ssoBk.emails);
+  const live=ready.filter(p=>authed.has(String(p.email).trim().toLowerCase())), gone=ready.length-live.length;
+  const bkHave=bkOk? live.filter(p=>_ssoBk.emails.has(String(p.email).trim().toLowerCase())).length : 0;
+  const typed=prompt('將把 '+ready.length+' 位內部人員在 MHR／QMS 這一箱的舊密碼換成沒人知道的亂碼。\n'
+    +(gone?('・其中 '+gone+' 位 OMS 已取消 MHR 授權（本來就登不進 MHR），一併作廢。\n'):'')
+    +'・之後他們只能用「工號＋SyncHub 密碼」登入；QMS 的舊密碼也會一起失效（同一箱）。\n'
+    +'・大永等自建帳號、管理員帳號不動。\n'
+    +(skipped.length?('・另有 '+skipped.length+' 位查不到 SyncHub 帳號，這次跳過不動：'+skipped.slice(0,6).map(label).join('、')+(skipped.length>6?'…':'')+'\n'):'')
+    +'・換了就回不到原本的密碼。\n'
+    +(bkOk?('・備援通道：仍可登入 MHR 的 '+live.length+' 位裡已有備份 '+bkHave+' 位；還沒有備份的 '+(live.length-bkHave)+' 位，作廢後若遇到 SyncHub 連不上會登不進來。\n')
+          :'・⚠ 備援通道的備份人數讀不到——請先確認有多少人已有備份再決定。\n')
+    +'\n確定要做，請輸入：'+VOID_PWD_PHRASE);
+  if(typed==null || String(typed).trim()!==VOID_PWD_PHRASE){ say('已取消，沒有動任何密碼'); return {ok:false,reason:'cancel'}; }
+  let done=0; const failed=[];
+  for(let i=0;i<ready.length;i++){
+    say('⏳ 作廢中 '+(i+1)+'／'+ready.length+'…（請不要關閉頁面）');
+    const pw=randomPwd();
+    const r=pw? await mhrAdmin('resetPassword',{email:ready[i].email,password:pw}) : {ok:false,error:'無法產生隨機密碼'};
+    if(r.ok) done++; else failed.push(label(ready[i])+'：'+(r.error||'失敗'));
+  }
+  const summary='已作廢 '+done+' 位'+(skipped.length?('；跳過 '+skipped.length+' 位（查不到 SyncHub 帳號）'):'')+(failed.length?('；失敗 '+failed.length+' 位'):'');
+  say((failed.length?'⚠ ':'✅ ')+summary);
+  try{ alert(summary+(skipped.length?('\n\n跳過（查不到 SyncHub 帳號，請先到 OMS「系統資料授權」頁開通後再按一次）：\n'+skipped.map(label).join('\n')):'')
+    +(failed.length?('\n\n失敗（可以再按一次重試）：\n'+failed.join('\n')):'')); }catch(e){}
+  return {ok:!failed.length,done,skipped:skipped.map(label),failed};
+}
 async function resetPwd(email){
   /* ★★99-53：UI 藏起來不夠——舊分頁、控制台、直接呼叫都繞得過去（同 backlog `0v2` 的教訓）。 */
   if(!canEditUsers()) return toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err');
   if(wGuard('perm','e',undefined,'重設密碼')) return;
   { const _my=simOn()?opsScopeCodes():null; const u=(MHR_USERS||[]).find(x=>x.email===email);
     if(_my && u && [].concat(u.site_codes||[]).some(c=>_my.indexOf(c)<0)) return toast('🏭 這個帳號不在你目前的廠區範圍內','err'); }   /* 在 confirm 之前 */
+  /* ★★112（急件②）集團內部人員的密碼不在 MHR 這一箱：在這裡重設只會把「已停用的本箱密碼」設回大家都知道的預設值，
+     等於把關掉的門再打開 ⇒ 不給按，指去 OMS。自建帳號（大永／委外）與管理員照舊。
+     ⚠ 守在函式裡，不是只換畫面上的按鈕（99-53 的教訓：舊分頁、控制台都繞得過畫面）。 */
+  { const u=(MHR_USERS||[]).find(x=>x.email===email);
+    if(isOmsAccount(u)) return toast('這位是集團內部人員，密碼由 SyncHub 統一管理（與 OMS／QMS／GHG 同一組），MHR 這裡不重設。請到 OMS「系統資料授權」頁，在該員那一列按「重設密碼」','err'); }
   if(!confirm('確定重設「'+email+'」的密碼為 '+DEFAULT_PWD+' ？\n\n⚠ 密碼與 QMS 共用 → 這會同時改掉他的 QMS 密碼。\n他下次登入任一系統時會被要求更換。')) return;
   const r=await mhrAdmin('resetPassword',{email,password:DEFAULT_PWD});
   if(!r.ok) return toast(r.error||'失敗','err');
@@ -7714,7 +7997,8 @@ function seedDemo(){
    （示範資料的載入已移進 bootApp；登入成功才會跑） */
 (function initMHR(){
   const s=getSession();
-  if(s && s.token && s.profile){ if(s.mustChange) showChangePwd(); else bootApp(); }
+  if(s && s.token && s.profile){ if(dropLocalInternalSession(s)) return;   /* ★112 ③ */
+    if(s.mustChange) showChangePwd(); else bootApp(); }
   else { preloadOms(); const e=$('#lg_email'); if(e) e.focus(); }   // ★88-3 未登入＝顯示登入頁：背景預載 OMS 名單快取（工號驗證秒回）
 })();
 /* 等比縮放：以 14 吋(基準寬 1366px) 為設計基礎，大螢幕按比例放大（字體+欄寬+間距整體等比；小於基準維持1，可橫捲）
