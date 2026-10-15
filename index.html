@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v120-1</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
+<title>MHR 製造履歷系統 — 正式版 v120-2</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -389,7 +389,7 @@
       <img src="data:image/jpeg;base64,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" alt="Syncmold 信錦集團">
       <div class="lgtitle">MHR 製造履歷系統</div>
       <div class="lgsub">Manufacturing History Record</div>
-      <div class="lgver">系統版本 v120-1</div>
+      <div class="lgver">系統版本 v120-2</div>
     </div>
 
     <div id="lg_panel_login">
@@ -423,7 +423,7 @@
   <aside class="side">
     <div class="brand">
       <h1>MHR</h1>
-      <div class="sub">製造履歷系統 <span class="tag">v120-1</span></div>
+      <div class="sub">製造履歷系統 <span class="tag">v120-2</span></div>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -2735,10 +2735,15 @@ async function omsGrantCheck(email,sysCode){
 function omsRevoked(p){
   if(!p||p.source!=='oms') return false;
   if(!OMS_USERS.length) return false;
-  const em=(p.email||'').toLowerCase();
+  const em=String(p.email||'').trim().toLowerCase();   /* ★120-2 前後空白也去掉（兩邊 Email 多一個空白就會誤判成已取消） */
   if(!em||em===ADMIN_EMAIL) return false;
-  return !OMS_USERS.some(u=>(u.email||'').toLowerCase()===em);
+  return !OMS_USERS.some(u=>String(u.email||'').trim().toLowerCase()===em);
 }
+/* ★★120-2 OMS 已取消 MHR 授權 ＝ 在 MHR 一律當「停用」顯示（使用者 261015：「那郭淑珍應該在mhr就是停用狀態，如果oms已經取消勾選」→「做」）
+   【只改顯示、不改資料庫】名單頁狀態欄、狀態篩選、排序、權限名單匯出都走這一支；mhr_profiles.active 不動。
+   ⇒ OMS 勾回 MHR，馬上自動恢復「啟用」，不用再到 MHR 改一次（同平台鐵則⑤「名單頁反映 OMS」、登入第四道門本來就即時問 OMS）。
+   ⚠ omsRevoked() 在 OMS 名單沒載到人時一律回 false（不把全部人誤標成停用），這一支跟著它。 */
+function userOff(p){ return !!p && (p.active===false || omsRevoked(p)); }
 function userRoles(){ try{return JSON.parse(localStorage.getItem('mhr_user_role')||'{}');}catch(e){return {};} }
 function setUserRole(emp,role){ const m=userRoles(); if(role)m[emp]=role; else delete m[emp]; try{localStorage.setItem('mhr_user_role',JSON.stringify(m));}catch(e){} }
 function getUserRole(emp){ return userRoles()[emp]||''; }
@@ -3494,6 +3499,7 @@ async function omsFactoryBu(){
   }catch(e){ return {err:String((e&&e.message)||e)}; } }
 function userAcctState(p){ const lc=String((p&&p.email)||'').trim().toLowerCase();
   if(p.active===false) return '已停用';
+  if(omsRevoked(p)) return '已停用（OMS 已取消授權）';   /* ★120-2 跟名單頁一致 */
   if(p.source==='oms' && lc!==ADMIN_EMAIL) return '啟用';   /* ★120-1 OMS 帳號只寫 MHR 自己的狀態 */
   return p.must_change_pwd===true?'初始未改密':'已改密'; }
 function xlsxWriteBook(fileName,sheets){
@@ -3504,6 +3510,17 @@ function xlsxWriteBook(fileName,sheets){
       XLSX.utils.book_append_sheet(wb,ws,sh.name); });
     XLSX.writeFile(wb,fileName); return true;
   }catch(e){ toast('匯出失敗：'+((e&&e.message)||e),'err'); return false; } }
+/* ★120-2 OMS 已取消 MHR 授權的人不在 OMS_USERS（那份只載有勾 MHR 的人）⇒ 匯出時用 Email 另外到 OMS 查基本資料。
+   ilike 不分大小寫；它的 _ 是萬用字元 ⇒ 回來後在前端逐筆精確比對（門禁鐵則⑥）。查不到／連不上 ⇒ 呼叫端寫「讀不到」。 */
+async function omsAccessByEmail(emails){
+  const out={}, list=(emails||[]).map(e=>String(e||'').trim()).filter(Boolean); if(!list.length) return {map:out};
+  try{ const q='or=('+list.map(e=>'email.ilike.'+encodeURIComponent(e.replace(/[,()]/g,''))).join(',')+')';
+    const r=await fetch(OMS_SB_URL+'/rest/v1/identity_access?select=emp_id,name,eng_name,email,factory_code,dept,title&active=eq.true&limit=200&'+q,{headers:{apikey:OMS_SB_KEY,Authorization:'Bearer '+OMS_SB_KEY}});
+    if(!r.ok) return {map:out,err:'HTTP '+r.status};
+    const d=await r.json(); const want=new Set(list.map(e=>e.toLowerCase()));
+    (Array.isArray(d)?d:[]).forEach(o=>{ const k=String((o&&o.email)||'').trim().toLowerCase(); if(want.has(k)&&!out[k]) out[k]=o; });
+    return {map:out};
+  }catch(e){ return {map:out,err:String((e&&e.message)||e)}; } }
 async function userExportXlsx(){
   /* ★★★99-53：匯出也要收窄 —— 「清單看不到、但按一下匯出就整包帶走＝資料外流面」。跟畫面清單走同一套過濾（_adminSites 那三條規則）。 */
   if(!MHR_USERS.length) return toast('MHR 名單還沒載入（或讀不到），請先按「重新載入」再匯出','err');
@@ -3517,12 +3534,13 @@ async function userExportXlsx(){
   const lc=x=>String(x||'').trim().toLowerCase(), RD='讀不到', uniq=a=>a.filter((v,i)=>v&&a.indexOf(v)===i);
   const omsOk=Array.isArray(OMS_USERS)&&OMS_USERS.length>0, omsBy=new Map((OMS_USERS||[]).map(o=>[lc(o.email),o]));
   const F=await omsFactoryBu();
+  const RV=await omsAccessByEmail(_src.filter(p=>omsRevoked(p)).map(p=>p.email));   /* ★120-2 */
   const buOf=c=>!c?'':(F.err?RD:((c in F.map)?(F.map[c]||'（廠區主檔沒寫事業群）'):'（OMS 廠區主檔沒有 '+c+'）'));
   const rows=[EXPORT_BASE_HEAD.concat(['帳號來源','角色','可看範圍'])];
   const cnt={st:{},src:{},role:{}}, bump=(k,v)=>{ cnt[k][v]=(cnt[k][v]||0)+1; };
   _src.forEach(p=>{ const roles=((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋');
     const scope=(p.account_type==='admin'||p.mhr_role==='admin'||(p.site_codes||[]).includes('*'))?'全部':([].concat((p.bu_codes||[]).map(c=>c+'群'),(p.site_codes||[])).join('、')||p.vendor_code||'');
-    const fromOms=p.source==='oms'&&lc(p.email)!==ADMIN_EMAIL, o=fromOms?omsBy.get(lc(p.email)):null;
+    const fromOms=p.source==='oms'&&lc(p.email)!==ADMIN_EMAIL, o=fromOms?(omsBy.get(lc(p.email))||RV.map[lc(p.email)]||null):null;   /* ★120-2 已取消授權的人另外查 */
     const ex=k=>o?(o[k]||''):(fromOms?RD:'');
     const ownSites=[].concat(p.site_codes||[]).filter(c=>c!=='*');
     const fac=o?(o.factory_code||''):(fromOms?RD:(ownSites.join('、')||p.vendor_code||''));
@@ -3533,7 +3551,7 @@ async function userExportXlsx(){
   const nAcct=rows.length-1;
   const mails=new Set(MHR_USERS.map(p=>lc(p.email)));
   const notYet=(OMS_USERS||[]).filter(o=>o.email&&String(o.emp_id||'').toLowerCase()!=='admin'&&!mails.has(lc(o.email))&&(!_sc||_sc.includes(o.factory_code)));
-  notYet.forEach(o=>{ rows.push([buOf(o.factory_code),o.factory_code||'',o.emp_id||'',o.name||'',o.eng_name||'',o.dept||'',o.title||'',o.email||'','未開通','OMS 名單','（還沒有 MHR 帳號）','']);
+  notYet.forEach(o=>{ rows.push([buOf(o.factory_code),o.factory_code||'',o.emp_id||'',o.name||'',o.eng_name||'',o.dept||'',o.title||'',o.email||'','未開通','OMS 名單','（等待分配 MHR 權限）','']);
     bump('st','未開通'); bump('src','OMS 名單'); });
   const se=getSession()||{}, me=se.profile||{}, d=new Date(), pd=x=>String(x).padStart(2,'0');
   const ver=((document.title||'').match(/v[\d-]+$/)||[''])[0];
@@ -3544,15 +3562,15 @@ async function userExportXlsx(){
     ['範圍',_sc?('廠區管理員：只含 '+_sc.join('、')+' 的帳號（不含系統管理員、全廠區帳號）'):'全部帳號'],
     ['篩選條件','整份名單（不套畫面上的搜尋與篩選）'],
     ['人數',(rows.length-1)+' 人（MHR 帳號 '+nAcct+'＋OMS 有授權但 MHR 還沒開通 '+notYet.length+'）'],[],
-    ['帳號狀態（這份名單內）']].concat(cntRows('st',['未開通','啟用','已停用','初始未改密','已改密'])).concat([[],
+    ['帳號狀態（這份名單內）']].concat(cntRows('st',['未開通','啟用','已停用','已停用（OMS 已取消授權）','初始未改密','已改密'])).concat([[],
     ['帳號來源']]).concat(cntRows('src',['OMS 名單','系統自建'])).concat([[],
     ['角色']]).concat(cntRows('role')).concat([[],
     ['欄位順序','前九欄（事業群、廠區、工號、姓名、英文名、部門、職稱、Email、帳號狀態）跟 OMS 等各系統的權限名單同一個順序；接著是帳號來源，最後是 MHR 自己的角色、可看範圍。'],
     ['名單來源','MHR 帳號清單（⚙名單管理→權限設定）；後面補列 OMS「系統資料授權」有勾 MHR、但 MHR 還沒有帳號的人（帳號狀態＝未開通，用 Email 比對）。'],
-    ['工號、姓名、英文名、部門、職稱、廠區','OMS 名單的帳號從 OMS 授權名單帶（同 Email），姓名以 OMS 為準。系統自建帳號 OMS 沒有這些資料，留空白，廠區寫 MHR 帳號上的廠區。OMS 名單的帳號但這次在 OMS 授權名單找不到（例如 OMS 已取消 MHR 授權）＝寫「讀不到」。']]).concat(omsOk?[]:[
+    ['工號、姓名、英文名、部門、職稱、廠區','OMS 名單的帳號從 OMS 授權名單帶（同 Email），姓名以 OMS 為準；OMS 已取消 MHR 授權的人另外到 OMS 查。系統自建帳號 OMS 沒有這些資料，留空白，廠區寫 MHR 帳號上的廠區。OMS 查不到（例如已離職）或連不上＝寫「讀不到」。'+(RV.err?'⚠ 這次查已取消授權的人時讀不到（'+RV.err+'）。':'')]]).concat(omsOk?[]:[
     ['⚠ OMS 授權名單','這次沒有載入（'+OMS_STATUS+'）：OMS 名單帳號的工號等欄都寫「讀不到」，也列不出未開通的人。']]).concat([
     ['事業群','OMS 廠區主檔的「所屬事業群」。'+(F.err?'⚠ 這次讀不到（'+F.err+'），整欄寫「讀不到」。':'代碼不在 OMS 廠區主檔（例如大永 SDY）照實寫出來。')],
-    ['帳號狀態','未開通＝OMS 有授權、MHR 還沒有帳號（登入會被擋）；已停用；OMS 名單的帳號＝MHR 自己的「啟用／已停用」（用 SyncHub 密碼登入，SyncHub 的改密狀態不在這份，到 OMS 的權限名單看）；系統自建帳號看 MHR 自己的「首次登入要改密碼」＝初始未改密／已改密。'],
+    ['帳號狀態','未開通＝OMS 有授權、等待分配 MHR 權限（⚙名單管理→＋新增人員→「＋ 加入 MHR」）；已停用；已停用（OMS 已取消授權）＝OMS 已取消此人的 MHR 勾選，在 MHR 視為停用、登入會被擋（MHR 帳號沒刪，OMS 勾回就自動恢復），基本資料另外到 OMS 查；OMS 名單的帳號＝MHR 自己的「啟用／已停用」（用 SyncHub 密碼登入，SyncHub 的改密狀態不在這份，到 OMS 的權限名單看）；系統自建帳號看 MHR 自己的「首次登入要改密碼」＝初始未改密／已改密。'],
     ['帳號來源','OMS 名單＝內部同仁，用 SyncHub 密碼登入；系統自建＝MHR 自己開的帳號（大永等、管理員虛擬帳號），用 MHR 自己的密碼。'],
     ['可看範圍','全部＝不限廠區；其他列出事業群（…群）或廠區代碼。'],
     ['注意','內含姓名與 Email，請勿外傳。']]);
@@ -3879,7 +3897,7 @@ function renderPermPage(){
     if(k==='role') return ((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋');
     if(k==='scope') return scopeShort(p).replace(/<[^>]*>/g,'');
     if(k==='src') return p.source==='oms'?'OMS':'自建';
-    if(k==='st') return p.active===false?'停用':'啟用';
+    if(k==='st') return userOff(p)?'停用':'啟用';   /* ★120-2 */
     return ''; };
   const _usite=window._userSite||'', _urole=window._userRole||'';
   const _adminSites=isSiteAdmin()?(opsScopeSites()||[]):null;   /* ★90 廠區管理員只看自己管的廠區帳號 */
@@ -3890,8 +3908,8 @@ function renderPermPage(){
       if(scs.includes('*')) return false;                                            // 看不到全域範圍的人
       if(!scs.some(c=>_adminSites.includes(c))) return false;                        // 只留自己管的廠區
     }
-    if(_ust==='on'&&p.active===false) return false;
-    if(_ust==='off'&&p.active!==false) return false;
+    if(_ust==='on'&&userOff(p)) return false;    /* ★120-2 OMS 已取消授權也算停用 */
+    if(_ust==='off'&&!userOff(p)) return false;
     if(_usite && uVal(p,'site')!==_usite) return false;                                   // ★88-9 廠區篩選
     if(_urole && !((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).includes(_urole)) return false;   // ★88-9 角色篩選
     if(!_uq) return true;
@@ -3913,7 +3931,7 @@ function renderPermPage(){
       <td>${esc(((Array.isArray(p.mhr_roles)&&p.mhr_roles.length)?p.mhr_roles:[p.mhr_role]).map(roleLabel).join('＋'))}</td>
       <td class="small">${scopeShort(p)}</td>
       <td>${src}</td>
-      <td>${p.active===false?'<span class="pill ng">停用</span>':'<span class="pill ok">啟用</span>'}${(_rv&&p.active!==false)?'<br><span class="small" style="color:var(--red)">登入已擋</span>':''}</td>
+      <td>${p.active===false?'<span class="pill ng">停用</span>':(_rv?'<span class="pill ng" title="OMS 已取消此人的 MHR 授權 ⇒ 在 MHR 視為停用、登入會被擋。MHR 帳號沒刪、資料庫沒改：OMS 勾回 MHR 就自動恢復啟用。">停用</span><br><span class="small" style="color:var(--red)">依 OMS</span>':'<span class="pill ok">啟用</span>')}</td>
       <td style="white-space:nowrap">${canEditUsers()?`
         <button class="btn ghost sm" onclick="editUser('${esc(p.email)}')">編輯</button>
         ${isOmsAccount(p)?`<button class="btn ghost sm" title="集團內部人員的密碼由 SyncHub 統一管理：請到 OMS「系統資料授權」頁按「重設密碼」" onclick="resetPwd('${esc(p.email)}')">🔑 OMS 重設</button>`:`<button class="btn ghost sm" onclick="resetPwd('${esc(p.email)}')">🔑 重設密碼</button>`}
