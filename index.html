@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MHR 製造履歷系統 — 正式版 v120-3</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
+<title>MHR 製造履歷系統 — 正式版 v121</title><!-- 每版另存時記得同步改**三處**版號：title／側欄 tag／登入頁 .lgver（預驗 26-1~26-4 會擋） -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <!-- ★88-8 Excel 直接匯入（免先轉 CSV）：SheetJS 讀 .xlsx 轉成同一套 rows 陣列 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -389,7 +389,7 @@
       <img src="data:image/jpeg;base64,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" alt="Syncmold 信錦集團">
       <div class="lgtitle">MHR 製造履歷系統</div>
       <div class="lgsub">Manufacturing History Record</div>
-      <div class="lgver">系統版本 v120-3</div>
+      <div class="lgver">系統版本 v121</div>
     </div>
 
     <div id="lg_panel_login">
@@ -423,7 +423,7 @@
   <aside class="side">
     <div class="brand">
       <h1>MHR</h1>
-      <div class="sub">製造履歷系統 <span class="tag">v120-3</span></div>
+      <div class="sub">製造履歷系統 <span class="tag">v121</span></div>
     </div>
     <nav id="nav"></nav>
     <div class="foot">
@@ -943,7 +943,7 @@ const MASTER={
      MHR_3c先行_機台主檔上雲_260722_CODE.sql 灌入，demo 假機台不再進系統）。見下方 loadMachines()。 */
   operators:['阮文海 Hải','黎氏花 Hoa','陳文俊 Tuấn','范氏蘭 Lan'],
   vendors:['3金瑚','3昇榮'],
-  sites:[{code:'SDY',full:'大永 SDY',short:'大永 SDY',kind:'in'},{code:'850',full:'敬得觀音',short:'敬得觀音',kind:'in'},{code:'',full:'金瑚',short:'金瑚',kind:'out'},{code:'',full:'昇榮',short:'昇榮',kind:'out'}],
+  sites:[{code:'SDY',full:'大永 SDY',short:'大永 SDY',kind:'in'},{code:'850',full:'敬得(觀音)',short:'敬得(觀音)',kind:'in'},{code:'',full:'金瑚',short:'金瑚',kind:'out'},{code:'',full:'昇榮',short:'昇榮',kind:'out'}],
 };
 /* ★85-1 機台主檔上雲（比照工牌名單 mhr_operators 模式）：登入後 loadMachines() 一次載入快取，
    畫面照舊同步呼叫 getMachines()；寫入走 sbWrite 逐筆（RLS：讀=登入者、寫=admin/主管/工程）。
@@ -1017,7 +1017,7 @@ function siteScopeBase(){
        但 opsScopeSites()（工牌/帳號那條路）行 1992 **早就有**展開 bu_codes ——
        同一件「這個人管哪些廠區」用了兩套邏輯，這邊漏了一半。
      【修法】比照 opsScopeSites() 先把事業群展開成廠區代碼再判斷。
-       帳號甲 → GBU 展開得到 GT(敬得觀音)+TC(敬得太倉) → 收斂成「敬得觀音」✅
+       帳號甲 → GBU 展開得到 GT(敬得(觀音))+TC(敬得(太倉)) → 收斂成「敬得(觀音)」✅
      ⚠ MHR_SITES 是 loadMhrOrg() 非同步載入的（99-19 的載入順序教訓）：
        載入完必須補一次 renderRoleBar()/renderNav()/render()，否則開機當下展不出來。*/
   (p.bu_codes||[]).forEach(bu=>{ (typeof MHR_SITES!=='undefined'?MHR_SITES:[]).forEach(x=>{
@@ -1038,7 +1038,7 @@ function siteScopeBase(){
      原本是 `shorts.length?shorts:null`，null 的語意是「不限廠區」⇒ 範圍靜默放大成全公司。
      【使用者 260813 定案的語意，這一段是關鍵】
        MHR 的廠區劃分**跟著 OMS 走**：mhr_sites 是集團組織表（20 個廠區，正本在 OMS），
-       mhr_vendors 只有「真的已經在用 MHR」的那幾個（目前 2 個：大永 SDY、敬得觀音 GT）。
+       mhr_vendors 只有「真的已經在用 MHR」的那幾個（目前 2 個：大永 SDY、敬得(觀音) GT）。
        ⇒ 「授權了某廠區、但那個廠區在 mhr_vendors 找不到 short」**不是錯誤，是那一廠還沒上 MHR**。
        實例：帳號乙 bu_codes={ABU,MBU} 展開含 VN(Syncmold Vietnam)，VN 確實在 ABU 底下、
              OMS 也確實授權他進 MHR —— 只是 VN 還沒開始用系統 ⇒ **他看不到資料才是正確的**。
@@ -1218,7 +1218,7 @@ function siteWritable(site){ const ss=userSiteShorts(); if(!ss) return true; if(
 /* 限定廠區時的預設值：只鎖定一個廠區才有預設，否則空字串 */
 function oneSite(){ const ss=userSiteShorts(); return (ss&&ss.length===1)?ss[0]:''; }
 /* ═══ ★99-20 跨廠區共用（產品）═══
-   【為什麼非做不可】260813 實查：BM04／HS01A 都歸屬「敬得觀音」，但現場製程示範與整條回歸動線
+   【為什麼非做不可】260813 實查：BM04／HS01A 都歸屬「敬得(觀音)」，但現場製程示範與整條回歸動線
      都是用大永帳號跑 BM04 ⇒ 主檔一過濾，大永就看不到 BM04、動線當場斷掉。
    【為什麼不寫死白名單】const PROD_SHARE=['BM04','HS01A'] 會把測試資料寫進正式碼，DEMO 機種退場時
      還要再改一次程式（使用者傾向資料驅動，見 99-21 A 案定案）。
@@ -1233,10 +1233,10 @@ function prodReadable(p){ if(!p) return false;
   return ss.some(x=>sh.indexOf(x)>=0); }              /* 日後的「只在某幾廠」用這一行，不必改資料 */
 function prodsVisible(list){ return (list||db.data.products).filter(prodReadable); }
 /* ★opsScopeSites() 的廠區覆寫版（**code 空間**，工牌/帳號用）。
-   ⚠ 原本對 admin 一律回 null ⇒ 切到敬得觀音，工牌名單照樣顯示 139 筆全大永。
+   ⚠ 原本對 admin 一律回 null ⇒ 切到敬得(觀音)，工牌名單照樣顯示 139 筆全大永。
    比照 userSiteShorts()：**只准收窄、不准放寬**。
    ⚠ _viewSite 存的是簡稱 short，這裡要的是代碼 code → 走 siteCodeOfShort() 轉換
-     （260813 實查：大永 short=大永/code=SDY、敬得觀音 short=敬得觀音/code=GT，兩表 code 對得上）。 */
+     （260813 實查：大永 short=大永/code=SDY、敬得(觀音) short=敬得(觀音)/code=GT，兩表 code 對得上）。 */
 function opsScopeCodes(){
   const base=opsScopeSites();                 /* null＝不限；[]＝沒有 profile（fail-closed）；[codes] */
   const v=window._viewSite; if(!v) return base;
@@ -1246,7 +1246,7 @@ function opsScopeCodes(){
 }
 /* code 空間的範圍檢查（工牌、帳號用）。回 true＝已擋下。
    ⚠ 與 siteWritable() 分開，因為兩者活在不同的識別空間：
-     siteWritable 吃簡稱 short（大永／敬得觀音）；這一支吃代碼 code（SDY／GT）。
+     siteWritable 吃簡稱 short（大永／敬得(觀音)）；這一支吃代碼 code（SDY／GT）。
      餵錯空間的話判斷永遠是假，會把合法操作一起擋掉。 */
 function codeGuard(code, what){
   /* ★113 原本這裡有一行 `if(!simOn()) return false;`（只在模擬中強制）——跟 wGuard 的範圍那一半一起打開：
@@ -1373,7 +1373,7 @@ function getMolds(){ return MHR_MOLDS; }
      若誤用 siteWritable 會整批消失、壓鑄建箱當場卡死。 */
 /* ★99-21（0p）模具可見性收斂成單一出處（使用者 260814 於 99-20 回歸 §13-1c 抓到）：
    原本三個出口都只判模具自己的 m.site，**完全沒有納入「適用機種」的廠區** ⇒
-   實測切「敬得觀音」→ ⚙模具/治夾具 顯示 M-01，它的「適用機種」印著 V5-001（大永的機種），
+   實測切「敬得(觀音)」→ ⚙模具/治夾具 顯示 M-01，它的「適用機種」印著 V5-001（大永的機種），
    而同一個機種在 ⚙產品/BOM 與 07 機種下拉都已被 prodsVisible() 濾掉 ⇒ 三個頁面兩種答案、他廠機種編號外洩。
    規則＝**綁了機種就跟著那個機種的可見性走，沒綁才算通用**。
    ⚠ 三個出口（本函式／jigsFor／模具主檔清單）一律走這裡，不要再逐處補片。
@@ -1386,7 +1386,7 @@ function getMolds(){ return MHR_MOLDS; }
      現場的 `M-01` 綁的是 `V5-001`，而**產品主檔根本沒有這個料號**（清單只印 `V5-001`、後面沒有「— 品名」
      就是證據：那一格只有 `prodOf(m.partNo)` 存在時才會補品名）。
      99-21 原本寫「機種查不到就退回判模具自己的 site」，而 M-01 的 site 是空的 ⇒ `siteReadable('')` 恆真
-     ⇒ **限定敬得觀音時照樣看得到大永的機種編號**，等於沒修。
+     ⇒ **限定敬得(觀音)時照樣看得到大永的機種編號**，等於沒修。
      ⇒ 改成 **fail-closed**（[[multi-site-multi-process-framework]] 六條鐵則之一「範圍 fail-closed」）：
        綁了機種卻推不出廠區 ⇒ **限定廠區時不給看**；只有「不限廠區」（`userSiteShorts()` 回 null）才顯示。
      ⚠ 這樣不會弄壞建箱：`moldsFor()` 另外還要求 `m.partNo===pn`，而 `V5-001` 不存在於主檔
@@ -1430,7 +1430,7 @@ function moldReadable(m){ if(!m) return false;
      開模廠商改成自由文字之後，限定廠區的帳號一打「XX模具廠」，`siteWritable()` 找不到就把自己擋死。
    ・沒綁機種（通用模具）⇒ 沒有可推的廠區 ⇒ 用 `oneSite()`（帳號自己的廠區）當基準：
      不限廠區的 admin 回 ''＝放行；限定單一廠區者回自己那個＝放行。不會擋到正常操作。
-   ・★**只放寬讀、不放寬寫**：跨廠共用機種（BM04／HS01A）歸屬敬得觀音 ⇒ 大永帳號**看得到但改不動**，
+   ・★**只放寬讀、不放寬寫**：跨廠共用機種（BM04／HS01A）歸屬敬得(觀音) ⇒ 大永帳號**看得到但改不動**，
      這與 `prodReadable`／`siteWritable` 那組既有規則一致，不是這裡新增的限制。 */
 function moldScopeSite(m){ if(m&&m.plant) return m.plant;   /* ★99-41 廠區欄有填＝寫入範圍就是它（5 個 wGuard 呼叫點自動跟著走，一行都不用改） */
   const pn=(m&&m.partNo)||''; return (pn&&prodSiteOf(pn))||oneSite(); }
@@ -1652,7 +1652,7 @@ function toast(msg,type){ const t=$('#toast'); t.className='toast show '+(type||
         改成用「該筆記錄的廠區」而不是「看的人的廠區」，屆時只要改 tzOfRec() 一處。 */
 const TZ_DEFAULT={off:7,cut:8};
 /* ★99-20-2 標準時區選項（UTC 偏移；含實際存在的半小時時區）。
-   標註代表地點是給現場看的——大永在越南(+7)、敬得觀音在台灣(+8)，選錯一格生產日就整批偏一天。 */
+   標註代表地點是給現場看的——大永在越南(+7)、敬得(觀音)在台灣(+8)，選錯一格生產日就整批偏一天。 */
 const TZ_OPTS=[[-12,''],[-11,''],[-10,'夏威夷'],[-9,''],[-8,'美西'],[-7,''],[-6,''],[-5,'美東'],[-4,''],[-3,'巴西'],[-2,''],[-1,''],
   [0,'UTC／英國'],[1,'中歐'],[2,''],[3,''],[3.5,'伊朗'],[4,''],[4.5,'阿富汗'],[5,''],[5.5,'印度'],[5.75,'尼泊爾'],[6,''],[6.5,'緬甸'],
   [7,'★越南／泰國'],[8,'★台灣／中國'],[9,'日本／韓國'],[9.5,'澳洲中部'],[10,'澳洲東部'],[11,''],[12,'紐西蘭'],[13,''],[14,'']];
@@ -1771,7 +1771,7 @@ function pendZoneHTML(code,compact){
      不影響數量計算，但那正是最需要看待驗單的時候。改成兩邊都用生產日。 */
   const today=todayProdDay();
   /* ★★106-2（0N 續）待驗單區也要過濾 —— 這一段同時長在 02 打單頁、04、05 三頁。
-     沙箱實測：站在敬得觀音，02 的待驗單區仍列得出大永的單。
+     沙箱實測：站在敬得(觀音)，02 的待驗單區仍列得出大永的單。
      ⚠ fail-closed 的代價要知道：pendScopeReadable 靠「待驗單 → 工單 → 廠區」推，
        工單若不在 mhr_orders 裡（沒走 ERP 的手動單），限定廠區的帳號就會看不到自己的單。
        不限廠區的帳號（admin）看得到全部，所以救得回來；同 99-46 定的語意。 */
@@ -2130,7 +2130,7 @@ async function mhrAuthAfterToken(token,refresh,uid,mustChange){
      「有無 SyncHub 帳號」欄位就能收緊。
    ★★112（261011）起上面兩段只對**自建帳號**成立；集團內部人員的規則見下方 112 的註解。 */
 /* ★★110-1（261007 急件①，使用者確認「三路發動」）SyncHub 初始密碼沒改過＝擋下，不放進 MHR。
-   【為什麼】261007 實測：拿別人的工號＋統一的初始密碼 oms12345 就能直接登入 MHR（V108 只跳紅字提醒、不擋）
+   【為什麼】261007 實測：拿別人的工號＋統一的初始密碼就能直接登入 MHR（V108 只跳紅字提醒、不擋）
      ⇒ 誰知道同事工號就能冒用他的身分。
    【做法】跟 QMS（V179-2）一樣，只改前端，共用的 EF qms-sso-login 一個字都不動（它本來就有回 must_change）。
      ・登入：代驗回 must_change ⇒ 不放行、講清楚去 SyncHub 大廳設定新密碼，**也不拿同一組密碼改試 MHR 本箱**
@@ -2824,7 +2824,7 @@ function stationLedger(pn,wo,lot){   /* ★96 wo、★96-4 lot=選填過濾（�
 
 /* ---------- 00 總覽 ---------- */
 /* ★★★99-47-1 修 99-47 的漏網：**00 總覽有自己的資料源，不走 stationLedger()**。
-   99-47 只改了 stationLedger()／lotMetaList()，以為 00 全靠那兩支 —— 實測（敬得觀音檢視）
+   99-47 只改了 stationLedger()／lotMetaList()，以為 00 全靠那兩支 —— 實測（敬得(觀音)檢視）
    發現「目前在製批次」表與四張 KPI 卡**完全沒被過濾**，V5（TY-Starlink，大永）照樣列出來。
    ⇒ viewDash() 這四個來源要各自套過濾：
      ①在製批次的箱源 cs　②累計 NR　③累計 NG　④待質控（待驗單）
@@ -3207,10 +3207,12 @@ function permColor(p){ if(!p) return '#FBEDED'; if(p.indexOf('d')>=0) return '#C
      ① 從 OMS 名單勾選 —— 集團內部。只列「OMS 已授權 MHR」的人(identity_access.systems 含 MHR)
         → 只加 mhr_profiles、不建帳號、不碰密碼
      ② 新增人員（自建）—— 外部單位／委外廠商，OMS 名單沒有他們
-        → email 已存在=開通(不碰密碼)／全新=建帳號(預設 qms12345 + 首次強制改)
+        → email 已存在=開通(不碰密碼)／全新=建帳號(預設密碼 + 首次強制改)
    兩種模式都呼叫同一個 EF 的 create，由後端自己判斷「開通 or 建帳號」。
    =================================================================== */
 const DEFAULT_PWD='qms12345';   // 與 QMS 一致：重設密碼是全域的，預設密碼必須統一
+/* ★121（261015 使用者：初始密碼「網頁上不出現，新人透過 DTO 告知」）畫面上不再顯示預設密碼本身，一律寫「預設密碼（請洽 DTO）」；
+   這個常數是建帳號／重設密碼要用的，只要這兩件事還在網頁上做就會留在原始碼裡（要完全拿掉得改由後端設定，後端 QMS／MHR 共用，沒做）。 */
 /* ★112 給「不會有人用到的本箱密碼」用的亂碼（固定前綴＋24 碼，確保同時有英文與數字；不顯示、不儲存）。
    拿不到安全亂數就回空字串，由呼叫端擋下（不退而求其次用猜得到的亂數）。 */
 function randomPwd(){
@@ -3410,7 +3412,7 @@ function opExportCsv(){
     (o.functions||[]).join('、'), (o.procs||[]).map(c=>stOf(c).zh).join('、'), o.source==='oms'?'OMS':'自建', o.active===false?'停用':'啟用' ]));
   csvExport('MHR_工牌名單_'+localYMD()+'.csv',rows); toast('已匯出 '+(rows.length-1)+' 筆工牌','ok'); }   /* ★99-2 檔名改當地日期（原本 UTC，會跟畫面上的日期差一天） */
 /* ★89 登入帳號 Excel/CSV 匯入：讀「②登入帳號」分頁，逐筆走 EF 建帳號/開通（已存在＝只加 profile 不碰密碼）。
-   角色欄位打勾＝V/✓；廠區預設 SDY；密碼一律預設 qms12345（首次登入強制改）。 */
+   角色欄位打勾＝V/✓；廠區預設 SDY；密碼一律用預設密碼（首次登入強制改）。 */
 function userImportFile(ev){
   /* ★★99-53：同上，而且這支能一次建出一堆帳號，更要擋。 */
   if(!canEditUsers()){ toast('🔒 「誰能進 MHR」只有系統管理員能設定——請洽系統管理員','err'); ev.target.value=''; return; }
@@ -3440,7 +3442,7 @@ function userImportFile(ev){
     rows.slice(1).forEach(r=>{
       const email=String(r[iMail]||'').trim(); if(!email||email.indexOf('@')<0) return;
       const roles=RMAP.filter(([lbl])=>{ const i=col(lbl); return i>=0&&chk(r[i]); }).map(([,k])=>k);
-      const siteTxt=String(iSite>=0?r[iSite]:'').trim();
+      const siteTxt=siteRenamed(iSite>=0?r[iSite]:'');   /* ★121 舊廠名也認得 */
       const st=(MHR_SITES||[]).find(x=>siteTxt&&(x.code===siteTxt||x.name===siteTxt||(x.name||'').indexOf(siteTxt)>=0));
       const nm=String(r[iName]||'').replace(/\s+/g,' ').trim();
       const sub=String(iEng>=0?r[iEng]:'').trim();
@@ -3451,7 +3453,7 @@ function userImportFile(ev){
     if(!list.length) return toast('沒有可匯入的資料（Email 欄是空的？）','err');
     const dup=list.filter(x=>MHR_USERS.some(u=>(u.email||'').toLowerCase()===x.email.toLowerCase())).length;
     if(!confirm('即將匯入 '+list.length+' 筆登入帳號\n新增/開通 '+(list.length-dup)+' 筆／已存在會更新 '+dup+' 筆\n\n'
-      +'※ 已有帳號者只開通、不改密碼；全新者預設密碼 '+DEFAULT_PWD+'（首次登入強制改）\n\n確定？')) return;
+      +'※ 已有帳號者只開通、不改密碼；全新者用預設密碼（請洽 DTO；首次登入強制改）\n\n確定？')) return;
     let ok=0, fail=[];
     for(const u of list){ const r=await mhrAdmin('create',u); if(r.ok) ok++; else fail.push(u.email+'：'+(r.error||'失敗')); }
     /* ★91 未列在名單中的帳號：詢問是否停用（不刪帳號＝不影響 QMS；只是 MHR 停用） */
@@ -3645,7 +3647,7 @@ function opImportCsv(ev){
          ①廠區欄空白＝預設'大永' ②對不到主檔＝靜默塞 site_code:'SDY'。
          別廠名單匯進來會整批變成大永的人，還會連帶把大永現有工牌誤判成「名單沒有」而停用。
          新規則：檔案有填→以檔案為準（對不到＝擋下這列，不猜）；空白→套「匯入廠區」下拉；都沒有→擋下。 */
-      const siteTxt=String(iSite>=0?r[iSite]:'').trim();
+      const siteTxt=siteRenamed(iSite>=0?r[iSite]:'');   /* ★121 舊廠名也認得 */
       let st=null;
       if(siteTxt){
         st=(MHR_SITES||[]).find(x=>x.code===siteTxt||x.name===siteTxt||(x.name||'').indexOf(siteTxt)>=0||siteTxt.indexOf(x.name||'§')>=0);
@@ -3655,7 +3657,7 @@ function opImportCsv(ev){
         st=(MHR_SITES||[]).find(x=>x.code===_impSite);
         if(!st){ errs.push('第'+(ix+2)+'列 匯入廠區無效'); return; }
       }
-      /* ★99-20 越界擋門：不做這一道的話，模擬敬得觀音時仍可匯入一整份 site 欄寫「大永」的 CSV。
+      /* ★99-20 越界擋門：不做這一道的話，模擬敬得(觀音)時仍可匯入一整份 site 欄寫「大永」的 CSV。
          ⚠ 同時保護後面的『停用不在名單內的人』批次——impSites 只由 list 產生，這裡擋掉就不會誤停用別廠的人。 */
       if(_impScope && !_impScope.includes(st.code)){ errs.push('第'+(ix+2)+'列 廠區「'+(st.name||st.code)+'」不在你目前的廠區範圍內'); return; }
       list.push({ badge, name, eng_name:(String(iEng>=0?r[iEng]:'').trim()||name2||null), dept:String(iDept>=0?r[iDept]:'').trim()||null,
@@ -3957,7 +3959,7 @@ function renderPermPage(){
   const eu=window._editUser;
   const form = eu ? `<div class="card" style="border:2px solid var(--teal)">
       <h3>${eu.isNew?'＋ 加入 MHR':'編輯'}：${esc(eu.email)}</h3>
-      ${eu.isNew?(eu.source==='oms'?`<div class="note">這位是<b>集團內部人員</b>：登入用<b>工號＋SyncHub 密碼</b>（與 OMS／GHG 同一組），MHR 這裡不另設密碼。<br>還沒登入過 SyncHub 的人，請他先到 SyncHub 大廳設定新密碼。</div>`:`<div class="note">此人若<b>已有帳號</b>（例如已有 QMS 帳號）→ 只會<b>開通 MHR</b>，密碼沿用原本的、不會變更。<br>若是<b>全新的人</b> → 會建立帳號，預設密碼 <code>${DEFAULT_PWD}</code>，首次登入強制更換。</div>`):''}
+      ${eu.isNew?(eu.source==='oms'?`<div class="note">這位是<b>集團內部人員</b>：登入用<b>工號＋SyncHub 密碼</b>（與 OMS／GHG 同一組），MHR 這裡不另設密碼。<br>還沒登入過 SyncHub 的人，請他先到 SyncHub 大廳設定新密碼。</div>`:`<div class="note">此人若<b>已有帳號</b>（例如已有 QMS 帳號）→ 只會<b>開通 MHR</b>，密碼沿用原本的、不會變更。<br>若是<b>全新的人</b> → 會建立帳號，用預設密碼（請洽 DTO），首次登入強制更換。</div>`):''}
       ${eu.isNew?`<div class="grid g2"><div><label>Email</label><input id="u_email" value="${esc(eu.email||'')}" ${eu.fromOms?'readonly':''}></div>
         <div><label>姓名</label><input id="u_name" value="${esc(eu.name||'')}"></div></div>`
         :`<input type="hidden" id="u_email" value="${esc(eu.email)}"><div><label>姓名</label><input id="u_name" value="${esc(eu.name||'')}"></div>`}
@@ -4012,7 +4014,7 @@ function renderPermPage(){
       ${pend.length?`<div class="tblfit"><table><thead><tr><th>廠區</th><th>工號</th><th>姓名</th><th>部門 / 職稱</th><th>Email</th><th></th></tr></thead><tbody>${omsRows}</tbody></table></div>`
         :`<div class="empty">${OMS_USERS.length?'OMS 已授權的人都已加入 MHR 了 👍':'尚無 OMS 名單（連網後按「重新載入」）'}</div>`}`
     : `
-      <p class="small muted">給 <b>OMS 沒有的人</b>用：大永（SDY）、金瑚、昇榮。<br>系統會自動判斷：<b>email 已存在＝開通</b>（不碰密碼）／<b>全新＝建帳號</b>（預設 <code>${DEFAULT_PWD}</code>、首次強制改）。</p>
+      <p class="small muted">給 <b>OMS 沒有的人</b>用：大永（SDY）、金瑚、昇榮。<br>系統會自動判斷：<b>email 已存在＝開通</b>（不碰密碼）／<b>全新＝建帳號</b>（預設密碼請洽 DTO、首次強制改）。</p>
       <button class="btn" onclick="editUser('',true)">＋ 開始新增</button>`}
     </div>
   </div>`; })()}
@@ -4263,7 +4265,7 @@ async function resetPwd(email){
      ⚠ 守在函式裡，不是只換畫面上的按鈕（99-53 的教訓：舊分頁、控制台都繞得過畫面）。 */
   { const u=(MHR_USERS||[]).find(x=>x.email===email);
     if(isOmsAccount(u)) return toast('這位是集團內部人員，密碼由 SyncHub 統一管理（與 OMS／QMS／GHG 同一組），MHR 這裡不重設。請到 OMS「系統資料授權」頁，在該員那一列按「重設密碼」','err'); }
-  if(!confirm('確定重設「'+email+'」的密碼為 '+DEFAULT_PWD+' ？\n\n⚠ 密碼與 QMS 共用 → 這會同時改掉他的 QMS 密碼。\n他下次登入任一系統時會被要求更換。')) return;
+  if(!confirm('確定把「'+email+'」的密碼重設成預設密碼（請洽 DTO）？\n\n⚠ 密碼與 QMS 共用 → 這會同時改掉他的 QMS 密碼。\n他下次登入任一系統時會被要求更換。')) return;
   const r=await mhrAdmin('resetPassword',{email,password:DEFAULT_PWD});
   if(!r.ok) return toast(r.error||'失敗','err');
   toast(r.message||'已重設','ok'); await loadMhrUsers(); render();
@@ -4307,7 +4309,7 @@ function renderMachMaster(){
   const order=[...siteList()]; Object.keys(groups).forEach(k=>{ if(order.indexOf(k)<0) order.push(k); });
   const showSites=(flt?order.filter(s=>s===flt):order).filter(s=>groups[s]&&groups[s].length);
   const body=showSites.map(site=>`<tr><td colspan="10" style="background:#eef3f8;font-weight:600;color:var(--navy)">📍 ${esc(site)} <span class="muted small">（${groups[site].length} 台）</span></td></tr>`+groups[site].map(({m,i})=>rowHTML(m,i)).join('')).join('')||`<tr><td colspan="10" class="empty">${MHR_MACH_STATUS==='載入中…'?'載入中…':'無符合設備'}</td></tr>`;
-  /* ★失效自動清 [[filter-cascade-clear-rule]]：先選了「大永」再切模擬到敬得觀音，
+  /* ★失效自動清 [[filter-cascade-clear-rule]]：先選了「大永」再切模擬到敬得(觀音)，
      下拉會顯示「全部廠區/廠商」但表身空白，使用者看不出是哪一層造成的。 */
   if(flt && !order.filter(s=>groups[s]&&groups[s].length).includes(flt)){ window._machSiteFilter=''; return renderMachMaster(); }
   const fltOpts='<option value="">全部廠區 / 廠商</option>'+order.filter(s=>groups[s]&&groups[s].length).map(s=>`<option value="${esc(s)}"${flt===s?' selected':''}>${esc(s)}（${groups[s].length}）</option>`).join('');
@@ -4353,7 +4355,7 @@ async function setMachField(uu,field,val){
   const m=getMachines().find(x=>x._uuid===uu); if(!m||!m._uuid) return;
   /* ★99-21（0r）擋下後要重繪（使用者 260814 回歸 §13-2b 實測）：原本兩道守門都是直接 return，
      render() 只在成功路徑（下面 if(field==="site") render()）⇒ 被擋下時**畫面上的值停在使用者剛改的那個**，
-     出現「分組標題寫 📍敬得觀音（15 台）、該列廠區下拉卻寫大永」的自相矛盾。
+     出現「分組標題寫 📍敬得(觀音)（15 台）、該列廠區下拉卻寫大永」的自相矛盾。
      ✅ 資料沒被弄壞（PATCH 根本沒送出，且 patch 只寫被改的那一欄），純顯示問題 → 補一次 render() 彈回原值。 */
   if(wGuard('machmaster','e',m.site,'設備 '+m.id)){ render(); return; }
   /* ★只查 m.site 會漏掉「把設備搬去別廠」這條逃逸路徑：目的地也要在範圍內 */
@@ -4558,7 +4560,7 @@ function renderMoldMaster(){
 }
 /* ★88 模具寫入全直寫雲端（mhr_molds） */
 async function addMold(){
-  /* ★99-41 守門要**先**吃廠區欄，否則限定大永的帳號可以新增一支廠區填「敬得觀音」的模具
+  /* ★99-41 守門要**先**吃廠區欄，否則限定大永的帳號可以新增一支廠區填「敬得(觀音)」的模具
      （moldScopeSite 沒收到 plant 就會退回 oneSite()＝大永＝放行）。 */
   if(wGuard('moldmaster','c',moldScopeSite({partNo:($('#md_pn')||{}).value||'',plant:($('#md_plant')||{}).value||''}),'新增模具/治夾具')) return;   /* ★99-24 範圍看所綁機種不是開模廠商；★99-41 廠區欄優先 */
   const id=$('#md_id').value.trim(), pn=$('#md_pn').value, kind=($('#md_kind')&&$('#md_kind').value)||'mold', site=($('#md_site')&&$('#md_site').value)||'', plant=(($('#md_plant')||{}).value)||'', cav=+(($('#md_cav')||{}).value)||0, stations=readChecks('md_stations'); if(!id) return toast('請輸入模號','err');
@@ -4572,7 +4574,7 @@ async function saveMold(){ const em=(typeof window._editMold==='string')?window.
   /* ★99-24 兩道守門的「歸屬」改看**所綁機種**（BOM 的廠區），不再看 `site`（那是開模廠商）。
      ②防搬廠的語意也跟著變：搬廠＝**把適用機種改成別廠的機種**，不是改開模廠商。 */
   if(wGuard('moldmaster','e',moldScopeSite(cur),'模具/治夾具 '+cur.id)) return;                    /* ①原歸屬（依原機種） */
-  /* ★99-41 防搬廠一併涵蓋「改廠區」：把模具的廠區從大永改成敬得觀音也是搬廠，要有新廠區的權限才准。 */
+  /* ★99-41 防搬廠一併涵蓋「改廠區」：把模具的廠區從大永改成敬得(觀音)也是搬廠，要有新廠區的權限才准。 */
   { const newScope=moldScopeSite({partNo:pn,plant});
     if(newScope!==moldScopeSite(cur) && wGuard('moldmaster','e',newScope,'把 '+cur.id+' 改成'+(plant?('廠區「'+plant+'」'):('機種「'+(pn||'通用')+'」'))+'（屬 '+(newScope||'未指定')+'）')) return; }   /* ②新歸屬＝防搬廠 */
   const nv={...cur,id,partNo:pn,kind,site,plant,cav,stations};   /* ★99-41 plant 一起存 */
@@ -4657,6 +4659,12 @@ function machineOpts(code,sel){ const list=machinesFor(code);
 /* ★96-6③ 人機同廠：機台.site 存「簡稱」（廠商主檔 short，如 大永）、工牌歸屬 opBelongOf 回「代碼」（如 SDY）
    → 選定機台後，作業員/質控清單只列機台所在廠區的工牌；該廠沒工牌就顯示「此廠區尚無工牌」，不放寬到別廠
    （跨廠放寬＝矛盾來源；現場帳號機台清單本就依範圍過濾，會遇到的是 admin 全域帳號） */
+/* ═══ ★★121 廠區改名（261015，使用者：跟 OMS 廠區主檔同一套新名稱、「連資料庫一起改」）═══
+   敬得觀音 → 敬得(觀音)、敬得太倉 → 敬得(太倉)（半形括號；代碼 GT／TC 不變）。資料庫同步改：121_MHR_261015_廠區改名_本體.sql
+   （設備 site 15、產品 site 2、廠區表 name 2、廠商 short／full_name／extra.plant）。程式裡寫死的也一起換了（全檔只剩下面這張對照表寫舊名）。
+   ⇒ 匯入 Excel／CSV 時，廠區欄寫舊名照樣認得（siteRenamed）。 */
+const SITE_RENAMED={['敬得'+'觀音']:'敬得(觀音)',['敬得'+'太倉']:'敬得(太倉)'};   /* 舊名拆開寫：全檔搜舊名時只會在這裡看到說明、不會誤以為還有地方在用 */
+function siteRenamed(t){ const k=String(t||'').trim(); return SITE_RENAMED[k]||k; }
 function siteCodeOfShort(short){ const s=short?getSites().find(x=>x.short===short):null; return (s&&s.code)||''; }
 /* ★99-46 反查（既有只有 short→code）：ERP 工單帶的是組織碼（850 等），要換成廠區簡稱才存得進 orders.site */
 function siteShortOfCode(code){ const s=code?getSites().find(x=>x.code===code&&x.kind!=='out'):null; return (s&&s.short)||''; }
@@ -4790,7 +4798,7 @@ let MHR_ORDERS=[], MHR_ORD_STATUS='未載入';
    而發行是主管職權（誰開的單要查得到）。舊的 4 筆回填不了（從來沒記過）→ 顯示「—」。
    前置 SQL＝MHR_98-16_工單發行人_260805_CODE.sql（alter table add column if not exists）。 */
 /* ★★★99-46 工單加廠區欄 site（backlog `9e`；使用者 260818 定案「應該是看工單是哪個廠區開立」）。
-   【為什麼是工單不是箱】機種會跨廠共用（BM04／HS01A 標 share_sites=["*"]，歸敬得觀音但大永整條動線在跑），
+   【為什麼是工單不是箱】機種會跨廠共用（BM04／HS01A 標 share_sites=["*"]，歸敬得(觀音)但大永整條動線在跑），
      依機種推會把大永做的箱判成敬得的＝大永看不到自己做的箱，比現在更糟。
      工單是一個廠開的、不會跨廠 ⇒ 語意正確，欄位只加一個地方（工單 5 筆）不是每個箱（126 筆）。
    【鏈路】箱 ──(order_no + part_no)──> 工單 ──(site)──> 廠區
@@ -4798,7 +4806,7 @@ let MHR_ORDERS=[], MHR_ORD_STATUS='未載入';
        只 join no 會把箱複製成多列（260818 盤點時踩過，箱數從 126 虛胖成 258）。
      ⚠ 不要繞批號：genLot 不含工單，且「批號跨工單共用」是設計本意（backlog 0m）⇒ 回推不唯一。
    【site 三態】
-     '大永'/'敬得觀音' ＝ 這張單哪個廠開的 → 只有那個廠看得到
+     '大永'/'敬得(觀音)' ＝ 這張單哪個廠開的 → 只有那個廠看得到
      '*'               ＝ 明確不限（DEMO／示範）→ 所有廠看得到
      NULL              ＝ 還沒填 → **fail-closed**（框架鐵則④；99-24 模具踩過 fail-open 的坑）
        ⚠ NULL 不是常態、是**警報器**：舊分頁的 ordRow 沒有 site 欄，它開的單就會是 NULL
@@ -4926,7 +4934,7 @@ function showOrderProg(u){ const o=getOrders().find(x=>x._uuid===u); if(!o) retu
 /* ===== ERP 工單查詢（透過本機 erp_bridge 連 Oracle ERP）=====
    廠區清單：以後要擴大使用，只要在這裡多加一筆 {id, name} 即可。
    （集團內正式公司才有 ERP 工單；非集團如 SPACE X 大永 走手動開單，不在這裡。） */
-const ERP_ORGS=[{id:'850',name:'敬得觀音'}];
+const ERP_ORGS=[{id:'850',name:'敬得(觀音)'}];
 /* 工單類別大類（依 CLASS_CODE 首字；可擴充，不寫死）：S標準 R重工 O委外 N非標委外 T試跑 */
 const ERP_CLASS=[{c:'',n:'全部類別'},{c:'S',n:'標準'},{c:'R',n:'重工'},{c:'O',n:'委外'},{c:'N',n:'非標委外'},{c:'T',n:'試跑'}];
 function erpClsName(code){ return ({S:'標準',R:'重工',O:'委外',N:'非標委外',T:'試跑'})[(code||'').charAt(0).toUpperCase()]||''; }
@@ -4961,7 +4969,7 @@ function erpResolvePartNo(itemNo){ if(!itemNo) return null; const ps=db.data.pro
   for(const p of ps){ if(p.model&&up.indexOf(p.model.toUpperCase())>=0) return p.partNo; }
   return null;
 }
-/* ★99-46 ERP 工單的廠區：先用 ERP 組織碼（orgId，850＝敬得觀音）對應，對不到才退回操作者廠區。
+/* ★99-46 ERP 工單的廠區：先用 ERP 組織碼（orgId，850＝敬得(觀音)）對應，對不到才退回操作者廠區。
    ⚠ 現在 DB 裡 0 筆 ERP 工單，但這條路是活的 —— 只擋手動那條、不擋這條，就會從這裡漏出 NULL。 */
 function erpSiteOf(j){ return siteShortOfCode((j&&j.orgId)||'')||ordSiteAuto()||''; }
 function erpMakeRec(j){ const rp=erpResolvePartNo(j.itemNo); return { no:j.jobNo, date:j.creationDate||'', customer:'', partNo:rp||j.itemNo, qty:+j.startQty||0, unit:'PCS', dueDate:j.dueDate||'', site:erpSiteOf(j),
@@ -7230,7 +7238,7 @@ function doQuery(){
         const boxesF=db.data.containers.filter(b=>boxScopeReadable(b)&&isNormalBox(b)&&(!pn||b.partNo===pn)&&(!wo||b.orderNo===wo)&&(!lot||b.lot===lot));   /* ★106（0N）廠區過濾 */
         const rcvQ=c=>boxesF.filter(b=>b.received&&b.received.station===c&&remaining(b.cid)>0).reduce((a,b)=>a+remaining(b.cid),0);
         /* ★★106-1（0N 續）待驗單也要過濾 —— 106 只補了箱與報工，**待驗單漏了**。
-           沙箱實測（同料號 P-BOTH 兩廠各一張工單）：站在敬得觀音，待質控欄印 517
+           沙箱實測（同料號 P-BOTH 兩廠各一張工單）：站在敬得(觀音)，待質控欄印 517
            ＝大永那張 500 ＋ 敬得自己的 7 ＋ 箱 10，別廠的量被加進本廠的數字。
            ⚠ 過濾條件只能加在這裡（輸出層），pendScopeReadable 是 99-46 建的單一出處，不要自己寫 siteReadable。 */
         const slipQ=c=>(db.data.pending||[]).filter(q=>pendScopeReadable(q)&&q.status==='pending'&&q.processCode===c&&(!pn||q.partNo===pn)&&(!wo||q.orderNo===wo)&&(!lot||q.lot===lot)).reduce((a,q)=>a+(+q.qtyProd||0),0);
@@ -7446,7 +7454,7 @@ function doQuery(){
     const hit=o=>(!pn||o.partNo===pn)&&(!wo||(o.orderNo||'')===wo)&&(!lot||(o.lot||'')===lot);
     const ev=[];
     /* ★106-1（0N 續）下面那行箱的迴圈 106 已經補了 boxScopeReadable，**這一行待驗單漏了** ——
-       沙箱實測：站在敬得觀音，移轉記錄仍列得出大永的打單事件 P-SDY-1。 */
+       沙箱實測：站在敬得(觀音)，移轉記錄仍列得出大永的打單事件 P-SDY-1。 */
     (db.data.pending||[]).forEach(p=>{ if(!pendScopeReadable(p)||!hit(p)) return; if(st&&p.processCode!==st) return;
       ev.push({at:p.createdAt,st:p.processCode,kind:'打單',cid:'',qty:p.qtyProd,who:p.operator||'',
         note:`待驗單 ${p.pid}${(p.draws||[]).length?'｜領 '+(p.draws||[]).map(d=>d.cid+'×'+d.take).join('、'):'（首站）'}${p.rush?'　🔥急件':''}${p.status==='void'?'　🚫已作廢':''}`});
@@ -7664,7 +7672,7 @@ function doTrace(){
   const cid=$('#t_cid').value.trim().toUpperCase(); const c=findC(cid); const out=$('#t_out'); clearTraceOuts('t_out');
   if(!c){ out.innerHTML=`<div class="card"><div class="note" style="border-color:var(--red);background:var(--redbg)">找不到箱號 ${esc(cid)}</div></div>`; return; }
   /* ★★★105（260923，backlog `0N`）箱號直查補廠區守門。
-     【問題】260923 實測：限定「敬得觀音」檢視時，把大永的 DC26080300001 貼進來
+     【問題】260923 實測：限定「敬得(觀音)」檢視時，把大永的 DC26080300001 貼進來
        **查得到完整履歷**——機種、工單、班別、良率，連**作業員姓名與設備編號**都出來。
        07 的另一半（traceWo 用工單查）99-50 已經過濾了，就這條箱號直查漏著。
      【為什麼改這一處就夠】traceBox／traceCell／traceFromQuery 三個入口都是
@@ -8183,7 +8191,7 @@ function exportJSON(){
 function confirmDestructive(what){
   if(!isSysAdmin()){ toast('只有系統管理員可以執行「'+what+'」','err'); return false; }
   /* ★99-20：模擬或廠區檢視中一律禁用。這三顆（載入測試資料／匯入備份／清空）動的是
-     **全公司單一資料集**（db.data 沒有廠區維度），在「大永檢視模式」按下去會把敬得觀音的資料一起清掉。 */
+     **全公司單一資料集**（db.data 沒有廠區維度），在「大永檢視模式」按下去會把敬得(觀音)的資料一起清掉。 */
   if(simOn()){ toast('🏭 模擬身分／廠區檢視中不開放「'+what+'」——這會覆蓋全公司資料（不分廠區）。請先回到自己的身分','err'); return false; }
   const a=prompt('⚠⚠ '+what+'\n\n資料在雲端：這會「同步覆蓋雲端正式資料庫」，所有裝置一起變、無法復原。\n建議先按「匯出備份」留底。\n\n確定要繼續，請輸入「覆蓋」二字：');
   if(a===null) return false;
@@ -8203,9 +8211,9 @@ function seedDemo(){
   if(!confirmDestructive('載入測試資料（會清掉目前所有資料，含正式生產資料）')) return;
   db.data={products:[],containers:[],reports:[]};
   db.data.products=[
-    {partNo:'BM04', model:'BM04', customer:'博盟', site:'敬得觀音', name:'BOTTOM U3-04 (檢包成品)', route:['DC','DB','CN','CT','TH','AS'], os:['CT'],
+    {partNo:'BM04', model:'BM04', customer:'博盟', site:'敬得(觀音)', name:'BOTTOM U3-04 (檢包成品)', route:['DC','DB','CN','CT','TH','AS'], os:['CT'],
       stages:{DC:'G6A.BM04A00.D1103',DB:'G6A.BM04A00.F1103',CN:'G6A.BM04A10.M1105',CT:'G6A.BM04A14.C1204',TH:'G6A.BM04A14.M1201',AS:'GAA.BM04A14.A12'}},
-    {partNo:'HS01A', model:'HS01A', customer:'和碩', site:'敬得觀音', name:'HS01AA700 COVER-ECU (組立成品)', route:['DC','CN','DB','VB','CT','AS'], os:['CT'],
+    {partNo:'HS01A', model:'HS01A', customer:'和碩', site:'敬得(觀音)', name:'HS01AA700 COVER-ECU (組立成品)', route:['DC','CN','DB','VB','CT','AS'], os:['CT'],
       stages:{DC:'G6A.HS01A0D.11G01',CN:'G6A.HS01A0M.11G01',DB:'G6A.HS01A10.F1101',VB:'G6A.HS01A0F.11G01',CT:'G6A.HS01A0C.12G01',AS:'GAA.HS01A00.11G'}},
     {partNo:'55500000-001', model:'MINI2', customer:'SPACE X', site:'大永', name:'Mini 2 Kickstand 95×68×52', route:['DC','CN','GR','BL','PT','PK'], stages:{}},
     {partNo:'55500000-002', model:'MINI2', customer:'SPACE X', site:'大永', name:'Mini 2 Kickstand 304×42×39', route:['DC','CN','GR','BL','PT','PK'], stages:{}},
